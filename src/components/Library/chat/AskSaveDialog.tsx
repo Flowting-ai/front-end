@@ -25,7 +25,9 @@ export interface AskSaveDialogProps {
 export function AskSaveDialog({ files, onChoose }: AskSaveDialogProps) {
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onChoose(false) }}>
-      <DialogContent size="sm" aria-describedby={undefined}>
+      {/* The composer had already lost focus when this opened, so Radix would return it to <body>;
+          the chat puts it back in the composer instead (useSaveChoice's caller). */}
+      <DialogContent size="sm" aria-describedby={undefined} onCloseAutoFocus={(event) => event.preventDefault()}>
         <DialogHeader>
           <DialogTitle>{askSaveTitle(files.length)}</DialogTitle>
         </DialogHeader>

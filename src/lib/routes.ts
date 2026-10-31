@@ -105,6 +105,8 @@ export const ONBOARDING_PROFILE_ROUTE = "/onboarding/profile";
 export const ONBOARDING_JOIN_ROUTE = "/onboarding/join";
 
 export const AUTH_LOGIN_ROUTE = "/auth/login";
+/** Where a failed sign-in (Auth0 callback error) lands instead of looping back to login. Public. */
+export const SIGN_IN_ERROR_ROUTE = "/sign-in-error";
 
 export const PROJECT_BASE_ROUTE = "/project";
 export const AGENT_BASE_ROUTE = "/agent";

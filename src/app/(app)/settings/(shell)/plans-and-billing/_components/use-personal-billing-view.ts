@@ -100,6 +100,15 @@ export function usePersonalBillingView() {
     }
   }, [refreshUser])
 
+  // Without a cached snapshot the page can only render from usage + billing, so
+  // a failed fetch must surface as an error with Retry, not an endless skeleton.
+  const loadError = (usageQ.isError && !usage) || (billingQ.isError && !billingQ.data)
+  const [retrying, setRetrying] = useState(false)
+  const retryLoad = useCallback(() => {
+    setRetrying(true)
+    void Promise.allSettled([usageQ.refetch(), billingQ.refetch()]).finally(() => setRetrying(false))
+  }, [usageQ, billingQ])
+
   const liveReady = isHydrated && !!user && billingLoaded && usage !== null
   const nextBillingRaw = billing?.upcomingInvoice?.nextPaymentDate ?? user?.nextBillingDate ?? billing?.plan?.cycleEnd?.toISOString() ?? null
   const nextBillingLive = isFutureIso(nextBillingRaw) ? fmtDate(nextBillingRaw) : '—'
@@ -225,5 +234,5 @@ export function usePersonalBillingView() {
   }
 
 
-  return { router, billing, usage, billingLoaded, showCancelDialog, setShowCancelDialog, isCanceling, isResuming, isClaimingTrial, openingPortal, confirmState, showSkeleton, creditsTotal, creditsRemaining, creditsUsed, isTrialUser, planName, planPrice, planFeatures, hasActiveSub, hasPlan, chatCredits, slackCredits, automationCredits, nextBilling, periodEnd, cancelAtPeriodEnd, pm, cardBrand, invoices, hasDownloadableInvoice, billingPending, resetDate, handleStripePortal, handleExportAllInvoices, handleCancelSubscription, handleResumeSubscription, handleClaimTrial }
+  return { loadError, retrying, retryLoad, router, billing, usage, billingLoaded, showCancelDialog, setShowCancelDialog, isCanceling, isResuming, isClaimingTrial, openingPortal, confirmState, showSkeleton, creditsTotal, creditsRemaining, creditsUsed, isTrialUser, planName, planPrice, planFeatures, hasActiveSub, hasPlan, chatCredits, slackCredits, automationCredits, nextBilling, periodEnd, cancelAtPeriodEnd, pm, cardBrand, invoices, hasDownloadableInvoice, billingPending, resetDate, handleStripePortal, handleExportAllInvoices, handleCancelSubscription, handleResumeSubscription, handleClaimTrial }
 }

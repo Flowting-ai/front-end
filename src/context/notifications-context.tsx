@@ -176,11 +176,16 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     setAgentsAttempted(true)
   }, [])
 
+  // One poll at a time: two starting together (the mount effect run twice in dev, the interval and a
+  // tab refocus at once) would each fetch every changed schedule's detail against the same empty cache.
+  // Keyed by user, so a new user never waits on the previous user's poll.
+  const pollInFlightRef = useRef<{ userKey: string; run: Promise<void> } | null>(null)
   const poll = useCallback(async () => {
     if (!userKey) return
+    if (pollInFlightRef.current?.userKey === userKey) return pollInFlightRef.current.run
     const pollId = ++pollIdRef.current
     lastPollRef.current = Date.now()
-    await Promise.all([
+    const run = Promise.all([
       loadScheduleNotifications(scheduleCacheRef.current).then(rows => {
         if (pollId !== pollIdRef.current) return
         setScheduleRows(prev => rows ?? prev ?? [])
@@ -189,7 +194,10 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       (canSeeRequestsRef.current ? fetchTeamRequests() : Promise.resolve<TeamRequest[]>([]))
         .then(list => { if (pollId === pollIdRef.current) setRequests(list) })
         .catch(() => {}),
-    ])
+    ]).then(() => {})
+    const tracked = { userKey, run: run.finally(() => { if (pollInFlightRef.current === tracked) pollInFlightRef.current = null }) }
+    pollInFlightRef.current = tracked
+    return tracked.run
   }, [userKey, loadAgents])
 
   // Only the role-dependent sources need a refresh once the roles resolve.

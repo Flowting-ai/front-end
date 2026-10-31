@@ -39,7 +39,7 @@ export function ProjectChatList({ project, viewerId, members, canPublish, team }
   team: ReturnType<typeof useProjectTeamChats>
 }) {
   const { push } = useRouter()
-  const { getChats, renameChat, removeChat } = useProjects()
+  const { getChats, renameChat, removeChat, moveChatOutOfProject } = useProjects()
   const { pins, isLoading: pinsLoading, toggle: togglePinboard } = usePinboard()
   const chatHistory = useChatHistoryContext()
   const [activeTab, setActiveTab] = useState<TeamTab>('personal')
@@ -60,6 +60,7 @@ export function ProjectChatList({ project, viewerId, members, canPublish, team }
             onChatClick={() => push(PROJECT_CHAT_ROUTE(projectId, chat.id))}
             onPinsClick={onPinsClick}
             onRename={chat.canEdit ? (newTitle) => { renameChat(projectId, chat.id, newTitle); void chatHistory.rename(chat.id, newTitle) } : undefined}
+            onRemoveFromProject={chat.canEdit ? () => { moveChatOutOfProject(projectId, chat.id).catch(() => {}) } : undefined}
             onDelete={chat.canEdit ? () => openDeleteChatDialog({ chatId: chat.id, chatTitle: chat.title, onConfirm: async () => { await removeChat(projectId, chat.id) } }) : undefined}
           />
         )))}
@@ -86,10 +87,12 @@ export function ProjectChatList({ project, viewerId, members, canPublish, team }
       onChatClick={() => push(PROJECT_CHAT_ROUTE(projectId, chat.id))}
       onPinsClick={onPinsClick}
       onRename={chat.canEdit ? (newTitle) => { void chatHistory.rename(chat.id, newTitle); team.rename(chat.id, newTitle) } : undefined}
+      // The context already toasted a failure.
+      onRemoveFromProject={chat.canEdit ? () => { moveChatOutOfProject(projectId, chat.id).then(() => team.remove(chat.id), () => {}) } : undefined}
       onDelete={chat.canEdit ? () => openDeleteChatDialog({
         chatId: chat.id,
         chatTitle: chat.chatTitle,
-        onConfirm: async () => { await removeChat(projectId, chat.id); team.remove(chat.id) },
+        onConfirm: async () => { if (await removeChat(projectId, chat.id)) team.remove(chat.id) },
       }) : undefined}
     />
   )

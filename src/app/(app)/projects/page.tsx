@@ -525,6 +525,7 @@ function ProjectsPageInner() {
         open={!!deleteTarget}
         projectName={deleteTarget?.name ?? ''}
         chatCount={deleteTarget?.chatCount ?? 0}
+        restorable={!!deleteTarget && deleteTarget.visibility !== 'personal'}
         loading={isDeleting}
         onConfirm={handleDeleteConfirm}
         onClose={() => setDeleteTarget(null)}

@@ -4,7 +4,6 @@ import { cookies } from "next/headers";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { PinboardProvider } from "@/context/pinboard-context";
 import { HighlightProvider } from "@/context/highlight-context";
-import { CompareProvider } from "@/context/compare-context";
 import { ModelSelectorProvider } from "@/context/model-selector-context";
 import { LazyPresetModelSelectorDialog } from "@/components/chat/LazyPresetModelSelectorDialog";
 import { MessageQueueRunner } from "@/components/chat/MessageQueueRunner";
@@ -46,22 +45,20 @@ export default async function AppGroupLayout({
       <ProjectsProvider>
           <PinboardProvider>
             <HighlightProvider>
-              <CompareProvider>
-                <ModelSelectorProvider>
-                  <SearchProvider>
-                    <ProjectPanelProvider>
-                      <AppLayout defaultSidebarCollapsed={sidebarCollapsed}>
-                        {children}
-                      </AppLayout>
-                    </ProjectPanelProvider>
-                    <LazyPresetModelSelectorDialog />
-                    {/* Sends queued chat messages for chats that aren't on screen. */}
-                    <MessageQueueRunner />
-                    <PlanUpgradeToast />
-                    <ConnectorAuthResultToast />
-                  </SearchProvider>
-                </ModelSelectorProvider>
-              </CompareProvider>
+              <ModelSelectorProvider>
+                <SearchProvider>
+                  <ProjectPanelProvider>
+                    <AppLayout defaultSidebarCollapsed={sidebarCollapsed}>
+                      {children}
+                    </AppLayout>
+                  </ProjectPanelProvider>
+                  <LazyPresetModelSelectorDialog />
+                  {/* Sends queued chat messages for chats that aren't on screen. */}
+                  <MessageQueueRunner />
+                  <PlanUpgradeToast />
+                  <ConnectorAuthResultToast />
+                </SearchProvider>
+              </ModelSelectorProvider>
             </HighlightProvider>
           </PinboardProvider>
       </ProjectsProvider>

@@ -203,8 +203,22 @@ function makeAComponent(webCitations?: WebCitation[]): Components["a"] {
 // ── Convert explicit {N} and [N] citation markers to sentinel links ────────────
 // These survive remark/rehype processing because they become standard links.
 
+// Fenced blocks (to their closing fence, or the end while still streaming) and inline code spans:
+// code is shown as written, so a `[1]` or `{2}` inside it is never a citation.
+const CODE_SEGMENT = /(?:^|\n) {0,3}(`{3,}|~{3,})[^\n]*(?:\n[\s\S]*?(?:\n {0,3}\1[`~]*[ \t]*(?=\n|$)|$)|$)|(`+)(?!`)[\s\S]*?[^`]\2(?!`)/g;
+
 function preprocessCitations(content: string): string {
-  return content
+  let out = "";
+  let last = 0;
+  for (const match of content.matchAll(CODE_SEGMENT)) {
+    out += citationLinks(content.slice(last, match.index)) + match[0];
+    last = match.index + match[0].length;
+  }
+  return out + citationLinks(content.slice(last));
+}
+
+function citationLinks(text: string): string {
+  return text
     // {N} → [[N]](citation://N)
     // Excludes LaTeX exponent syntax like a^{2} or a_{2} by blocking ^ and _ as
     // preceding characters, and word chars to avoid mid-word false positives.

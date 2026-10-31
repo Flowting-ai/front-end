@@ -3,7 +3,23 @@
 // Loading skeletons for the enterprise, teams and personal views. Part of plans-and-billing/page.tsx.
 
 import React from 'react'
+import { RouteState } from '@/components/RouteState'
+import { Button } from '@/components/ui/button'
 import { SHADOW_CARD, SHADOW_TILE } from './billing-primitives'
+
+/** Shown instead of the skeleton once the billing figures failed to load (e.g. rate-limited), with a Retry. */
+export function BillingLoadError({ onRetry, retrying }: { onRetry: () => void; retrying: boolean }) {
+  return (
+    <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>
+      <RouteState
+        tone="alert"
+        heading="Couldn't load billing"
+        body="Your plan and billing details didn't load. Check your connection and try again."
+        actions={<Button variant="secondary" size="sm" loading={retrying} onClick={onRetry}>Retry</Button>}
+      />
+    </div>
+  )
+}
 
 export function SkeletonBlock({ width = '100%', height, radius = 8 }: { width?: string | number; height: number; radius?: number }) {
   return (

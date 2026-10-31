@@ -376,9 +376,13 @@ function ChatRowInner(
               style={{ flexShrink: 0, marginRight: 9 }}
               onClick={(e) => e.stopPropagation()}
             >
+              {/* The row itself is the labelled checkbox (role, aria-checked, Space/Enter); this box is
+                  only its picture, so it stays out of the tab order and the accessibility tree. */}
               <Checkbox
                 checked={selected}
                 onCheckedChange={(v) => onSelect?.(v === true)}
+                tabIndex={-1}
+                aria-hidden
               />
             </m.div>
           )}

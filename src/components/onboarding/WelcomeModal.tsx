@@ -345,6 +345,12 @@ function WelcomeModalImpl() {
   };
 
   const handleStartTrial = useCallback(async () => {
+    // The backend grants the trial at signup (services/users/service.py) and no longer
+    // has POST /stripe/trial, so a user who already holds it only needs the confirmation.
+    if (user?.isTrial) {
+      setStep("credits-added");
+      return;
+    }
     setTrialLoading(true);
     try {
       const res = await apiFetch(STRIPE_TRIAL_ENDPOINT, { method: "POST" });
@@ -524,15 +530,19 @@ function WelcomeModalImpl() {
                       flexWrap: "wrap",
                     }}
                   >
-                    <ChoiceCard
-                      icon="✦"
-                      title="Free Trial"
-                      description="Get 1,000 credits to explore all features — no card required."
-                      buttonLabel="Start free trial"
-                      buttonVariant="default"
-                      onClick={handleStartTrial}
-                      loading={trialLoading}
-                    />
+                    {/* The backend grants the trial at signup and has no endpoint to claim one later,
+                        so only someone who already holds it is offered it (the card confirms it). */}
+                    {user?.isTrial && (
+                      <ChoiceCard
+                        icon="✦"
+                        title="Free Trial"
+                        description="Get 1,000 credits to explore all features — no card required."
+                        buttonLabel="Start free trial"
+                        buttonVariant="default"
+                        onClick={handleStartTrial}
+                        loading={trialLoading}
+                      />
+                    )}
                     <ChoiceCard
                       icon="◈"
                       title="Subscribe"

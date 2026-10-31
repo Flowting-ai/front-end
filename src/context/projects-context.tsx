@@ -18,6 +18,8 @@ import {
   addProjectFilesApi,
 } from '@/lib/api/projects'
 import type { ProjectVisibility } from '@/lib/api/projects'
+import { deleteChat } from '@/lib/api/chat'
+import { ApiError } from '@/lib/api/client'
 import { queryKeys } from '@/lib/query-keys'
 import {
   apiChatToProjectChat,
@@ -58,7 +60,10 @@ interface ProjectsContextValue {
   uploadFiles:      (projectId: string, files: File[]) => Promise<void>
   removeFile:       (projectId: string, fileId: string) => Promise<void>
   addChat:          (projectId: string, chatId: string, title: string, options?: { skipLink?: boolean }) => void
-  removeChat:       (projectId: string, chatId: string) => Promise<void>
+  /** Deletes the chat; resolves false (after a toast and putting it back) if that failed. */
+  removeChat:       (projectId: string, chatId: string) => Promise<boolean>
+  /** Takes a chat out of a project but keeps it, so it shows in Recent Chats again. Toasts either way; rejects on failure. */
+  moveChatOutOfProject: (projectId: string, chatId: string) => Promise<void>
   renameChat:       (projectId: string, chatId: string, title: string) => void
   loadProjectChats: (projectId: string) => Promise<void>
   getProject:       (id: string) => Project | undefined
@@ -89,8 +94,11 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
   // real id; the queries wait for the profile.
   const currentUserId = user?.auth0Id ?? ''
   const qc = useQueryClient()
-  const listKey = queryKeys.projects.list(currentUserId)
-  const chatsKey = queryKeys.projects.chats(currentUserId)
+  // Memoized so the callbacks below (and so every action) keep one identity per user. React
+  // Compiler should do this, but say it explicitly: a fresh key each render re-ran consumers' load
+  // effects, which refetched a project in the middle of its delete.
+  const listKey = useMemo(() => queryKeys.projects.list(currentUserId), [currentUserId])
+  const chatsKey = useMemo(() => queryKeys.projects.chats(currentUserId), [currentUserId])
 
   const listQuery = useQuery({
     queryKey: listKey,
@@ -185,6 +193,7 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
+    const chatsSnapshot = qc.getQueryData<ProjectChat[]>(chatsKey)?.filter(c => c.projectId === id) ?? []
     await holdList()
     setProjects(prev => prev.filter(p => p.id !== id))
     setChats(prev => prev.filter(c => c.projectId !== id))
@@ -193,10 +202,11 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       await deleteProjectApi(id)
     } catch (err) {
       if (snapshot) setProjects(prev => [snapshot, ...prev])
+      if (chatsSnapshot.length) setChats(prev => [...chatsSnapshot.filter(c => !prev.some(p => p.id === c.id)), ...prev])
       toast.error('Failed to delete project', { description: errorDescription(err) })
       throw err
     }
-  }, [currentProject, holdList, setProjects, setChats])
+  }, [qc, chatsKey, currentProject, holdList, setProjects, setChats])
 
   const loadProject = useCallback(async (id: string) => {
     try {
@@ -302,17 +312,41 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [setChats, setProjects])
 
-  const removeChat = useCallback((projectId: string, chatId: string) => {
+  const removeChat = useCallback(async (projectId: string, chatId: string): Promise<boolean> => {
+    const chat = qc.getQueryData<ProjectChat[]>(chatsKey)?.find(c => c.projectId === projectId && c.id === chatId)
     setChats(prev => prev.filter(c => !(c.projectId === projectId && c.id === chatId)))
     setProjects(prev => mapProject(prev, projectId, p => ({ ...p, chatCount: Math.max(0, p.chatCount - 1) })))
-    // Returns the request so a caller that cares when the delete completes
-    // (e.g. the sidebar's confirm-delete dialog) can await/catch it. The extra
-    // .catch keeps fire-and-forget callers from an unhandled rejection —
-    // non-fatal if the chat was never linked in the first place.
-    const request = removeChatFromProject(projectId, chatId)
-    request.catch(() => {})
-    return request
-  }, [setChats, setProjects])
+    // Every caller is a Delete action, so this deletes the chat itself (the backend drops its project
+    // link with it). Failure is reported here, by toast, not thrown: the delete dialogs check whether
+    // the chat still exists, and the sidebar callers don't await. The chat and its count come back.
+    try {
+      await deleteChat(chatId)
+      return true
+    } catch (err) {
+      if (chat) setChats(prev => (prev.some(c => c.id === chatId) ? prev : [chat, ...prev]))
+      setProjects(prev => mapProject(prev, projectId, p => ({ ...p, chatCount: p.chatCount + 1 })))
+      toast.error(chat?.title ? `Couldn't delete "${chat.title}"` : "Couldn't delete the chat", { description: errorDescription(err) })
+      return false
+    }
+  }, [qc, chatsKey, setChats, setProjects])
+
+  const moveChatOutOfProject = useCallback(async (projectId: string, chatId: string) => {
+    const chat = qc.getQueryData<ProjectChat[]>(chatsKey)?.find(c => c.projectId === projectId && c.id === chatId)
+    const projectName = currentProject(projectId)?.name
+    setChats(prev => prev.filter(c => !(c.projectId === projectId && c.id === chatId)))
+    setProjects(prev => mapProject(prev, projectId, p => ({ ...p, chatCount: Math.max(0, p.chatCount - 1) })))
+    try {
+      await removeChatFromProject(projectId, chatId)
+    } catch (err) {
+      if (chat) setChats(prev => [chat, ...prev])
+      setProjects(prev => mapProject(prev, projectId, p => ({ ...p, chatCount: p.chatCount + 1 })))
+      toast.error('Failed to remove chat from project', { description: errorDescription(err) })
+      throw err
+    }
+    // The sidebar's Recent Chats list leaves project chats out; reload it so the chat shows there again.
+    void qc.invalidateQueries({ queryKey: queryKeys.chats.list() })
+    toast.success(projectName ? `Removed from "${projectName}"` : 'Removed from project', { description: 'The chat is back in Recent Chats.' })
+  }, [qc, chatsKey, currentProject, setChats, setProjects])
 
   const renameChat = useCallback((projectId: string, chatId: string, title: string) => {
     setChats(prev => prev.map(c => (c.projectId === projectId && c.id === chatId ? { ...c, title } : c)))
@@ -331,6 +365,8 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
       // Sync chatCount to match the authoritative list from the API.
       setProjects(prev => mapProject(prev, projectId, p => ({ ...p, chatCount: mapped.length })))
     } catch (err) {
+      // A missing project already shows its own "Project not found" page; a second toast adds nothing.
+      if (err instanceof ApiError && err.status === 404) return
       toast.error('Failed to load project chats', { description: errorDescription(err) })
     }
   }, [qc, currentUserId, setChats, setProjects])
@@ -354,12 +390,13 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     removeFile,
     addChat,
     removeChat,
+    moveChatOutOfProject,
     renameChat,
     loadProjectChats,
     refreshProjects,
   }), [
     createProject, updateProject, deleteProject, loadProject,
-    uploadFiles, removeFile, addChat, removeChat, renameChat,
+    uploadFiles, removeFile, addChat, removeChat, moveChatOutOfProject, renameChat,
     loadProjectChats, refreshProjects,
   ])
 

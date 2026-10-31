@@ -117,14 +117,20 @@ export function ShareDialog({ file, onClose, onLostAccess }: { file: LibraryFile
   // Results lag the field (debounced, and the previous search shows while the next loads): until they
   // catch up, narrow them by the current text and don't let Enter pick from them.
   const stale = query.trim() !== debounced || people.isPlaceholderData
-  const options: Staged[] = [
+  // The workspace matches on its name or its subtitle, and leads the list while nothing is typed.
+  const workspaceOption: Staged[] =
+    !hasWorkspace && !isStaged(WORKSPACE.key) && access.data &&
+    [WORKSPACE.label, FILE_MESSAGES.everyoneInSouvenir].some((text) => text.toLowerCase().includes(needle))
+      ? [WORKSPACE]
+      : []
+  const personOptions: Staged[] = [
     ...(people.data ?? [])
       .filter((person) => !stale || person.name.toLowerCase().includes(needle))
       .filter((person) => person.id !== file.owner.id && !present.has(person.id) && !isStaged(person.id))
       .slice(0, 6)
       .map((person) => ({ key: person.id, target: { kind: 'user' as const, personId: person.id }, label: personName(person, viewerId), toastLabel: personName(person, viewerId), person })),
-    ...(!hasWorkspace && !isStaged(WORKSPACE.key) && access.data && WORKSPACE.label.toLowerCase().includes(needle) ? [WORKSPACE] : []),
   ]
+  const options: Staged[] = needle ? [...personOptions, ...workspaceOption] : [...workspaceOption, ...personOptions]
 
   if (removing) {
     return <RevokeConfirm file={file} entry={removing} entries={entries} viewerId={viewerId} onBack={() => setRemoving(null)} onLostAccess={() => { onClose(); onLostAccess?.() }} />
@@ -246,7 +252,8 @@ export function ShareDialog({ file, onClose, onLostAccess }: { file: LibraryFile
                 aria-label="People"
                 className={styles.listbox}
               >
-                {people.isPending || (stale && options.length === 0) ? (
+                {/* The workspace option needs no search, so it shows while people still load. */}
+                {(people.isPending || stale) && options.length === 0 ? (
                   <Skeleton height={36} radius={10} />
                 ) : options.length === 0 ? (
                   <p className={cx(styles.quiet, styles.noMatch)}>

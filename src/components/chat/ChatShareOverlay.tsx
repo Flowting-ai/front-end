@@ -207,10 +207,15 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                         shareableMembers.map(member => {
                           const checked = selectedIds.has(member.id)
                           return (
-                            <button
+                            // A div, not a button: the Checkbox is itself a button, and a button inside a button both
+                            // breaks HTML and fired the toggle twice, so a click on the box changed nothing.
+                            <div
                               key={member.id}
-                              type="button"
+                              role="button"
+                              tabIndex={0}
+                              aria-pressed={checked}
                               onClick={() => toggleSelected(member.id)}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSelected(member.id) } }}
                               style={{
                                 ...memberRowStyle,
                                 border: 'none',
@@ -221,7 +226,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                                   : '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
                               }}
                             >
-                              <Checkbox checked={checked} onCheckedChange={() => toggleSelected(member.id)} />
+                              <Checkbox checked={checked} tabIndex={-1} onClick={(e) => e.stopPropagation()} onCheckedChange={() => toggleSelected(member.id)} />
                               <Avatar name={member.name || member.email} size="sm" />
                               <div style={{ minWidth: 0, flex: '1 0 0', textAlign: 'left' }}>
                                 <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '18px', color: 'var(--neutral-800)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -233,7 +238,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                                   </p>
                                 )}
                               </div>
-                            </button>
+                            </div>
                           )
                         })
                       )}

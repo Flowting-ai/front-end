@@ -175,3 +175,27 @@ describe('ChatInput while a reply streams', () => {
     expect(document.activeElement).toBe(document.body)
   })
 })
+
+// CH-12: the Enter that confirms an IME conversion doesn't send. Safari reports it as keyCode 229
+// with isComposing false; Chrome and Firefox set isComposing.
+describe('ChatInput with an IME', () => {
+  async function pressImeEnter(init: KeyboardEventInit & { keyCode?: number }) {
+    const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true, ...init })
+    if (init.keyCode) Object.defineProperty(event, 'keyCode', { value: init.keyCode })
+    await act(async () => { box().dispatchEvent(event) })
+  }
+
+  it.each([
+    ['Safari (keyCode 229)', { keyCode: 229 }],
+    ['Chrome/Firefox (isComposing)', { isComposing: true }],
+  ])('%s: confirming a conversion does not send', async (_name, init) => {
+    await render()
+    await act(async () => box().focus())
+    await type('にほんご')
+    await pressImeEnter(init)
+    expect(onSend).not.toHaveBeenCalled()
+
+    await pressEnter()
+    expect(onSend).toHaveBeenCalledWith('にほんご')
+  })
+})

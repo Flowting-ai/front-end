@@ -65,7 +65,8 @@ export class LibraryFile {
 
   /** The name people see: "Return policy 2026.pdf". */
   get name(): string {
-    const title = sanitizeDisplayText(this.title) || "Untitled";
+    // Files the assistant saves arrive titled with their sandbox folder ("files/Report.docx"); people never see that folder.
+    const title = sanitizeDisplayText(this.title).replace(/^files\//, "") || "Untitled";
     return this.extension ? `${title}.${this.extension}` : title;
   }
 

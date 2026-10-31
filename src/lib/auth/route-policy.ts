@@ -4,6 +4,7 @@ import {
   ONBOARDING_PRICING_ROUTE,
   ONBOARDING_TEAM_BASE_ROUTE,
   SETTINGS_BILLING_CONFIRMATION_ROUTE,
+  SIGN_IN_ERROR_ROUTE,
   SLACK_LINK_ROUTE,
   TEAM_INVITE_BASE_ROUTE,
 } from '@/lib/routes'
@@ -34,6 +35,8 @@ export function routePolicy(pathname: string, isProduction: boolean): RoutePolic
   if (pathname === '/api/health') return 'public'
   if (pathname.startsWith('/api/')) return 'api'
   if (pathname.startsWith(`${INVITE_LANDING_BASE_ROUTE}/`)) return 'public'
+  // A failed sign-in has no session by definition.
+  if (pathname === SIGN_IN_ERROR_ROUTE) return 'public'
   if (pathname.startsWith(`${ONBOARDING_BASE_ROUTE}/`)) return 'onboarding'
   return 'app'
 }

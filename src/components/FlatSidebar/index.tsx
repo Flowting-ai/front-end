@@ -2,6 +2,8 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
+import { usePathname } from 'next/navigation'
+import { useMobile } from '@/hooks/use-mobile'
 import { SearchOneIcon, SidebarLeftIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/ui/button'
 import { Tooltip } from '@/components/Tooltip'
@@ -90,6 +92,10 @@ export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
 
     // A narrow window would leave the page only a sliver beside the 294px sidebar, so drop to the
     // rail whenever the window gets narrower than the breakpoint. The toggle can still open it.
+    // On a narrow window the expanded sidebar floats over the page as a drawer
+    // (with a scrim) instead of pushing it; the 48px rail keeps its slot.
+    const isNarrow = useMobile()
+    const overlay = isNarrow && !effectiveCollapsed
     useEffect(() => {
       const narrow = window.matchMedia(`(max-width: ${NARROW_WINDOW - 1}px)`)
       if (narrow.matches) setIsCollapsed(true)
@@ -142,6 +148,23 @@ export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
       onCollapse?.()
     }, [forceCollapsed, onCollapse])
 
+    // Drawer closes itself when a destination is chosen (route change or a
+    // link click that stays on the same route). Not persisted — the cookie
+    // only tracks deliberate toggles.
+    const pathname = usePathname()
+    const [drawerPath, setDrawerPath] = useState(pathname)
+    if (drawerPath !== pathname) { setDrawerPath(pathname); if (isNarrow) setIsCollapsed(true) }
+    const closeDrawer = useCallback(() => setIsCollapsed(true), [])
+    const handleDrawerClick = (e: React.MouseEvent) => {
+      if (overlay && (e.target as HTMLElement).closest('a[href]')) closeDrawer()
+    }
+    useEffect(() => {
+      if (!overlay) return
+      const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeDrawer() }
+      document.addEventListener('keydown', onKey)
+      return () => document.removeEventListener('keydown', onKey)
+    }, [overlay, closeDrawer])
+
     // Ported: ⌘B / Ctrl+B, suppressed while typing.
     useEffect(() => {
       const onKey = (e: KeyboardEvent) => {
@@ -164,6 +187,8 @@ export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
     ]
 
     return (
+      <>
+      {overlay && <div aria-hidden data-testid="sidebar-scrim" onClick={closeDrawer} style={{ position: 'fixed', inset: 0, zIndex: 49, backgroundColor: 'rgba(0, 0, 0, 0.32)' }} />}
       <div
         ref={ref}
         role="navigation"
@@ -171,15 +196,18 @@ export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
         className={cn()}
         style={{
           position: 'relative', display: 'flex', flexDirection: 'column',
-          width: effectiveCollapsed ? '48px' : '294px', height: '100%',
-          backgroundColor: 'var(--neutral-50)', overflowX: 'hidden', flexShrink: 0, isolation: 'isolate',
+          width: effectiveCollapsed || isNarrow ? '48px' : '294px', height: '100%',
+          backgroundColor: 'var(--neutral-50)', overflowX: overlay ? 'visible' : 'hidden', flexShrink: 0, isolation: 'isolate',
+          zIndex: overlay ? 50 : undefined,
           transition: 'width 320ms cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
         {/* `inset: 0` exactly reproduces the root's box so every child's
             `position: absolute` offsets (top/bottom/etc., all originally
             written against the root) still land in the same place. */}
-        <div style={{ position: 'absolute', inset: 0 }}>
+        <div onClickCapture={handleDrawerClick} style={overlay
+          ? { position: 'fixed', top: 0, bottom: 0, left: 0, width: '294px', backgroundColor: 'var(--neutral-50)', boxShadow: '4px 0 24px rgba(0, 0, 0, 0.16)' }
+          : { position: 'absolute', inset: 0 }}>
         {/* ── Header ── */}
         <div ref={headerRef} style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, backgroundColor: 'var(--neutral-50)', display: 'flex', flexDirection: 'column', gap: 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: effectiveCollapsed ? 'center' : 'space-between', padding: effectiveCollapsed ? '24px 8px 8px' : '24px 8px 8px 20px' }}>
@@ -272,6 +300,7 @@ export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
         </div>
         </div>
       </div>
+      </>
     )
   },
 )

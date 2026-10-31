@@ -6,6 +6,7 @@ import { Button, IconButton } from '@/components/ui/button'
 import { InputField } from '@/components/InputField'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { ScheduleCard, type ScheduleCardProps } from './ScheduleCard'
+import { useMobile } from '@/hooks/use-mobile'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -82,6 +83,8 @@ export function ScheduleListView({
 }: ScheduleListViewProps) {
   const isEmpty = schedules.length === 0
   const [searchOpen, setSearchOpen] = useState(false)
+  // One column on phones — two would clip the cards' dates and status badges.
+  const isMobile = useMobile()
   const [query, setQuery] = useState('')
 
   const trimmedQuery = query.trim().toLowerCase()
@@ -195,7 +198,7 @@ export function ScheduleListView({
           {/* Schedule grid */}
           <div style={{
             display:             'grid',
-            gridTemplateColumns: 'repeat(2, 1fr)',
+            gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'repeat(2, minmax(0, 1fr))',
             gap:                 24,
           }}>
             {visibleSchedules.map(s => (

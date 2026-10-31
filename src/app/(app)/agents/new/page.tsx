@@ -41,6 +41,7 @@ import { defaultAvatarChoice, type AvatarChoice } from '@/components/PersonaCard
 import { setStoredAvatarChoice } from '@/lib/avatar-choice'
 import { trackBrowserEvent } from '@/lib/analytics/events'
 import { AGENT_EDIT_ROUTE, AGENTS_ROUTE, AGENTS_TEMPLATES_ROUTE } from '@/lib/routes'
+import { useNavGuard } from '@/context/nav-guard-context'
 
 const STARTER_CHIPS = [
   'Drafts weekly reports',
@@ -147,11 +148,12 @@ function PurposeStep({
           ))}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 40 }}>
+        {/* Wraps on narrow screens so Continue never runs off the right edge. */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, paddingTop: 40 }}>
           <Button variant="outline" size="sm" leftIcon={<ArrowLeftOneIcon size={16} />} onClick={onBack}>
             Agents
           </Button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
             <Button variant="ghost" size="sm" onClick={() => push(AGENTS_TEMPLATES_ROUTE)}>
               Start from a template
             </Button>
@@ -261,6 +263,15 @@ function NewAgentContent() {
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
   }, [stage])
+
+  // The same, for leaving by the sidebar, a link or browser Back: the app's navigation guard asks first.
+  const { setIsDirty, setGuardMessage } = useNavGuard()
+  const unsaved = stage === 'editor'
+  useEffect(() => {
+    setIsDirty(unsaved)
+    setGuardMessage(unsaved ? { title: 'Leave without saving?', description: "This agent hasn't been created yet. Leaving now discards it." } : null)
+  }, [unsaved, setIsDirty, setGuardMessage])
+  useEffect(() => () => { setIsDirty(false); setGuardMessage(null) }, [setIsDirty, setGuardMessage])
 
   const seed = useMemo(() => (preset ? seedFromPreset(preset) : undefined), [preset])
 

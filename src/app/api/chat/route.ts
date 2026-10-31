@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return routeError(400, "bad_request", firstIssue(parsed.error))
   const {
     chatId, input, modelId, algorithm, pinIds, referenceMessageId, replaceMessageId,
-    webSearch, enable_thinking: thinking, effort, personaId, systemPrompt, temperature, toneId, libraryFileIds, saveToLibrary, librarySourcesOff,
+    webSearch, enable_thinking: thinking, effort, personaId, projectId, systemPrompt, temperature, toneId, libraryFileIds, saveToLibrary, librarySourcesOff,
   } = parsed.data
   const clientFiles = formData.getAll("files").filter((f): f is File => f instanceof File)
 
@@ -87,6 +87,8 @@ export async function POST(request: NextRequest) {
   fd.append("thinking", thinking ? "true" : "false")
   if (thinking && effort) fd.append("effort", effort)
   if (personaId) fd.append("persona_id", personaId)
+  // Only on create: the backend links the new chat to the project before the first turn runs.
+  if (projectId && !isExistingChat) fd.append("project_id", projectId)
   if (systemPrompt) fd.append("system_prompt", systemPrompt)
   if (temperature !== undefined) fd.append("temperature", String(temperature))
   if (toneId) fd.append("tone_id", toneId)

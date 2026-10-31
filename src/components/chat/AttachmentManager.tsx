@@ -14,7 +14,8 @@ import {
   formatFileSize,
   type PendingAttachment,
 } from "@/hooks/use-file-upload";
-import { attachmentSizeBytes, cancelComposerUpload } from "@/lib/library/upload/composer-uploads";
+import { attachmentSizeBytes, cancelComposerUpload, pickedLibraryFileId } from "@/lib/library/upload/composer-uploads";
+import { LIBRARY_FILE_ROUTE } from "@/lib/routes";
 import { Spinner } from "@/components/Spinner";
 import { FormatGlyph } from "@/components/Library/FormatGlyph";
 import type { Format } from "@/lib/library/schemas";
@@ -210,10 +211,16 @@ export function AttachmentManager({
     });
   };
 
-  // Opens the local file in a new tab. Images already have a standing preview
+  // Opens the file in a new tab. Images already have a standing preview
   // object URL; other file types get one created on demand and revoked shortly
   // after (long enough for the new tab to finish loading it).
   const handlePreview = (attachment: PendingAttachment) => {
+    // A file picked from Library is an empty placeholder here: open its Library page instead.
+    const libraryId = pickedLibraryFileId(attachment.file);
+    if (libraryId) {
+      window.open(LIBRARY_FILE_ROUTE(libraryId), "_blank", "noopener,noreferrer");
+      return;
+    }
     const url = attachment.preview ?? URL.createObjectURL(attachment.file);
     window.open(url, "_blank", "noopener,noreferrer");
     if (!attachment.preview) {

@@ -230,7 +230,8 @@ export function useStreamingChat({
                 isLoading: false,
                 isThinkingInProgress: false,
                 stoppedByUser: true,
-                content: msg.content || "Generation stopped.",
+                // The "Generation stopped" line under the bubble says it; no second copy as text.
+                content: msg.content,
                 activities: stopActiveActivities(msg.activities),
               }
             : msg,
@@ -267,7 +268,7 @@ export function useStreamingChat({
     chatId: string | null,
     loadingMessageId: string,
     modelId?: string | number | null,
-    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; reasoningEffort?: string | null; algorithm?: 'base' | 'pro' | null; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void; personaId?: string; systemPrompt?: string; temperature?: number; toneId?: string; connectorSlugs?: string[]; replaceMessageId?: string; chatOwnershipConfirmed?: boolean; resume?: TurnResume },
+    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; reasoningEffort?: string | null; algorithm?: 'base' | 'pro' | null; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void; personaId?: string; projectId?: string; systemPrompt?: string; temperature?: number; toneId?: string; connectorSlugs?: string[]; replaceMessageId?: string; chatOwnershipConfirmed?: boolean; resume?: TurnResume },
   ): Promise<StreamOutcome> => {
     stopRequestedRef.current = false
     xhrRef.current = null
@@ -412,6 +413,7 @@ export function useStreamingChat({
         if (options?.webSearch) fd.append("web_search", "true")
         if (options?.pinIds && options.pinIds.length > 0) fd.append("pin_ids", JSON.stringify(options.pinIds))
         if (options?.personaId) fd.append("persona_id", options.personaId)
+        if (options?.projectId && !isExistingChat) fd.append("project_id", options.projectId)
         if (options?.systemPrompt) fd.append("system_prompt", options.systemPrompt)
         if (options?.temperature != null) fd.append("temperature", String(options.temperature))
         if (options?.toneId) fd.append("tone_id", options.toneId)
@@ -430,6 +432,7 @@ export function useStreamingChat({
         }
         if (options?.pinIds && options.pinIds.length > 0) fd.append("pinIds", JSON.stringify(options.pinIds))
         if (options?.personaId) fd.append("personaId", options.personaId)
+        if (options?.projectId) fd.append("projectId", options.projectId)
         if (options?.systemPrompt) fd.append("systemPrompt", options.systemPrompt)
         if (options?.temperature != null) fd.append("temperature", String(options.temperature))
         if (options?.toneId) fd.append("toneId", options.toneId)
@@ -1578,10 +1581,8 @@ export function useStreamingChat({
 
         let headersHandled = false
         let processedLength = 0
-        // Set right before the HEADERS_RECEIVED branch rejects on a non-2xx
-        // status, so the DONE backstop below doesn't re-log/re-reject the
-        // same failure a second time.
-        let statusRejected = false
+        // A non-2xx body is a JSON error, not an event stream: kept out of the SSE parser.
+        const failed = () => xhr.status > 0 && (xhr.status < 200 || xhr.status >= 300)
 
         // onprogress fires for every incoming chunk of streaming data and is
         // more reliable than relying on onreadystatechange LOADING events alone.
@@ -1589,6 +1590,7 @@ export function useStreamingChat({
           // Safety-net: start flush interval if upload.loadend didn't fire yet
           // (e.g. when there are no files to upload).
           if (!flushTimerRef.current) startFlushInterval()
+          if (failed()) return
           const text = xhr.responseText
           if (text.length > processedLength) {
             processSSEText(text.slice(processedLength))
@@ -1600,29 +1602,10 @@ export function useStreamingChat({
           // Handle response headers once
           if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED && !headersHandled) {
             headersHandled = true
-            if (xhr.status > 0 && (xhr.status < 200 || xhr.status >= 300)) {
-              const rawText = xhr.responseText || `Request failed with status ${xhr.status}`
-              const lowerText = rawText.toLowerCase()
-              logger.error("[useStreamingChat] Stream request failed", {
-                status: xhr.status,
-                chatId,
-                isExistingChat,
-                endpoint: resolvedEndpoint,
-                responseText: xhr.responseText,
-              })
-              statusRejected = true
-              if (
-                xhr.status === 401 ||
-                lowerText.includes("token expired") ||
-                lowerText.includes("not authenticated") ||
-                lowerText.includes("unauthorized")
-              ) {
-                reject(new AuthExpiredError())
-              } else {
-                reject(new FriendlyStreamError(streamFailureMessage(rawText, xhr.status, resolvedEndpoint)))
-              }
-              return
-            }
+            // A failed request is reported at DONE: the error body hasn't arrived yet here (responseText
+            // is always empty), and the backend's own message (e.g. a Library file that isn't ready)
+            // is only readable once it has.
+            if (failed()) return
             const headerChatId =
               xhr.getResponseHeader("X-Chat-Id") ?? xhr.getResponseHeader("x-chat-id")
             // Adopted like the stream's own chat-id events, so the new chat's
@@ -1637,28 +1620,30 @@ export function useStreamingChat({
             xhrRef.current = null
             // Process any data that onprogress may not have seen in the final chunk
             const text = xhr.responseText
-            if (text.length > processedLength) {
+            if (!failed() && text.length > processedLength) {
               processSSEText(text.slice(processedLength))
               processedLength = text.length
             }
             // Flush a complete final event even if the server omitted the
             // trailing blank-line delimiter.
-            processSSEText("", true)
+            if (!failed()) processSSEText("", true)
             if (xhr.status === 0 && !stopRequestedRef.current) {
               logger.error("[useStreamingChat] Connection dropped mid-stream", {
                 chatId, isExistingChat, endpoint: resolvedEndpoint,
               })
               reject(new FriendlyStreamError(friendlyModelError("", 503)))
-            } else if (!statusRejected && xhr.status > 0 && (xhr.status < 200 || xhr.status >= 300)) {
-              // Backstop: HEADERS_RECEIVED should have already caught a non-2xx
-              // status, but if that branch was skipped/raced for any reason,
-              // this is the last chance to surface the real error instead of
-              // silently falling through to "Generation interrupted."
+            } else if (failed()) {
               const rawText = xhr.responseText || `Request failed with status ${xhr.status}`
-              logger.error("[useStreamingChat] Stream request failed (caught at DONE)", {
+              const lowerText = rawText.toLowerCase()
+              logger.error("[useStreamingChat] Stream request failed", {
                 status: xhr.status, chatId, isExistingChat, endpoint: resolvedEndpoint, responseText: xhr.responseText,
               })
-              if (xhr.status === 401) {
+              if (
+                xhr.status === 401 ||
+                lowerText.includes("token expired") ||
+                lowerText.includes("not authenticated") ||
+                lowerText.includes("unauthorized")
+              ) {
                 reject(new AuthExpiredError())
               } else {
                 reject(new FriendlyStreamError(streamFailureMessage(rawText, xhr.status, resolvedEndpoint)))

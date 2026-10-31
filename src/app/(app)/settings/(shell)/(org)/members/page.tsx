@@ -112,7 +112,6 @@ export default function OrgMembersPage() {
     const member = members.find(m => m.id === memberId)
     if (!member || !orgId) return false
     const memberName = member.name || member.email
-    const prev = members
     const toastId = toast.loading(`Updating ${memberName}'s role…`)
 
     try {
@@ -128,11 +127,34 @@ export default function OrgMembersPage() {
       refreshMembers()
       return true
     } catch (err) {
-      bumpMembers(prev)
+      bumpMembers(ms => ms.map(m => m.id === memberId ? member : m))
       toast.error(err instanceof Error ? err.message : 'Failed to update role', { id: toastId })
       return false
     }
   }
+
+  // Puts back only the row whose removal failed, where it was: restoring the whole
+
+  // snapshot would also undo another removal that finished in the meantime.
+
+  const restoreRow = (snapshot: OrgMember[], id: string) => {
+
+    const row = snapshot.find(m => m.id === id)
+
+    if (!row) return
+
+    bumpMembers(ms => {
+
+      if (ms.some(m => m.id === id)) return ms
+
+      const at = Math.min(snapshot.indexOf(row), ms.length)
+
+      return [...ms.slice(0, at), row, ...ms.slice(at)]
+
+    })
+
+  }
+
 
   const handleRemove = async (id: string) => {
     if (!orgId) return
@@ -145,7 +167,7 @@ export default function OrgMembersPage() {
       await removeMember(orgId, id)
       toast.success(`Removed ${memberLabel}`, { id: toastId })
     } catch (err) {
-      bumpMembers(prev)
+      restoreRow(prev, id)
       toast.error(err instanceof Error ? err.message : 'Failed to remove member', { id: toastId })
     }
   }
@@ -168,7 +190,7 @@ export default function OrgMembersPage() {
       }
       toast.success(`Invite to ${memberLabel} revoked`, { id: toastId })
     } catch (err) {
-      bumpMembers(prev)
+      restoreRow(prev, id)
       toast.error(err instanceof Error ? err.message : 'Failed to revoke invite', { id: toastId })
     }
   }

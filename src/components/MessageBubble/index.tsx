@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AnimatePresence, m, useReducedMotion } from 'framer-motion'
 import { IconButton, Button } from '@/components/ui/button'
 import {
@@ -46,6 +46,11 @@ const CTA_ZONE   = CTA_GAP + CTA_HEIGHT  // 44px total reserved in paddingBottom
 // We pin to a measured pixel width before animating so both FROM and TO values
 // are interpolatable. This duration must match the CSS transition value below.
 const WIDTH_MS = 200
+
+// ── Long messages ─────────────────────────────────────────────────────────────
+// A user message taller than this many lines is folded behind "Show more".
+const COLLAPSE_LINES  = 12
+const COLLAPSED_HEIGHT = COLLAPSE_LINES * LINE_HEIGHT_PX
 
 // ── Shared text style (view <p> + edit <textarea> + mirror <div> must match) ──
 const TEXT_STYLE: React.CSSProperties = {
@@ -101,6 +106,10 @@ export function MessageBubble({
     const editButtonRef   = useRef<HTMLButtonElement>(null)
     // Pixel width captured just before entering edit mode - used to animate back on exit.
     const naturalWidthRef = useRef<number>(0)
+    const mirrorRef       = useRef<HTMLDivElement>(null)
+    // Long messages: whether the text overflows the folded height, and whether it is unfolded.
+    const [overflows,     setOverflows]     = useState(false)
+    const [expanded,      setExpanded]      = useState(false)
     const timers          = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
 
     useEffect(() => () => {
@@ -116,6 +125,14 @@ export function MessageBubble({
     }, [editing])
 
     const isUser = role === 'user'
+
+    // Measured from the hidden mirror, which always holds the full text.
+    useLayoutEffect(() => {
+      const el = mirrorRef.current
+      if (!el) return
+      setOverflows(el.scrollHeight > COLLAPSED_HEIGHT + LINE_HEIGHT_PX)
+    }, [content, isUser])
+    const collapsed = overflows && !expanded && !editing
 
     // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -274,9 +291,13 @@ export function MessageBubble({
           {/* dimensions. The visible <p> or <textarea> overlays it in the same     */}
           {/* cell. On edit entry the textarea sees identical dimensions to the <p>  */}
           {/* - zero jump. As user types, the mirror updates and the cell grows.     */}
-          <div style={{ display: 'grid', position: 'relative', width: '100%' }}>
+          <div style={{
+            display: 'grid', position: 'relative', width: '100%',
+            ...(collapsed ? { maxHeight: COLLAPSED_HEIGHT, overflow: 'hidden' } : null),
+          }}>
             {/* Mirror - always hidden, always rendered, drives cell size */}
             <div
+              ref={mirrorRef}
               aria-hidden
               style={{
                 ...TEXT_STYLE,
@@ -312,7 +333,45 @@ export function MessageBubble({
                 }}
               />
             )}
+
+            {/* Folded long message: fade the last lines out */}
+            {collapsed && (
+              <div
+                aria-hidden
+                style={{
+                  position:      'absolute',
+                  left:          0,
+                  right:         0,
+                  bottom:        0,
+                  height:        LINE_HEIGHT_PX * 2,
+                  background:    'linear-gradient(to bottom, transparent 0%, var(--message-bubble-user-bg) 100%)',
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
           </div>
+
+          {/* Show more / Show less toggle for long messages */}
+          {overflows && !editing && (
+            <button
+              type="button"
+              aria-expanded={expanded}
+              onClick={() => setExpanded((v) => !v)}
+              style={{
+                all:        'unset',
+                position:   'relative',
+                cursor:     'pointer',
+                marginTop:  6,
+                fontFamily: 'var(--font-body)',
+                fontWeight: 'var(--font-weight-medium)',
+                fontSize:   'var(--font-size-caption)',
+                lineHeight: 'var(--line-height-caption)',
+                color:      'var(--neutral-400)',
+              }}
+            >
+              {expanded ? 'Show less' : 'Show more'}
+            </button>
+          )}
 
           {/* Inner depth shadow - hidden in edit mode */}
           {!editing && (

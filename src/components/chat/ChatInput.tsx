@@ -26,6 +26,8 @@ import { PINS_ENABLED } from "@/lib/feature-flags";
 import { useAgentMention } from "@/hooks/use-agent-mention";
 import { AgentMentionMenu } from "@/components/chat/AgentMentionMenu";
 import type { SelectedPersonaInfo } from "@/lib/chat-personas";
+import { AGENT_CHAT_ENABLED } from "@/lib/feature-flags";
+import { isImeKey } from "@/lib/ime";
 
 // ── Shadow tokens ──────────────────────────────────────────────────────────────
 
@@ -308,7 +310,7 @@ export function ChatInput(
       });
     };
     const mention = useAgentMention({
-      enabled: !!agentMention,
+      enabled: !!agentMention && AGENT_CHAT_ENABLED,
       applyText: applyMentionText,
       onSelect: (agent) => agentMention?.onSelect(agent),
     });
@@ -515,6 +517,19 @@ export function ChatInput(
       onSend?.(text);
     };
 
+    // Enter pressed while attachments upload: send as soon as they are ready.
+    // Dropped if the draft is emptied in the meantime.
+    const [sendWhenReady, setSendWhenReady] = useState(false);
+    if (sendWhenReady && !value && !hasAttachments) setSendWhenReady(false);
+    useEffect(() => {
+      if (!sendWhenReady || sendBlocked || isStreaming || disabled) return;
+      // Intentional: the held send fires the moment uploads finish.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSendWhenReady(false);
+      handleSend();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sendWhenReady, sendBlocked, isStreaming, disabled]);
+
     // The Queue button leaves once the box empties, so the keyboard focus it
     // held goes back to the box — the next thing to do is usually type again.
     const handleQueueClick = () => {
@@ -573,13 +588,13 @@ export function ChatInput(
       // recalling the last command in a terminal.
       if (
         e.key === "ArrowUp" && !value && onRecallQueued &&
-        !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey && !e.nativeEvent.isComposing
+        !e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey && !isImeKey(e)
       ) {
         if (onRecallQueued()) e.preventDefault();
         return;
       }
 
-      if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+      if (e.key === "Enter" && !e.shiftKey && !isImeKey(e)) {
         // Enter still means "send" while a reply streams: swallow it rather
         // than insert a newline, and keep the draft to send once it's done —
         // or, with allowQueue, send it to be queued.
@@ -587,8 +602,11 @@ export function ChatInput(
           e.preventDefault();
           return;
         }
-        if (value && !disabled && !isRecording) {
+        // Attachments alone are a message too (the button sends them), so Enter sends them as well.
+        if ((value || hasAttachments) && !disabled && !isRecording) {
           e.preventDefault();
+          // Files still uploading: hold the send and fire it once they are ready.
+          if (sendBlocked) { setSendWhenReady(true); return; }
           handleSend();
         }
       }
@@ -735,7 +753,7 @@ export function ChatInput(
         </span>
 
         {/* ── @agent list — floats above the box while typing a mention ── */}
-        {agentMention && mention.open && (
+        {agentMention && AGENT_CHAT_ENABLED && mention.open && (
           <AgentMentionMenu
             items={mention.items}
             loading={mention.loading}
@@ -1024,9 +1042,11 @@ export function ChatInput(
                 aria-label={
                   isStreaming
                     ? "Stop generation"
+                    : sendBlocked && !isRecording && (value || hasAttachments)
+                      ? sendWhenReady ? "Sending once files finish uploading" : "Waiting for files to finish uploading"
                     : isRecording
                       ? "Stop recording"
-                      : value
+                      : value || hasAttachments
                         ? sendQueues ? "Queue message" : "Send message"
                         : "Start voice input"
                 }
@@ -1085,6 +1105,10 @@ export function ChatInput(
                 }
                 onClick={handleActionClick}
                 disabled={isActionDisabled}
+                loading={sendBlocked && !isStreaming && !isRecording && (!!value || hasAttachments)}
+                title={sendBlocked && !isStreaming && !isRecording && (!!value || hasAttachments)
+                  ? sendWhenReady ? "Sending once files finish uploading" : "Waiting for files to finish uploading"
+                  : undefined}
               />
             </span>
 

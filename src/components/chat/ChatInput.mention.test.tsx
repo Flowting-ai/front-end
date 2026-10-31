@@ -33,6 +33,8 @@ vi.mock('react-speech-recognition', () => ({
 }))
 vi.mock('@/lib/analytics/events', () => ({ trackFeature: vi.fn(), trackBrowserEvent: vi.fn() }))
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
+// The menu sits behind AGENT_CHAT_ENABLED (off while the backend has no agent chat); these tests cover it switched on.
+vi.mock('@/lib/feature-flags', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/feature-flags')>()), AGENT_CHAT_ENABLED: true }))
 
 import { ChatInput } from './ChatInput'
 

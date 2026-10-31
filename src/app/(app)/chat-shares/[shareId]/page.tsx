@@ -10,6 +10,7 @@ import {
   type SharedChatMessage,
 } from '@/lib/api/chat-shares'
 import { useChatHistoryContext } from '@/context/chat-history-context'
+import { CHATS_ROUTE } from '@/lib/routes'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/Badge'
 import { ContentRenderer } from '@/lib/content-renderer'
@@ -70,6 +71,15 @@ function SharedChatContent() {
     return () => { cancelled = true }
   }, [shareId])
 
+  // Opened from a link (a new tab, a notification, Slack) the previous page is not Souvenir, and
+  // router.back() would leave the app; go to the Shared with me list instead.
+  function goBack() {
+    let cameFromApp = false
+    try { cameFromApp = !!document.referrer && new URL(document.referrer).origin === window.location.origin } catch { /* no referrer */ }
+    if (cameFromApp && window.history.length > 1) router.back()
+    else router.push(`${CHATS_ROUTE}?tab=shared`)
+  }
+
   async function handleFork() {
     if (!shareId) return
     setForking(true)
@@ -107,7 +117,7 @@ function SharedChatContent() {
     // other missing resource — so it reads as a dead link rather than telling
     // the viewer what actually happened and what to do about it.
     const message = error === 'The requested resource was not found.'
-      ? 'The requested resource was not found. Please ask the user to share it again.'
+      ? 'This chat is no longer shared with you. Ask the person who shared it to share it again.'
       : (error ?? 'This shared chat could not be found.')
     return (
       <div
@@ -135,7 +145,7 @@ function SharedChatContent() {
         >
           {message}
         </p>
-        <Button variant="outline" size="sm" onClick={() => router.back()}>Go back</Button>
+        <Button variant="outline" size="sm" onClick={goBack}>Go back</Button>
       </div>
     )
   }
@@ -167,7 +177,7 @@ function SharedChatContent() {
             variant="ghost"
             size="sm"
             leftIcon={<ArrowLeftOneIcon size={16} animated />}
-            onClick={() => router.back()}
+            onClick={goBack}
           >
             Back
           </Button>

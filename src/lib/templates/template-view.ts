@@ -100,6 +100,58 @@ export async function loadTemplate(
  * Fixed messages the HTML route returns instead of forwarding backend error
  * bodies to the browser.
  */
+/** What the viewer is told when a template can't be shown (the page, and the frame when only the HTML fails). */
+export const TEMPLATE_NOTICES: Record<Exclude<TemplateLoadState, 'not_found'>, { heading: string; body: string; tone: 'status' | 'alert' }> = {
+  forbidden: {
+    heading: "You don't have access",
+    body: 'This page belongs to someone in another organization. Ask whoever sent the link to share it from your workspace.',
+    tone: 'status',
+  },
+  revoked: {
+    heading: 'This page was revoked',
+    body: 'Its creator took it down. Ask them for a fresh one.',
+    tone: 'status',
+  },
+  too_large: {
+    heading: 'This page is too large to show',
+    body: 'Ask whoever made it for a smaller version.',
+    tone: 'alert',
+  },
+  timeout: {
+    heading: 'This is taking too long',
+    body: "The template didn't load in time. Try again in a moment.",
+    tone: 'alert',
+  },
+  error: {
+    heading: 'Something went wrong',
+    body: "The template couldn't be loaded. Try again in a moment.",
+    tone: 'alert',
+  },
+}
+
+/**
+ * The notice as a standalone HTML page, for the template's `<iframe>`: it navigates to the HTML
+ * route itself, so a JSON error would be shown to the viewer as raw text. Fixed strings only.
+ * `theme` is the app's (the frame's own prefers-color-scheme follows the OS, not the app); the
+ * colours are the app's --neutral-white / -900 / -500 for that theme.
+ */
+export function templateNoticeHtml(state: TemplateLoadState, theme: 'light' | 'dark' = 'light'): string {
+  const notice = state === 'not_found'
+    ? { heading: 'Link not found', body: "This template doesn't exist, or the address is wrong.", tone: 'status' as const }
+    : TEMPLATE_NOTICES[state]
+  const colors = theme === 'dark'
+    ? 'color-scheme:dark;--bg:#1C1C1C;--fg:#DEDEDE;--muted:#989898'
+    : 'color-scheme:light;--bg:#F9F8F5;--fg:#26211E;--muted:#756D67'
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{${colors}}
+html,body{height:100%;margin:0}
+body{display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;background:var(--bg);color:var(--fg);font:14px/20px system-ui,-apple-system,"Segoe UI",sans-serif;text-align:center}
+h1{margin:0 0 6px;font-size:18px;line-height:26px;font-weight:500}
+p{margin:0;color:var(--muted);max-width:420px}
+</style></head><body><div role="${notice.tone}"><h1>${notice.heading}</h1><p>${notice.body}</p></div></body></html>`
+}
+
 export const TEMPLATE_ROUTE_ERRORS: Record<TemplateLoadState, { status: number; message: string }> = {
   forbidden: { status: 403, message: "You don't have access to this template" },
   not_found: { status: 404, message: 'Template not found' },

@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { usePathname } from 'next/navigation'
+import { unstable_rethrow, usePathname } from 'next/navigation'
 import { useSidebarEvents } from '@/hooks/use-sidebar-events'
 import { Button } from '@/components/ui/button'
 import { AlertCircleIcon } from '@strange-huge/icons'
@@ -26,7 +26,10 @@ interface ErrorBoundaryState {
 class ErrorBoundaryInner extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { hasError: false }
 
-  static getDerivedStateFromError(): ErrorBoundaryState {
+  static getDerivedStateFromError(error: unknown): ErrorBoundaryState {
+    // notFound() and redirect() signal Next by throwing; hand those back so a 404 or redirect
+    // still happens instead of this fallback.
+    unstable_rethrow(error)
     return { hasError: true }
   }
 

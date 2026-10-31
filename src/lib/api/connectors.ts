@@ -1,7 +1,7 @@
 'use client'
 
 import { z } from 'zod'
-import { apiFetch, apiFetchJson } from './client'
+import { ApiError, apiFetch, apiFetchJson, friendlyApiError } from './client'
 import { toConnector, type Connector } from '@/lib/connector'
 import {
   CONNECTORS_ENDPOINT,
@@ -514,7 +514,12 @@ export async function updateAccount(
 export async function unlinkAccount(accountId: string): Promise<void> {
   const res = await apiFetch(CONNECTOR_ACCOUNT_ENDPOINT(accountId), { method: 'DELETE' })
   if (!res.ok && res.status !== 204) {
-    throw new Error(`Failed to unlink account: ${res.status}`)
+    let detail = `Request failed with status ${res.status}`
+    try {
+      const body = await res.json() as { detail?: string }
+      if (typeof body.detail === 'string') detail = body.detail
+    } catch { /* non-JSON error body */ }
+    throw new ApiError(res.status, 'unlink_account_failed', friendlyApiError(detail, res.status), detail)
   }
   bustConnectorCatalogCache()
   trackBrowserEvent('connector_unlinked')

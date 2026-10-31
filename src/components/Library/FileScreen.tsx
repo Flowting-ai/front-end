@@ -5,6 +5,7 @@ import { AnimatePresence, m, useReducedMotion } from 'framer-motion'
 import dynamic from 'next/dynamic'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
+import { useIsMutating } from '@tanstack/react-query'
 import { ArrowDownOneIcon, ArrowLeftOneIcon, CancelOneIcon, DownloadOneIcon, InformationCircleIcon, ShareOneIcon, SidebarRightIcon } from '@strange-huge/icons'
 import { Button, IconButton } from '@/components/ui/button'
 import { Skeleton } from '@/components/Skeleton'
@@ -19,6 +20,7 @@ import { isAccessRequested, isGoneError, isLockedError } from '@/lib/library/err
 import { fileDocumentTitle, formatLabel } from '@/lib/library/format'
 import { FILE_MESSAGES, MESSAGES } from '@/lib/library/messages'
 import { useMarkOpened } from '@/lib/library/mutations'
+import { libraryKeys } from '@/lib/library/keys'
 import { useLibraryFile } from '@/lib/library/queries'
 import { libraryReturnUrl } from '@/lib/library/return-to'
 import { useLibraryViewer } from '@/lib/library/viewer'
@@ -50,7 +52,7 @@ export function FileScreen({ id }: { id: string }) {
   const cite = parseCite(params.get('cite'), params.get('passage'))
   // Close and a delete go back to the Library list the person came from (tab, search, filters).
   const backHref = libraryReturnUrl(params.get('from'))
-  const { viewerId } = useLibraryViewer()
+  const { viewerId, orgKey } = useLibraryViewer()
   // Ask for the details and the first preview now, side by side: the queries below wait for the
   // workspace to load and then pick these up, instead of starting one after the other. A row cite
   // opens a sheet at another window, so that preview is left to the viewer.
@@ -78,8 +80,17 @@ export function FileScreen({ id }: { id: string }) {
   // A deleted file is "No longer available" for every link (a chat chip, a citation, a shared URL), even for
   // its owner. Only a row in Trash opens it (`?from=trash`), to show how many days are left and Restore.
   const fromTrash = params.get('from') === 'trash'
-  const deletedLink = detail.data?.life === 'trashed' && !fromTrash
-  const file = deletedLink ? undefined : detail.data
+  // Deleting from this page marks the cached file trashed at once (optimistic). Until the server answers,
+  // keep showing it as it was: on success the dialog takes the user back to the list, on failure nothing changed.
+  const trashingHere = useIsMutating({
+    mutationKey: [...libraryKeys.all(orgKey), 'trash-file'],
+    predicate: (mutation) => (mutation.state.variables as { id?: string } | undefined)?.id === id,
+  }) > 0
+  const [lastActive, setLastActive] = useState(detail.data)
+  if (detail.data?.life === 'active' && detail.data !== lastActive) setLastActive(detail.data)
+  const shown = trashingHere && detail.data?.life === 'trashed' && lastActive?.id === id ? lastActive : detail.data
+  const deletedLink = shown?.life === 'trashed' && !fromTrash
+  const file = deletedLink ? undefined : shown
 
   // Tab title: the sanitised file name, never the raw one.
   useEffect(() => {

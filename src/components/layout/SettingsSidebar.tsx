@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react'
 import { m } from 'framer-motion'
 import { usePathname } from 'next/navigation'
-import { ArrowLeftOneIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, SidebarLeftIcon } from '@strange-huge/icons'
+import { useMobile } from '@/hooks/use-mobile'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Logout01Icon from '@hugeicons/core-free-icons/Logout01Icon'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
@@ -140,6 +141,17 @@ export function SettingsSidebar() {
   // whether the user clicks a Settings nav item or the main app sidebar.
   const { push } = useGuardedRouter()
   const pathname = usePathname()
+  const isNarrow = useMobile()
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  // Choosing a page closes the narrow-screen drawer.
+  const [drawerPath, setDrawerPath] = useState(pathname)
+  if (drawerPath !== pathname) { setDrawerPath(pathname); setDrawerOpen(false) }
+  useEffect(() => {
+    if (!drawerOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setDrawerOpen(false) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [drawerOpen])
   const { user, logout, isAuthenticated } = useAuth()
   const { guardedNavigate } = useNavGuard()
   const { orgId, org, plan, orgRole, currentUserRole, orgReady } = useOrg()
@@ -249,15 +261,29 @@ export function SettingsSidebar() {
 
   return (
     <>
+    {/* Narrow screens: a 48px rail with a menu button; the full nav opens as an
+        overlay drawer (same pattern as the app LeftSidebar). */}
+    {isNarrow && (
+      <div style={{ width: 48, flexShrink: 0, height: '100%', backgroundColor: 'var(--neutral-50)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, paddingTop: 24 }}>
+        <IconButton variant="ghost" size="sm" aria-label="Go back" icon={<ArrowLeftOneIcon size={20} />} onClick={() => safeNavigate(CHAT_ROUTE)} />
+        <IconButton variant="ghost" size="sm" aria-label="Open settings menu" aria-expanded={drawerOpen} icon={<SidebarLeftIcon size={20} variant="open" />} onClick={() => setDrawerOpen(true)} />
+      </div>
+    )}
+    {isNarrow && drawerOpen && (
+      <div aria-hidden data-testid="settings-sidebar-scrim" onClick={() => setDrawerOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 49, backgroundColor: 'rgba(0, 0, 0, 0.32)' }} />
+    )}
     <div
       style={{
-        display:         'flex',
+        // Kept mounted while the narrow drawer is closed so its nav state survives.
+        display:         isNarrow && !drawerOpen ? 'none' : 'flex',
         flexDirection:   'column',
         width:           294,
+        maxWidth:        isNarrow ? 'calc(100vw - 48px)' : undefined,
         height:          '100%',
         backgroundColor: 'var(--neutral-50)',
         flexShrink:      0,
         overflow:        'hidden',
+        ...(isNarrow ? { position: 'fixed' as const, top: 0, left: 0, bottom: 0, zIndex: 50, boxShadow: '4px 0 24px rgba(0, 0, 0, 0.16)' } : null),
       }}
     >
       {/* ── Title row — fixed ── */}

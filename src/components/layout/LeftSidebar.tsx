@@ -405,9 +405,10 @@ interface ProjectChatItemProps {
   onSelect: () => void
   onRename: (chatId: string, title: string) => Promise<void>
   onDelete: (chatId: string) => void
+  onRemoveFromProject: (chatId: string) => Promise<void>
 }
 
-function ProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelete }: ProjectChatItemProps) {
+function ProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelete, onRemoveFromProject }: ProjectChatItemProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [menuOpen,  setMenuOpen]  = useState(false)
   const triggerRef       = useRef<HTMLButtonElement>(null)
@@ -494,6 +495,16 @@ function ProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelete }:
             Rename
           </DropdownMenu.Item>
 
+          {/* Keeps the chat; the context toasts the result. */}
+          <DropdownMenu.Item
+            style={menuItemStyle}
+            onSelect={() => { onRemoveFromProject(chat.id).catch(() => {}) }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "var(--neutral-50)")}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "transparent")}
+          >
+            Remove from project
+          </DropdownMenu.Item>
+
           <DropdownMenu.Separator style={{ height: "1px", backgroundColor: "var(--neutral-100)", margin: "4px 0" }} />
 
           <DropdownMenu.Item
@@ -571,7 +582,7 @@ function ProjectsSection({
   const { push }    = useGuardedRouter()
   const pathname    = usePathname()
   const chatHistory = useChatHistoryContext()
-  const { projects: allProjects, loading: projectsLoading, getChats, removeChat, renameChat, loadProjectChats } = useProjects()
+  const { projects: allProjects, loading: projectsLoading, getChats, removeChat, moveChatOutOfProject, renameChat, loadProjectChats } = useProjects()
 
   const [shown,        setShown]        = useState(true)
   const [overflow,     setOverflow]     = useState<"visible" | "hidden">("visible")
@@ -708,6 +719,7 @@ function ProjectsSection({
                         await chatHistory.rename(chatId, title)
                       }}
                       onDelete={(chatId) => removeChat(project.id, chatId)}
+                      onRemoveFromProject={(chatId) => moveChatOutOfProject(project.id, chatId)}
                     />
                   ))}
                   {project.chatCount === 0 ? (
@@ -1917,9 +1929,10 @@ interface FlatProjectChatItemProps {
   onSelect: () => void
   onRename: (chatId: string, title: string) => Promise<void>
   onDelete: (chatId: string) => Promise<void>
+  onRemoveFromProject: (chatId: string) => Promise<void>
 }
 
-function FlatProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelete }: FlatProjectChatItemProps) {
+function FlatProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelete, onRemoveFromProject }: FlatProjectChatItemProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -1935,11 +1948,11 @@ function FlatProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelet
       chatTitle: chat.title,
       // Awaiting the real delete (not just firing it) is what makes the
       // dialog's Delete button show a loading state for the actual duration
-      // of the request, instead of resolving instantly.
+      // of the request, instead of resolving instantly. The dialog itself
+      // toasts "Chat deleted" with Undo, so no second toast here.
       onConfirm: async () => {
         try {
           await onDelete(chat.id)
-          toast.success("Chat deleted")
         } catch {
           toast.error("Failed to delete chat")
         }
@@ -1974,6 +1987,8 @@ function FlatProjectChatItem({ chat, isActive, href, onSelect, onRename, onDelet
         <Dropdown maxHeight={false}>
           <Dropdown.Section fluid>
             <Dropdown.Item fluid icon={<PenOneIcon animated color="var(--neutral-600)" />} label="Rename" onClick={() => { setMenuOpen(false); setIsEditing(true) }} />
+            {/* Keeps the chat; the context toasts the result. */}
+            <Dropdown.Item fluid icon={<FolderOneIcon color="var(--neutral-600)" variant="static" />} label="Remove from project" onClick={() => { setMenuOpen(false); onRemoveFromProject(chat.id).catch(() => {}) }} />
             <Divider decorative />
             <Dropdown.Item fluid variant="danger" icon={<DeleteTwoIcon color="var(--red-500)" />} label="Delete" onClick={handleDelete} />
           </Dropdown.Section>
@@ -1999,7 +2014,7 @@ function FlatProjectItemsList({ projectsFilter, limit, emptyLabel }: FlatProject
   const { push } = useGuardedRouter()
   const pathname = usePathname()
   const chatHistory = useChatHistoryContext()
-  const { projects: allProjects, loading: projectsLoading, getChats, removeChat, renameChat, loadProjectChats } = useProjects()
+  const { projects: allProjects, loading: projectsLoading, getChats, removeChat, moveChatOutOfProject, renameChat, loadProjectChats } = useProjects()
 
   // Sorted by recency so "top `limit`" means most-recently-updated, not just
   // whatever order the API happened to return — matters most for
@@ -2071,7 +2086,8 @@ function FlatProjectItemsList({ projectsFilter, limit, emptyLabel }: FlatProject
                   key={chat.id} chat={chat} isActive={pathname === PROJECT_CHAT_ROUTE(project.id, chat.id)}
                   href={PROJECT_CHAT_ROUTE(project.id, chat.id)} onSelect={() => push(PROJECT_CHAT_ROUTE(project.id, chat.id))}
                   onRename={async (chatId, title) => { renameChat(project.id, chatId, title); await chatHistory.rename(chatId, title) }}
-                  onDelete={(chatId) => removeChat(project.id, chatId)}
+                  onDelete={async (chatId) => { await removeChat(project.id, chatId) }}
+                  onRemoveFromProject={(chatId) => moveChatOutOfProject(project.id, chatId)}
                 />
               ))}
               {project.chatCount === 0 ? (

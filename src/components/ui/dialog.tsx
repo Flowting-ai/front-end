@@ -25,7 +25,7 @@ export interface DialogContentProps extends Omit<React.ComponentPropsWithoutRef<
   hideClose?: boolean
 }
 
-export function DialogContent({ size = 'md', hideClose = false, className, style, children, ...props }: DialogContentProps) {
+export function DialogContent({ size = 'md', hideClose = false, className, style, children, onInteractOutside, ...props }: DialogContentProps) {
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay
@@ -51,6 +51,11 @@ export function DialogContent({ size = 'md', hideClose = false, className, style
           outline: 'none',
           overflow: 'hidden',
           ...style,
+        }}
+        // A click on a toast (its Undo, say) isn't a click outside: the dialog stays open.
+        onInteractOutside={(event) => {
+          if (event.target instanceof Element && event.target.closest('[data-sonner-toaster]')) event.preventDefault()
+          onInteractOutside?.(event)
         }}
         {...props}
       >

@@ -17,7 +17,7 @@ import {
 } from "./AttachmentManager";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { useFileUpload } from "@/hooks/use-file-upload";
-import { useComposerUploads } from "@/lib/library/upload/composer-uploads";
+import { cancelComposerUpload, clearComposerNotices, useComposerUploads } from "@/lib/library/upload/composer-uploads";
 import { UploadNotices } from "@/components/Library/upload/UploadNotices";
 import { LibrarySearchOffNote } from "@/components/Library/chat/LibrarySearchOffNote";
 import { ChatSources } from "@/components/Library/chat/ChatSources";
@@ -102,6 +102,8 @@ const NO_QUEUED_MESSAGES: readonly QueuedMessage[] = [];
 
 interface ChatInterfaceProps {
   chatId: string | undefined;
+  /** Project a new chat is created in; sent on the first turn so the project context applies to it. */
+  projectId?: string | null;
   onChatCreated?: (chatId: string) => void;
   onTitleUpdate?: (chatId: string, title: string) => void;
   onChatMoveToTop?: (chatId: string) => void;
@@ -286,6 +288,7 @@ export function ChatInterface({
   injectedMessages,
   onInjectedMessagesConsumed,
   onUseAgent,
+  projectId,
 }: ChatInterfaceProps) {
   const hidePinActions = hidePinActionsProp || !PINS_ENABLED;
   const [streamState, setStreamState] = useState<StreamState>("idle");
@@ -297,6 +300,9 @@ export function ChatInterface({
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   // Files upload into Library as soon as they are attached; Send waits until they are ready.
   const { attachments: attachmentChips, uploadsBusy, notices: uploadNotices } = useComposerUploads(attachments, setAttachments, chatId && !chatId.startsWith("temp-") ? chatId : undefined);
+  // The draft's attachments as of the last render, for the chat-switch reset below.
+  const attachmentsRef = useRef(attachments);
+  useEffect(() => { attachmentsRef.current = attachments; });
   // Auto-save setting (Always / Ask each time / Never) applied to the files on send.
   const { decideSave, saveDialog } = useSaveChoice(chatId && !chatId.startsWith("temp-") ? chatId : undefined);
   const {
@@ -351,6 +357,13 @@ export function ChatInterface({
       return;
     }
     setInputValue("");
+    // The old draft's files go with it: stop their uploads (staged, never sent), free image
+    // previews, and drop refusal notices, which would otherwise show above the next chat.
+    for (const attachment of attachmentsRef.current) {
+      cancelComposerUpload(attachment.file);
+      if (attachment.preview) URL.revokeObjectURL(attachment.preview);
+    }
+    clearComposerNotices();
     setAttachments([]);
     clearMentions();
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only run when chatId identity changes
@@ -527,7 +540,7 @@ export function ChatInterface({
   // Register the virtualizer-backed scroller so jump-gutter / highlight-panel
   // can bring virtualized messages into view before querying the DOM.
   useEffect(() => {
-    registerChatScroller((messageId, onRendered) => {
+    return registerChatScroller((messageId, onRendered) => {
       const idx = messages.findIndex((m) => m.id === messageId)
       if (idx === -1) return
       // A jump the user asked for — stop following the bottom so new content
@@ -548,7 +561,6 @@ export function ChatInterface({
       stickToBottom.unstick()
       setAtBottom(false)
     })
-    return () => registerChatScroller(null)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, msgVirtualizer, stickToBottom])
 
@@ -611,6 +623,26 @@ export function ChatInterface({
     isSendingRef.current = false;
     setHookBusy(false);
   };
+  // While "Save N files to Library?" is open, the chat holds: a new send queues behind the message
+  // being asked about, and the queue sends nothing until it's answered (CH-8, CH-9). The ref is for
+  // handleSend in the same tick; the state is for queueReady.
+  const askingSaveRef = useRef(0);
+  const [askingSave, setAskingSave] = useState(false);
+  const askSave = async (files: File[]) => {
+    if (files.length === 0) return;
+    askingSaveRef.current += 1;
+    setAskingSave(true);
+    try {
+      await decideSave(files);
+    } finally {
+      askingSaveRef.current -= 1;
+      if (askingSaveRef.current === 0) {
+        setAskingSave(false);
+        // Back to the composer once answered (the dialog doesn't return focus; see AskSaveDialog).
+        setComposerFocusRequest((n) => n + 1);
+      }
+    }
+  };
   // A reply that failed or was stopped holds back the message queued after
   // it. Streams with a chat id report this through the stream registry; this
   // also covers a new chat's first reply that failed before it got one.
@@ -659,6 +691,7 @@ export function ChatInterface({
     reasoningEffort,
     algorithm,
     personaId:              selectedPersonaId,
+    projectId,
     systemPrompt:           selectedPersonaSystemPrompt,
     temperature:            selectedPersonaTemperature,
     toneId:                 selectedStyleId,
@@ -710,15 +743,16 @@ export function ChatInterface({
   useEffect(() => {
     sendInitialPrompt.current = async (prompt: string) => {
     const content = prompt.trim();
-    if (content && !chatId) {
-      // Use initialFiles if provided, otherwise fall back to addMenuFiles.
-      // The landing page passes files via addMenuFiles (not initialFiles), so
-      // we must check both to avoid sending the message without attachments.
-      const files = (initialFiles && initialFiles.length > 0)
-        ? [...initialFiles]
-        : (addMenuFiles && addMenuFiles.length > 0)
-          ? [...addMenuFiles]
-          : [];
+    // Use initialFiles if provided, otherwise fall back to addMenuFiles.
+    // The landing page passes files via addMenuFiles (not initialFiles), so
+    // we must check both to avoid sending the message without attachments.
+    const files = (initialFiles && initialFiles.length > 0)
+      ? [...initialFiles]
+      : (addMenuFiles && addMenuFiles.length > 0)
+        ? [...addMenuFiles]
+        : [];
+    // Files alone are a message too (same as handleSend), so an empty prompt with files still goes.
+    if ((content || files.length > 0) && !chatId) {
       const initialMentionedPinObjects = PINS_ENABLED ? (initialMentionedPins ?? []) : [];
       const userMsgId = addOptimisticUserMessage(
         content,
@@ -733,6 +767,8 @@ export function ChatInterface({
       onClearAddMenuFiles?.();
       const key = queueKey;
       beginTurn();
+      // The landing's composer is gone, so focus would be left on <body>: carry on in this one.
+      setComposerFocusRequest((n) => n + 1);
       fetchAiResponse(content, null, loadingId, selectedModelId, turnOptions({
         files,
         userMessageId: userMsgId,
@@ -753,10 +789,13 @@ export function ChatInterface({
     // the persona's version fetch has had any real time to resolve. Wait for
     // it instead of sending with systemPrompt missing.
     if (personaConfigLoading) return;
-    if (initialPrompt && !initialPromptSentRef.current) {
+    // An empty prompt still counts when the landing page handed over files with it.
+    const pending = !!initialPrompt || (initialPrompt === "" && (initialFiles?.length || addMenuFiles?.length));
+    if (pending && !initialPromptSentRef.current) {
       initialPromptSentRef.current = true;
-      sendInitialPrompt.current?.(initialPrompt);
+      sendInitialPrompt.current?.(initialPrompt ?? "");
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the files are read once, with the prompt they came with
   }, [initialPrompt, personaConfigLoading]);
 
   // Scroll to bottom instantly when a chat finishes loading (opening an existing chat).
@@ -936,7 +975,9 @@ export function ChatInterface({
   // uploads in the same chat session are absorbed normally.
   useEffect(() => {
     if (!addMenuFiles || addMenuFiles.length === 0) return;
-    if (initialPrompt) return;
+    // Any first message from the landing page (a prompt, or "" for files alone) owns these files until
+    // the page clears initialPrompt once the chat exists; absorbing them here would put them back in the draft.
+    if (initialPrompt != null) return;
     setAttachments((prev) => processFiles(addMenuFiles, prev));
   }, [addMenuFiles, initialPrompt]);
 
@@ -969,7 +1010,7 @@ export function ChatInterface({
     // A reply is still running (or messages are already waiting): this one is
     // queued to follow, in order. The isSendingRef check also catches a
     // second send in the same tick, before `isStreaming` lands.
-    if (replyInFlight || isSendingRef.current || getChatQueue(queueKey)) {
+    if (replyInFlight || isSendingRef.current || askingSaveRef.current > 0 || getChatQueue(queueKey)) {
       queueFromComposer(text);
       return;
     }
@@ -982,7 +1023,7 @@ export function ChatInterface({
     setAttachments([]);
     clearMentions();
     onClearAddMenuFiles?.();
-    await decideSave(capturedAttachments.map((a) => a.file));
+    await askSave(capturedAttachments.map((a) => a.file));
 
     await sendTurn({
       content: text.trim(),
@@ -1062,6 +1103,9 @@ export function ChatInterface({
   const queueFromComposer = (text: string) => {
     const slot = editedQueueSlotRef.current?.key === queueKey ? editedQueueSlotRef.current.index : undefined;
     editedQueueSlotRef.current = null;
+    // Asked now, not when it goes out: the answer rides on its files (markSaveChoice), and the
+    // queue holds until it's given.
+    void askSave(attachments.map((a) => a.file));
     queueMessage(
       queueKey,
       { content: text, attachments, mentionedPins: PINS_ENABLED ? mentionedPins : [] },
@@ -1368,7 +1412,7 @@ export function ChatInterface({
   // then waits for its own reply, so they go out in order, one per turn.
   const queueReady =
     queuedMessages.length > 0 && !queueHeldBy &&
-    !replyInFlight && !hookBusy &&
+    !replyInFlight && !hookBusy && !askingSave &&
     (!isRevealing || pageHidden) &&
     !isLoadingMessages && !isSettling &&
     !queuePausedReason && !readOnly && !archived;
@@ -1377,7 +1421,7 @@ export function ChatInterface({
     let cancelled = false;
     const send = () => {
       // A send that started this very tick has the floor (see isSendingRef).
-      if (cancelled || isSendingRef.current) return;
+      if (cancelled || isSendingRef.current || askingSaveRef.current > 0) return;
       setQueuedRowExit("sent");
       const message = takeNextQueuedMessage(queueKey);
       if (message) void sendTurnRef.current({ ...message, fromQueue: true });
@@ -1400,9 +1444,11 @@ export function ChatInterface({
   const queueStatus = queuePausedReason
     ?? (queueWaitingOnReply
       ? queuedMessages.length > 1 ? "sent in order as each reply finishes" : "sends when this reply finishes"
-      : hookBusy
-        ? "waiting for your reply in another chat"
-        : "sending next…");
+      : askingSave
+        ? "waiting for your answer about saving files"
+        : hookBusy
+          ? "waiting for your reply in another chat"
+          : "sending next…");
   // While a send would be queued rather than go straight out.
   const sendQueues = replyInFlight || hookBusy || queuedMessages.length > 0;
 

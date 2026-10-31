@@ -24,6 +24,12 @@ export function SlackAppPanel({ orgId }: { orgId: string }) {
   const [savingCheckIns, setSavingCheckIns] = useState(false)
   const lastSavedConfig = useRef<string | null>(null)
   const saveSequence = useRef(0)
+  // The debounced save not sent yet, so leaving the page can send it.
+  const pendingSave = useRef<(() => void) | null>(null)
+  const mounted = useRef(false)
+  const [saveFailed, setSaveFailed] = useState(false)
+  // Bumped by Retry to run the save again with the same settings.
+  const [retryCount, setRetryCount] = useState(0)
   const skillInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -59,20 +65,35 @@ export function SlackAppPanel({ orgId }: { orgId: string }) {
     if (serialized === lastSavedConfig.current) return
 
     const sequence = ++saveSequence.current
-    const timeout = window.setTimeout(() => {
+    const save = () => {
+      pendingSave.current = null
       void updateSlackAppConfig(orgId, payload)
         .then(() => {
-          if (sequence === saveSequence.current) lastSavedConfig.current = serialized
+          if (sequence !== saveSequence.current) return
+          lastSavedConfig.current = serialized
+          if (mounted.current) setSaveFailed(false)
         })
         .catch(err => {
-          if (sequence === saveSequence.current) {
-            toast.error(err instanceof Error ? err.message : 'Failed to save Slack defaults')
-          }
+          if (sequence !== saveSequence.current || !mounted.current) return
+          // The edit stays on screen, so say it is not saved and offer to try again.
+          setSaveFailed(true)
+          toast.error(err instanceof Error ? err.message : 'Failed to save Slack defaults')
         })
-    }, 500)
+    }
+    pendingSave.current = save
+    const timeout = window.setTimeout(save, 500)
 
     return () => window.clearTimeout(timeout)
-  }, [config, orgId])
+  }, [config, orgId, retryCount])
+
+  // Leaving within the debounce would cancel the save above; send it on the way out instead.
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      pendingSave.current?.()
+    }
+  }, [])
 
   if (loading || !config) return <div className={`kaya-skeleton ${styles.skeleton}`} />
 
@@ -157,6 +178,12 @@ export function SlackAppPanel({ orgId }: { orgId: string }) {
           placeholder="How should Souvenir behave and respond in Slack?"
           rows={6}
         />
+        {saveFailed && (
+          <p role="alert" className={styles.sectionDescription} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, color: 'var(--red-600)' }}>
+            Not saved. Your changes are only on this page.
+            <Button variant="secondary" size="sm" onClick={() => setRetryCount(n => n + 1)}>Retry</Button>
+          </p>
+        )}
       </section>
 
       <section className={styles.section}>

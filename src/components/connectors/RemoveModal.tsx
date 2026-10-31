@@ -33,7 +33,7 @@ export function RemoveModal({
   // Tab stays inside; Esc cancels unless the removal is in flight.
   useFocusTrap(panelRef, true, () => { if (!busy) cancel() })
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'grid', placeItems: 'center', padding: SPACE.xxl, background: 'var(--overlay-bg)' }} onClick={cancel}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'grid', placeItems: 'center', padding: SPACE.xxl, background: 'var(--overlay-bg)' }} onClick={() => { if (!busy) cancel() }}>
       <div
         ref={panelRef}
         role="alertdialog"

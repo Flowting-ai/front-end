@@ -21,11 +21,16 @@ import { PINS_ENABLED } from '@/lib/feature-flags'
 import { addChatToProject } from '@/lib/api/projects'
 import { listSharedWithMe } from '@/lib/api/chat-shares'
 import type { SharedChatItem } from '@/lib/api/chat-shares'
-import { CHAT_ROUTE, CHAT_SHARE_ROUTE } from '@/lib/routes'
+import { CHAT_ROUTE, CHATS_ROUTE, CHAT_SHARE_ROUTE } from '@/lib/routes'
 import { Badge } from '@/components/Badge'
 import { Skeleton } from '@/components/Skeleton'
 import { formatRelativeTime } from '@/lib/utils/format-utils'
 import { openDeleteChatDialog } from '@/components/layout/AppDialogs'
+import { Checkbox } from '@/components/Checkbox'
+import { useQueryClient } from '@tanstack/react-query'
+import { deleteFilesWithChat, takeTrashedWithChat } from '@/lib/api/chat'
+import { libraryKeys } from '@/lib/library/keys'
+import { useLibraryViewer } from '@/lib/library/viewer'
 
 type ChatsTab = 'all' | 'shared' | 'archived'
 
@@ -45,6 +50,7 @@ const CHATS_TAB_DESCRIPTION: Record<ChatsTab, string> = {
   archived: 'Chats you’ve archived.',
 }
 const CHATS_TAB_VALUES: readonly ChatsTab[] = ['all', 'shared', 'archived']
+const parseChatsTab = (value: string | null): ChatsTab => (value === 'shared' || value === 'archived' ? value : 'all')
 
 function LibraryTabDropdown<T extends string>({
   value, values, labels, descriptions, onChange,
@@ -109,25 +115,37 @@ export default function ChatsPage() {
 }
 
 function ChatsPageInner() {
-  const { push } = useRouter()
+  const { push, replace } = useRouter()
   const searchParams    = useSearchParams()
   const { chats, isLoading, hasMore, loadMore, rename, remove, removeLocal, star, archive } = useChatHistoryContext()
   const { projects, addChat }                     = useProjects()
   const { pins, isOpen, chatFilter, openForChat } = usePinboard()
 
-  // `?tab=archived` — used by the archived-chat page's own back button
-  // (TopBar) to land directly on the Archived tab instead of "All chats".
-  const [chatsTab, setChatsTab] = useState<ChatsTab>(
-    () => (searchParams.get('tab') === 'archived' ? 'archived' : 'all'),
-  )
+  // `?tab=archived` / `?tab=shared` — the archived-chat page's own back button (TopBar) lands
+  // directly on Archived, and the tab is kept in the URL so a link or reload opens the same tab.
+  const [chatsTab, setChatsTab] = useState<ChatsTab>(() => parseChatsTab(searchParams.get('tab')))
+  const [sharedItems,   setSharedItems]   = useState<SharedChatItem[]>([])
+  const [sharedLoading, setSharedLoading] = useState(false)
+  // Shared chats load once, the first time the Shared tab shows (from a click or the URL).
+  const sharedRequestedRef = useRef(false)
+  const loadShared = useCallback(() => {
+    if (sharedRequestedRef.current) return
+    sharedRequestedRef.current = true
+    setSharedLoading(true)
+    listSharedWithMe()
+      .then(setSharedItems)
+      .catch(() => { sharedRequestedRef.current = false; toast.error('Failed to load shared chats') })
+      .finally(() => setSharedLoading(false))
+  }, [])
 
   // Re-sync any time the URL's ?tab= changes from outside this page — a
   // query-only same-route navigation Next doesn't remount for, so the
   // `useState` initializer above would otherwise only ever run once.
   useEffect(() => {
-    const urlTab: ChatsTab = searchParams.get('tab') === 'archived' ? 'archived' : 'all'
+    const urlTab = parseChatsTab(searchParams.get('tab'))
     setChatsTab(prev => (prev === urlTab ? prev : urlTab))
-  }, [searchParams])
+    if (urlTab === 'shared') loadShared()
+  }, [searchParams, loadShared])
 
   const pinCountMap = useMemo(() => {
     const map: Record<string, number> = {}
@@ -141,11 +159,12 @@ function ChatsPageInner() {
   const [selectedIds,   setSelectedIds]   = useState<Set<string>>(new Set())
   const [moveModalOpen, setMoveModalOpen] = useState(false)
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [bulkDeleteFiles, setBulkDeleteFiles] = useState(false)
+  const queryClient = useQueryClient()
+  const { orgKey } = useLibraryViewer()
   const [searchQuery,   setSearchQuery]   = useState('')
   const [searchOpen,    setSearchOpen]    = useState(false)
   const [isMoving,      setIsMoving]      = useState(false)
-  const [sharedItems,   setSharedItems]   = useState<SharedChatItem[]>([])
-  const [sharedLoading, setSharedLoading] = useState(false)
 
   // ── Derived ──────────────────────────────────────────────────────────────────
 
@@ -200,14 +219,9 @@ function ChatsPageInner() {
   const handleChatsTabChange = useCallback((tab: ChatsTab) => {
     setChatsTab(tab)
     if (tab !== 'all') exitSelection()
-    if (tab === 'shared' && sharedItems.length === 0) {
-      setSharedLoading(true)
-      listSharedWithMe()
-        .then(setSharedItems)
-        .catch(() => toast.error('Failed to load shared chats'))
-        .finally(() => setSharedLoading(false))
-    }
-  }, [exitSelection, sharedItems.length])
+    if (tab === 'shared') loadShared()
+    replace(tab === 'all' ? CHATS_ROUTE : `${CHATS_ROUTE}?tab=${tab}`, { scroll: false })
+  }, [exitSelection, loadShared, replace])
 
   // ── Chats actions ─────────────────────────────────────────────────────────────
 
@@ -232,17 +246,23 @@ function ChatsPageInner() {
 
   const handleDelete = useCallback(async () => {
     if (selectedIds.size === 0) return
-    const count = selectedIds.size
+    const ids = [...selectedIds]
+    // Same flag as the single Delete chat dialog: the server moves each chat's saved files to Trash with
+    // it. Listing every chat's files first would cost a few requests per chat, so the box covers them all.
+    for (const id of ids) deleteFilesWithChat(id, bulkDeleteFiles)
     try {
-      await Promise.all([...selectedIds].map((id) => remove(id)))
-      toast.success(`Deleted ${count} chat${count > 1 ? 's' : ''}`)
+      const results = await Promise.all(ids.map((id) => remove(id)))
+      const count = results.filter(Boolean).length
+      // remove() already toasted each failure.
+      if (count > 0) toast.success(`Deleted ${count} chat${count > 1 ? 's' : ''}${bulkDeleteFiles ? ' and their saved files' : ''}`)
       exitSelection()
-    } catch {
-      toast.error('Failed to delete some chats')
     } finally {
+      for (const id of ids) takeTrashedWithChat(id)
+      if (bulkDeleteFiles) void queryClient.invalidateQueries({ queryKey: libraryKeys.all(orgKey) })
       setBulkDeleteOpen(false)
+      setBulkDeleteFiles(false)
     }
-  }, [selectedIds, remove, exitSelection])
+  }, [selectedIds, bulkDeleteFiles, remove, exitSelection, queryClient, orgKey])
 
   const handleMoveToProject = useCallback(async (projectId: string) => {
     if (selectedIds.size === 0) return
@@ -365,7 +385,7 @@ function ChatsPageInner() {
               >
                 {chatsTab === 'all' && (
                   <Button variant="outline" onClick={enterSelection}>
-                    Move to project
+                    Select
                   </Button>
                 )}
                 <Button
@@ -691,10 +711,18 @@ function ChatsPageInner() {
       {bulkDeleteOpen && (
         <ConfirmModal
           title={`Delete ${selectedIds.size} chat${selectedIds.size > 1 ? 's' : ''}?`}
-          description="This can't be undone."
+          description={
+            <span style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <span>Files these chats saved stay in Library unless you delete them too.</span>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <Checkbox checked={bulkDeleteFiles} onCheckedChange={(value) => setBulkDeleteFiles(value === true)} aria-label="Also delete the files these chats saved" />
+                <span>Also delete the files these chats saved</span>
+              </label>
+            </span>
+          }
           confirmLabel="Delete"
           onConfirm={handleDelete}
-          onClose={() => setBulkDeleteOpen(false)}
+          onClose={() => { setBulkDeleteOpen(false); setBulkDeleteFiles(false) }}
         />
       )}
 

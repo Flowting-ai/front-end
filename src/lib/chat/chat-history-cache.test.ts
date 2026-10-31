@@ -7,6 +7,7 @@ import {
   patchChat,
   prependChat,
   removeChats,
+  restoreChat,
   type ChatPages,
 } from './chat-history-cache'
 
@@ -46,5 +47,15 @@ describe('chat history pages', () => {
     expect(isPlaceholderTitle('New chat')).toBe(true)
     expect(isPlaceholderTitle(undefined)).toBe(true)
     expect(isPlaceholderTitle('Trip plan')).toBe(false)
+  })
+
+  it('puts back only the chat whose delete failed, where it was', () => {
+    const snapshot = pages([chat('a'), chat('b'), chat('c')], [chat('d')])
+    // b and c were deleted together; c's delete succeeded, b's failed.
+    const now = removeChats(snapshot, ['b', 'c'])
+    const restored = restoreChat(now, snapshot, 'b')
+    expect(restored?.pages.map(p => p.chats.map(c => c.id))).toEqual([['a', 'b'], ['d']])
+    expect(restoreChat(restored, snapshot, 'b')).toBe(restored)
+    expect(restoreChat(now, snapshot, 'zz')).toBe(now)
   })
 })

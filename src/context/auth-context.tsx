@@ -311,6 +311,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // the 401s this logout causes) would restart the redirect and abort the first.
     if (isLoggingOut()) return;
     markLoggingOut();
+    // What this browser keeps for the signed-in user goes now: an old signed-in-at would sign the
+    // next session out at once (SessionTimeoutGuard), and the next person would see these recents.
+    // (The React state is left alone: the page is navigating away.)
+    clearSessionTiming();
+    clearSearchRecents();
+    clearOrgIdCache();
     // Other tabs share the cleared session cookie but still hold a token in
     // memory, so tell them to sign out too.
     broadcastLogout();
@@ -401,16 +407,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isHydrated || !jwtToken) return;
     let mounted = true;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
 
-    currentUser.load()
-      .then((profile) => {
-        if (mounted && profile) setUser(mapProfileToUser(profile, getInMemoryAccessToken()));
-      })
-      .catch((error) => {
-        console.error("Failed to load user profile", error);
-      });
+    // Retried with backoff: the sidebar and the chat gate wait on `user`, so one failed load (a 429
+    // or a blip) used to leave them as skeletons until a manual reload. Sign-in errors are not retried.
+    const retry = (attempt: number) => {
+      if (mounted && attempt < 4) retryTimer = setTimeout(() => load(attempt + 1), 1000 * 2 ** attempt);
+    };
+    const load = (attempt: number) => {
+      // A non-ok response resolves to null (fetchCurrentUser), so null is retried too.
+      (attempt === 0 ? currentUser.load() : currentUser.refresh())
+        .then((profile) => {
+          if (!mounted) return;
+          if (profile) setUser(mapProfileToUser(profile, getInMemoryAccessToken()));
+          else retry(attempt);
+        })
+        .catch((error) => {
+          console.error("Failed to load user profile", error);
+          const status = (error as { status?: number })?.status;
+          if (status === 401 || status === 403) return;
+          retry(attempt);
+        });
+    };
+    load(0);
 
-    return () => { mounted = false; };
+    return () => { mounted = false; clearTimeout(retryTimer); };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- jwtToken intentionally omitted; see comment above
   }, [isHydrated]);
 

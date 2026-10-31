@@ -20,7 +20,6 @@ export const ROUTE_INVENTORY: Record<string, { access: RouteAccess; upstream: st
   "api/download": { access: "session", upstream: "Souvenir S3 buckets", note: "Exact hosts, no redirects, 200 MB cap." },
   "api/health": { access: "public", upstream: "backend /health", note: "Uptime check: config variable names and backend reachability only; 503 when degraded." },
   "api/lab/[...path]": { access: "session", upstream: "127.0.0.1:8777", note: "Dev only: 404 in production; three known paths." },
-  "auth/[auth0]": { access: "auth0-sdk", upstream: "Auth0", note: "SDK login/callback/profile." },
-  "auth/logout": { access: "auth0-sdk", upstream: "Auth0", note: "Federated logout with an allowlisted returnTo." },
+  "auth/[auth0]": { access: "auth0-sdk", upstream: "Auth0", note: "SDK login/callback/profile/logout." },
   "dispatch/[...path]": { access: "public", upstream: "api-js.mixpanel.com", note: "Analytics beacons fire before login; five known routes, 1 MB cap, cookies stripped." },
 }

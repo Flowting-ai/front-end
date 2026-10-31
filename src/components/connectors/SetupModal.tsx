@@ -37,12 +37,20 @@ const heading: React.CSSProperties = { margin: 0, color: 'var(--neutral-900)', f
 const muted: React.CSSProperties = { margin: 0, color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }
 const panel: React.CSSProperties = { borderRadius: 12, background: 'var(--neutral-white)', boxShadow: '0 0 0 1px var(--neutral-100)' }
 
-export function Modal({ label, onDismiss, children }: { label: string; onDismiss: () => void; children: React.ReactNode }) {
+export function Modal({ label, onDismiss, busy = false, dirty = false, children }: {
+  label: string
+  onDismiss: () => void
+  /** A save is running: Esc and outside clicks do nothing, so its result has somewhere to land. */
+  busy?: boolean
+  /** Something is typed: an outside click keeps it open (Esc, Cancel and the X still close). */
+  dirty?: boolean
+  children: React.ReactNode
+}) {
   const panelRef = useRef<HTMLDivElement>(null)
-  // Tab stays inside, Esc dismisses, and focus returns to the opener on close.
-  useFocusTrap(panelRef, true, onDismiss)
+  // Tab stays inside, Esc dismisses (not mid-save), and focus returns to the opener on close.
+  useFocusTrap(panelRef, true, () => { if (!busy) onDismiss() })
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'grid', placeItems: 'center', padding: SPACE.xxl, background: 'var(--overlay-bg)' }} onClick={onDismiss}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'grid', placeItems: 'center', padding: SPACE.xxl, background: 'var(--overlay-bg)' }} onClick={busy || dirty ? undefined : onDismiss}>
       <div
         ref={panelRef}
         role="dialog"
@@ -121,7 +129,7 @@ export function SetupModal({
   }
 
   return (
-    <Modal label={`${reconnecting ? 'Reconnect' : 'Connect'} ${catalog.name}`} onDismiss={cancel}>
+    <Modal label={`${reconnecting ? 'Reconnect' : 'Connect'} ${catalog.name}`} onDismiss={cancel} busy={flow.state === 'submitting'} dirty={Object.values(values).some(v => v.trim() !== '')}>
       <div style={{ display: 'flex', gap: SPACE.lg, marginBottom: SPACE.xl }}>
         <ConnectorGlyph slug={catalog.slug} name={catalog.name} logoUrl={catalog.logoUrl} size={36} />
         <div>

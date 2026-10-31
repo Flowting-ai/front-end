@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useOrg } from '@/context/org-context'
@@ -13,6 +13,7 @@ import {
 } from '@/lib/api/connectors'
 import { connectorDetailQuery, linkedConnectorsQuery, mergeCatalog } from '@/lib/connectors/connector-queries'
 import { queryKeys } from '@/lib/query-keys'
+import { ORG_CONNECTORS_ROUTE } from '@/lib/routes'
 import type { ConnectorPick } from '@/lib/api/recommendations'
 import type { SetupFlowResult } from '@/lib/useConnectorSetupFlow'
 import { ConnectionsView } from './ConnectionsView'
@@ -27,6 +28,7 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   const { orgId, orgReady } = useOrg()
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
+  const router = useRouter()
   // Linked connectors are server state (React Query: refetched after every
   // connector change via bustConnectorCatalogCache, and on window focus, which
   // picks up a connect finished in another tab). `extras` holds catalogue rows
@@ -38,6 +40,27 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   const [view, setView] = useState<View>('connections')
   const [activeSlug, setActiveSlug] = useState<string | null>(null)
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null)
+
+  // The open connector and account live in the URL (?open=<slug>&account=<id>), so browser Back and
+  // Forward move between the list, a connector and an account, and a reload stays put. (Not
+  // ?connector=, which means "set this one up" below.) URL changes, ours or the browser's, set the view.
+  const openParam = searchParams.get('open')
+  const accountParam = searchParams.get('account')
+  const urlView = `${openParam ?? ''}|${accountParam ?? ''}`
+  const [syncedUrlView, setSyncedUrlView] = useState<string | null>(null)
+  if (urlView !== syncedUrlView) {
+    setSyncedUrlView(urlView)
+    setActiveSlug(openParam)
+    setActiveAccountId(openParam ? accountParam : null)
+    setView(!openParam ? 'connections' : accountParam ? 'account' : 'connector')
+  }
+  const showView = useCallback((slug: string | null, accountId: string | null = null) => {
+    const params = new URLSearchParams()
+    if (slug) params.set('open', slug)
+    if (slug && accountId) params.set('account', accountId)
+    const qs = params.toString()
+    router.push(qs ? `${ORG_CONNECTORS_ROUTE}?${qs}` : ORG_CONNECTORS_ROUTE, { scroll: false })
+  }, [router])
 
   const [setupOpen, setSetupOpen] = useState(false)
   const [setupMode, setSetupMode] = useState<'connect' | 'reconnect'>('connect')
@@ -84,7 +107,10 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   // permissions (only GET /connectors/{slug} has them), so the open connector
   // reads its detail query and falls back to the list row while it loads or
   // if it fails.
-  const detailQ = useQuery({ ...connectorDetailQuery(activeSlug ?? ''), enabled: !!activeSlug })
+  // `deletingSlug` switches the detail query off while its API is being
+  // deleted: deleteCustomApi's cache bust would otherwise refetch it and 404.
+  const [deletingSlug, setDeletingSlug] = useState<string | null>(null)
+  const detailQ = useQuery({ ...connectorDetailQuery(activeSlug ?? ''), enabled: !!activeSlug && activeSlug !== deletingSlug })
   const listRow = catalog.find(row => row.slug === activeSlug) ?? null
   const active = (detailQ.data?.slug === activeSlug ? detailQ.data : undefined) ?? listRow
   const activeAccount = active?.connections.find(row => row.id === activeAccountId) ?? null
@@ -94,9 +120,8 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   }, [queryClient])
 
   const openConnectorDetail = useCallback((row: ConnectorCatalog) => {
-    setActiveSlug(row.slug)
-    setView('connector')
-  }, [])
+    showView(row.slug)
+  }, [showView])
 
   const selectFromCatalog = useCallback((row: ConnectorCatalog | ConnectorPick) => {
     if ('connections' in row) mergeRows([row])
@@ -154,9 +179,8 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   }, [])
 
   const openAccount = useCallback((account: ConnectorConnection) => {
-    setActiveAccountId(account.id)
-    setView('account')
-  }, [])
+    showView(activeSlug, account.id)
+  }, [showView, activeSlug])
 
   const reconnectAccount = useCallback((account: ConnectorConnection) => {
     setActiveAccountId(account.id)
@@ -166,15 +190,12 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   }, [])
 
   const backToConnections = useCallback(() => {
-    setView('connections')
-    setActiveSlug(null)
-    setActiveAccountId(null)
-  }, [])
+    showView(null)
+  }, [showView])
 
   const backToConnector = useCallback(() => {
-    setView('connector')
-    setActiveAccountId(null)
-  }, [])
+    showView(activeSlug)
+  }, [showView, activeSlug])
 
   // Was a useEffect bailing the view back to 'connections' whenever the
   // active connector/account it needs has gone missing (e.g. removed
@@ -186,7 +207,14 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   // `invalidView` false on the very next evaluation.
   const accountMissing = view !== 'connector' && !activeAccount
   const invalidView = !loading && view !== 'connections' && (!active || accountMissing)
-  if (invalidView) backToConnections()
+  // Shown at once (state), with the URL put right just after (an effect: no navigation during render).
+  if (invalidView) {
+    setView('connections')
+    setActiveSlug(null)
+    setActiveAccountId(null)
+  }
+  const urlNeedsReset = !loading && !!openParam && !invalidView && view === 'connections'
+  useEffect(() => { if (urlNeedsReset) router.replace(ORG_CONNECTORS_ROUTE, { scroll: false }) }, [urlNeedsReset, router])
 
   const handleSetupConnected = useCallback((_result: SetupFlowResult) => {
     setSetupOpen(false)
@@ -196,11 +224,20 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   // Throws on failure so ConfirmModal stays open and toasts the error.
   const confirmDeleteApi = useCallback(async () => {
     if (!active) return
-    await deleteCustomApi(active.slug)
+    const slug = active.slug
+    setDeletingSlug(slug)
+    try {
+      await deleteCustomApi(slug)
+    } catch (err) {
+      setDeletingSlug(null)
+      throw err
+    }
     toast.success(`${active.name} deleted`)
     backToConnections()
+    queryClient.removeQueries({ queryKey: queryKeys.connectors.detail(slug), exact: true })
+    setDeletingSlug(null)
     void fetchAll()
-  }, [active, backToConnections, fetchAll])
+  }, [active, backToConnections, fetchAll, queryClient])
 
   const requestRemove = useCallback((account: ConnectorConnection) => {
     setRemoveAccount(account)

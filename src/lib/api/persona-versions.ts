@@ -4,7 +4,7 @@ import { apiFetch, apiFetchJson } from "./client";
 import { personaVersionListItemSchema, personaVersionSchema, type PersonaDocumentResponse, type PersonaVersionListItem, type PersonaVersionResponse } from "./persona-schemas";
 import { diffKnowledgeForInheritance } from "@/lib/persona-version-logic";
 import { trackFeature } from "@/lib/analytics/events";
-import { PERSONA_VERSIONS_ENDPOINT, PERSONA_VERSION_DETAIL_ENDPOINT, PERSONA_VERSION_DOCUMENT_ENDPOINT, PERSONA_VERSION_DOCUMENT_DELETE_ENDPOINT, PERSONA_VERSION_FILES_ENDPOINT, PERSONA_VERSION_KNOWLEDGE_URL_ENDPOINT, PERSONA_VERSION_BLOCKED_CONNECTORS_ENDPOINT, PERSONA_VERSION_BLOCKED_CONNECTOR_ENDPOINT, directUpload } from "@/lib/config";
+import { PERSONA_VERSIONS_ENDPOINT, PERSONA_VERSION_DETAIL_ENDPOINT, PERSONA_VERSION_DOCUMENT_ENDPOINT, PERSONA_VERSION_DOCUMENT_DELETE_ENDPOINT, PERSONA_VERSION_IMAGE_ENDPOINT, PERSONA_VERSION_KNOWLEDGE_URL_ENDPOINT, PERSONA_VERSION_BLOCKED_CONNECTORS_ENDPOINT, PERSONA_VERSION_BLOCKED_CONNECTOR_ENDPOINT, directUpload } from "@/lib/config";
 import type { Persona } from "./persona-model";
 
 // ── Version CRUD ──────────────────────────────────────────────────────────────
@@ -164,8 +164,6 @@ export async function updateVersion(params: {
   image?: File | null;
   /** Existing image URL to carry forward when no new image file is provided. */
   imageUrl?: string | null;
-  files?: File[];
-  removeDocumentIds?: string[];
 }): Promise<PersonaVersionResponse> {
   // PATCH accepts JSON-only metadata (UpdatePersona schema).
   const patchBody: Record<string, unknown> = {};
@@ -181,20 +179,15 @@ export async function updateVersion(params: {
     { method: "PATCH", body: JSON.stringify(patchBody) },
   ));
 
-  // Files, image, and removeDocumentIds go through PUT /files (separate endpoint).
+  // The picture goes through PUT /image; back-end 9079f6e3 removed PUT /files, which also took knowledge files.
   let image: File | null = params.image ?? null;
   if (!image && params.imageUrl) image = await urlToImageFile(params.imageUrl);
-  const hasFiles = image || (params.files?.length ?? 0) > 0 || (params.removeDocumentIds?.length ?? 0) > 0;
-  if (hasFiles) {
+  if (image) {
     const form = new FormData();
-    if (image) form.append("image", image);
-    params.files?.forEach(f => form.append("files", f));
-    if (params.removeDocumentIds && params.removeDocumentIds.length > 0) {
-      form.append("remove_document_ids", params.removeDocumentIds.join(","));
-    }
+    form.append("image", image);
     // Direct-to-backend: file uploads can exceed the 4.5 MB serverless proxy cap.
     result = personaVersionSchema.parse(await apiFetchJson<unknown>(
-      directUpload(PERSONA_VERSION_FILES_ENDPOINT(params.repoId, params.versionId)),
+      directUpload(PERSONA_VERSION_IMAGE_ENDPOINT(params.repoId, params.versionId)),
       { method: "PUT", body: form },
     ));
   }

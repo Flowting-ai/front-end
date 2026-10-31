@@ -24,6 +24,7 @@ import { agentFixModelHref } from '@/lib/notifications/build'
 import { useDevNotificationsVersion } from '@/lib/notifications/dev'
 import { useActiveChatAgentId } from '@/lib/active-chat-agent-store'
 import { toastAgentDetailsOpened, toastAgentDetailsClosed } from '@/lib/agent-details-toast'
+import { agentChatBlocked } from '@/lib/agent-chat-gate'
 
 export const AGENT_SELECT_EVENT = 'agent:select'
 
@@ -32,6 +33,7 @@ export const AGENT_SELECT_EVENT = 'agent:select'
  *  shared AppLayout tree (via ProjectPanelSidebar), outside the page's own
  *  component tree. Same cross-tree pattern Pinboard uses for "pin:insert". */
 export function emitAgentSelect(persona: SelectedPersonaInfo) {
+  if (agentChatBlocked()) return
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent<SelectedPersonaInfo>(AGENT_SELECT_EVENT, { detail: persona }))
   }

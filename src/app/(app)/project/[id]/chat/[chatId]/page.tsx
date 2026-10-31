@@ -679,6 +679,7 @@ function ProjectChatPageInner() {
           >
             <ChatInterface
               chatId={activeChatId}
+              projectId={params.id}
               onChatCreated={(newChatId) => {
                 // The user may have navigated away (e.g. sidebar "New chat")
                 // while this first message was still being created. The chat is

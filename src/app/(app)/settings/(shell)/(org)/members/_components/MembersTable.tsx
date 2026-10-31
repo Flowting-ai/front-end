@@ -170,8 +170,10 @@ export function MembersTable({
             // letting them open the menu and get rejected by the network
             // after confirming is worse than not opening it at all.
             const canManageRole = isAdmin && member.inviteStatus !== 'invite_sent'
-            const canRemove = isAdmin && member.inviteStatus !== 'invite_sent'
             const isSelf = !!currentUserEmail && member.email === currentUserEmail
+            // Never on your own row: leaving goes through General > Leave workspace, and an
+            // admin removing themselves could leave the workspace with no admin.
+            const canRemove = isAdmin && member.inviteStatus !== 'invite_sent' && !isSelf
             const lockSelfDemotion = isSelf && displayRoleFor(member) === 'admin' && adminCount <= 1
 
             return (

@@ -10,21 +10,31 @@ import { Button, IconButton } from '@/components/ui/button'
 
 // Shared by every project-delete entry point (the All Projects grid/list and
 // the single project page's own "Delete" menu item) so a destructive action
-// this permanent — a project's chats are gone for good, even for
-// Workspace/Shared projects whose *project* row gets a 30-day Trash window —
 // always shows the same confirmation first, never fires straight from a
-// single click anywhere in the app.
+// single click anywhere in the app. What the delete does depends on the type
+// (back-end project.py delete/restore): a Personal project and its chats are
+// hard-deleted; a Workspace/Shared project and its chats go to Recently
+// Deleted for 30 days and can be restored. Files are removed either way.
 
 export interface DeleteProjectModalProps {
   open:        boolean
   projectName: string
   chatCount:   number
+  /** Workspace/Shared projects are soft-deleted and restorable for 30 days. */
+  restorable?: boolean
   loading?:    boolean
   onConfirm:   () => void
   onClose:     () => void
 }
 
-export function DeleteProjectModal({ open, projectName, chatCount, loading = false, onConfirm, onClose }: DeleteProjectModalProps) {
+function deleteMessage(projectName: string, chatCount: number, restorable: boolean): string {
+  const chats = chatCount > 0 ? ` and its ${chatCount} ${chatCount === 1 ? 'chat' : 'chats'}` : ''
+  return restorable
+    ? `"${projectName}"${chats} will move to Recently Deleted, where the owner can restore ${chatCount > 0 ? 'them' : 'it'} for 30 days. Its files are removed now.`
+    : `"${projectName}"${chats} will be permanently deleted. This action cannot be undone.`
+}
+
+export function DeleteProjectModal({ open, projectName, chatCount, restorable = false, loading = false, onConfirm, onClose }: DeleteProjectModalProps) {
   const mounted = useMounted()
   const panelRef = React.useRef<HTMLDivElement>(null)
   useFocusTrap(panelRef, open && mounted, () => { if (!loading) onClose() })
@@ -161,7 +171,7 @@ export function DeleteProjectModal({ open, projectName, chatCount, loading = fal
                     margin:     0,
                   }}
                 >
-                  {`"${projectName}"${chatCount > 0 ? ` contains ${chatCount} ${chatCount === 1 ? 'chat' : 'chats'}. Deleting this project will permanently remove all its chats.` : ' will be permanently deleted.'} This action cannot be undone.`}
+                  {deleteMessage(projectName, chatCount, restorable)}
                 </p>
               </div>
 

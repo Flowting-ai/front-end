@@ -52,7 +52,7 @@ const errorText = 'm-0 mt-1 text-[length:var(--font-size-caption)] text-[var(--r
 export function ScheduleEditModal({ isOpen, schedule, onSave, onClose }: ScheduleEditModalProps) {
   const isCreate = !schedule
   const form = useZodForm(scheduleFormSchema, initialFormValues(schedule))
-  const { values, setField, errors, isValid, reset } = form
+  const { values, setField, errors, isValid, isDirty, reset } = form
 
   const nameInputRef = useRef<HTMLInputElement>(null)
   const cardRef      = useRef<HTMLDivElement>(null)
@@ -102,7 +102,8 @@ export function ScheduleEditModal({ isOpen, schedule, onSave, onClose }: Schedul
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={springs.fast}
-          onClick={onClose}
+          // A stray click outside must not throw away typed details: once edited, only Cancel, the X or Esc close it.
+          onClick={isDirty ? undefined : onClose}
           className="fixed inset-0 z-20 flex items-center justify-center p-6 bg-[color-mix(in_srgb,var(--neutral-black)_40%,transparent)]"
         >
           <m.div

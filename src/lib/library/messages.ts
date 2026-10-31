@@ -131,7 +131,7 @@ export const FILE_MESSAGES = {
   shareQuiet: "Teammates can use shared files in their chats and routines.",
   addPeoplePlaceholder: "Add people or the whole workspace",
   wholeWorkspace: "Whole workspace",
-  everyoneInSouvenir: "Everyone in Souvenir",
+  everyoneInSouvenir: "Everyone in your workspace",
   /** Who has access, when no one but the owner can open the file. */
   privateFile: "Private",
   onlyYou: "Only you",

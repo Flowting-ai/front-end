@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 import Link from 'next/link'
 import { canSchedule } from "@/lib/schedules/schedule-permissions"
 import {
@@ -136,10 +136,11 @@ export function ScheduleDetailView({
 }: ScheduleDetailViewProps) {
   // Someone else's org schedule: read and copy only (lib/schedules/schedule-permissions.ts).
   const readOnly = !canSchedule('edit', schedule)
-  const [isActive, setIsActive] = useState(schedule.isActive)
+  // Straight from the schedule: the toggle updates it at once and puts it back if the save fails
+  // (toggleScheduleActive). A local copy here would keep showing the failed change.
+  const isActive = schedule.isActive
 
   const handleToggle = (v: boolean) => {
-    setIsActive(v)
     onToggleActive?.(v)
   }
 

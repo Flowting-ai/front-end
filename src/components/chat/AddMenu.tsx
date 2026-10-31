@@ -26,6 +26,7 @@ import { CHAT_ROUTE } from '@/lib/routes'
 import { MentionAvatar } from '@/components/chat/AgentMentionMenu'
 import { USE_STYLE_OPTIONS } from '@/lib/tone-options'
 import { AGENTS_NEW_ROUTE } from '@/lib/routes'
+import { AGENT_CHAT_ENABLED, COMPOSER_STYLE_ENABLED, COMPOSER_WEB_SEARCH_ENABLED } from '@/lib/feature-flags'
 import { clearComposerNotices } from '@/lib/library/upload/composer-uploads'
 export type { SelectedPersonaInfo } from '@/lib/chat-personas'
 
@@ -76,6 +77,7 @@ export function ChatAddMenu({
   const styleMenuOpen      = openSubmenu === 'style'
   const personaMenuOpen    = openSubmenu === 'persona'
   const pinFoldersMenuOpen = openSubmenu === 'pinFolders'
+  const showPersona        = !hidePersona && AGENT_CHAT_ENABLED
   const { personas, loading: loadingPersonas } = useSelectableChatPersonas(personaMenuOpen)
   const { push } = useRouter()
   // On /chat the agent list is the Agents side panel (same one the floating toolbar opens); elsewhere
@@ -100,10 +102,10 @@ export function ChatAddMenu({
         {onAddFromLibraryClick && (
           <Dropdown.Item label="Add from Library" icon={<FolderLibraryIcon />} fluid onClick={onAddFromLibraryClick} />
         )}
-        {!hideWebSearch && (
+        {!hideWebSearch && COMPOSER_WEB_SEARCH_ENABLED && (
           <Dropdown.Item label="Web search" icon={<GlobalSearchIcon />} fluid showSwitch switchChecked={webSearchEnabled} onSwitchChange={onWebSearchChange} />
         )}
-        {!hideStyle && (
+        {!hideStyle && COMPOSER_STYLE_ENABLED && (
           /* Dropdown.Float keeps submenu clicks from bubbling to the ChatInput's
              close-on-click wrapper and dismissing the outer dropdown prematurely. */
           <Dropdown.Float
@@ -130,10 +132,10 @@ export function ChatAddMenu({
             </Dropdown>
           </Dropdown.Float>
         )}
-        {!hidePersona && onChatPage && (
+        {showPersona && onChatPage && (
           <Dropdown.Item label="Add agent" icon={<UserAiIcon />} fluid rightIcon={<ArrowRightOneIcon />} selected={!!selectedPersonaId} onClick={openAgentsPanel} />
         )}
-        {!hidePersona && !onChatPage && (
+        {showPersona && !onChatPage && (
           <Dropdown.Float
             open={personaMenuOpen}
             onOpenChange={(open) => setOpenSubmenu(open ? 'persona' : null)}

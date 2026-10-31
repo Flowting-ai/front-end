@@ -1,3 +1,5 @@
+import { AGENT_CHAT_ENABLED } from "@/lib/feature-flags"
+
 /**
  * The form fields each backend chat endpoint accepts. Since 19 Oct the backend
  * answers `400 bad_request` to any other field (services/chat/router.py
@@ -9,8 +11,10 @@
 
 const CHAT_CREATE = [
   "input", "model_id", "algorithm", "pin_ids", "system_instruction", "thinking", "effort",
-  "project_id", "persona_id", "files", "libraryFileIds", "saveToLibrary", "libraryDontSave", "librarySourcesOff",
-] as const
+  "project_id", "files", "libraryFileIds", "saveToLibrary", "libraryDontSave", "librarySourcesOff",
+  // Dropped by back-end 9079f6e3; only sent again once agent chat is switched back on.
+  ...(AGENT_CHAT_ENABLED ? ["persona_id"] : []),
+]
 
 export const CHAT_CREATE_FIELDS: ReadonlySet<string> = new Set(CHAT_CREATE)
 export const CHAT_STREAM_FIELDS: ReadonlySet<string> = new Set([...CHAT_CREATE, "reference_message_id", "replace_message_id"])

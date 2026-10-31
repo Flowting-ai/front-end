@@ -85,10 +85,13 @@ export function renameFileOptions(queryClient: QueryClient, orgKey: string) {
     onMutate: async (vars) => {
       forgetWarmFile(vars.id);
       await cancelRowReads(queryClient, orgKey);
+      // The name as it is now, which may have changed since the dialog opened (another tab, a refetch).
+      const before = cachedRow(queryClient, orgKey, vars.id);
       patchFileEverywhere(queryClient, orgKey, vars.id, { title: vars.title.trim(), titleIsAiGenerated: false });
+      return before ? { title: before.title, titleIsAiGenerated: before.titleIsAiGenerated } : undefined;
     },
-    onError: (error, vars) => {
-      patchFileEverywhere(queryClient, orgKey, vars.id, { title: vars.previousTitle, titleIsAiGenerated: vars.previousAi });
+    onError: (error, vars, before) => {
+      patchFileEverywhere(queryClient, orgKey, vars.id, before ?? { title: vars.previousTitle, titleIsAiGenerated: vars.previousAi });
       fail(error, "rename", MESSAGES.renameFailed);
     },
     // The server's row is the truth: write it in, and mark lists stale without a refetch flash.
@@ -112,13 +115,18 @@ async function restoreFileNow(queryClient: QueryClient, org: string, id: string)
   void queryClient.invalidateQueries({ queryKey: libraryKeys.detail(org, id) });
 }
 
-/** Whether the cached row or detail says the viewer owns the file. */
-function cachedIsOwner(queryClient: QueryClient, org: string, id: string): boolean {
+/** The file's row as any cached list or detail holds it. */
+function cachedRow(queryClient: QueryClient, org: string, id: string) {
   for (const [, data] of queryClient.getQueriesData({ queryKey: libraryKeys.all(org) })) {
     const row = findRowIn(data, id);
-    if (row) return row.access === "owner";
+    if (row) return row;
   }
-  return false;
+  return undefined;
+}
+
+/** Whether the cached row or detail says the viewer owns the file. */
+function cachedIsOwner(queryClient: QueryClient, org: string, id: string): boolean {
+  return cachedRow(queryClient, org, id)?.access === "owner";
 }
 
 /** `title` is the display name the toasts use; without it the name is looked up in the cache. */

@@ -100,7 +100,9 @@ const NO_MEMBERS: OrgMember[] = []
 export function OrgProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const qc = useQueryClient()
-  const userId = user ? String(user.id) : ''
+  // The Auth0 subject, as the other user-scoped caches use: /users/me carries no `id`, so String(user.id)
+  // was "undefined" and every account on this browser shared one cached org id.
+  const userId = user?.auth0Id ?? ''
 
   // Resolve the active org id. Prefer `org_id` from the profile, but /users/me
   // doesn't always include it — so when it's missing, discover the user's org

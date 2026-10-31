@@ -193,8 +193,8 @@ export const PERSONA_VERSION_DOCUMENT_DELETE_ENDPOINT = (repoId: string, version
   withBase(`/persona/${repoId}/versions/${versionId}/document/${documentId}`);
 export const PERSONA_VERSION_KNOWLEDGE_URL_ENDPOINT = (repoId: string, versionId: string) =>
   withBase(`/persona/${repoId}/versions/${versionId}/knowledge-url`);
-export const PERSONA_VERSION_FILES_ENDPOINT = (repoId: string, versionId: string) =>
-  withBase(`/persona/${repoId}/versions/${versionId}/files`);
+export const PERSONA_VERSION_IMAGE_ENDPOINT = (repoId: string, versionId: string) =>
+  withBase(`/persona/${repoId}/versions/${versionId}/image`);
 export const PERSONA_VERSION_BLOCKED_CONNECTORS_ENDPOINT = (repoId: string, versionId: string) =>
   withBase(`/persona/${repoId}/versions/${versionId}/blocked-connectors`);
 export const PERSONA_VERSION_BLOCKED_CONNECTOR_ENDPOINT = (repoId: string, versionId: string, slug: string) =>

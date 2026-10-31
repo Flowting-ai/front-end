@@ -27,6 +27,7 @@ import type {
 import type { ReasoningSection } from "@/lib/reasoning";
 import { extractThinkingContent } from "@/lib/parsers/content-parser";
 import { INCOMPLETE_ANSWER_MESSAGE } from "@/lib/turn-outcome";
+import { EMPTY_TURN_MESSAGE } from "@/lib/model-error";
 
 // ── Chat list ─────────────────────────────────────────────────────────────────
 
@@ -350,6 +351,21 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
         tool_calls: normalizeToolCalls(raw),
         file_attachments: assistantAtts.length > 0 ? assistantAtts : undefined,
         image_links: imageLinks && imageLinks.length > 0 ? imageLinks : undefined,
+      });
+    } else if (userText) {
+      // The turn finished with no answer saved (e.g. reasoning or tools only):
+      // keep a placeholder so it does not vanish and can still be regenerated.
+      messages.push({
+        id: baseId,
+        role: "assistant",
+        content: "",
+        thinking: raw.reasoning ?? raw.thinking_content ?? undefined,
+        errorNotice: EMPTY_TURN_MESSAGE,
+        created_at: createdAt,
+        chat_id: chatId,
+        reasoning_sections: raw.reasoning_sections ?? undefined,
+        model_name: raw.model_name ?? undefined,
+        tool_calls: normalizeToolCalls(raw),
       });
     }
     return messages;

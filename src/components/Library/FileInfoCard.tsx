@@ -114,8 +114,12 @@ export function FileInfoCard({ file, viewerId, onManageAccess, onRename, onClose
   const usedCount = chats.length + routines.length + hidden
   const chatTotal = chats.length + (usage.data?.hiddenChats ?? 0)
   const routineTotal = routines.length + (usage.data?.hiddenRoutines ?? 0)
+  // Totals include the hidden ones; zero kinds are left out ("1 chat", not "1 chat, 0 routines").
   const usedSummary = usedCount
-    ? `${chatTotal} ${chatTotal === 1 ? 'chat' : 'chats'}, ${routineTotal} ${routineTotal === 1 ? 'routine' : 'routines'}`
+    ? [
+        chatTotal ? `${chatTotal} ${chatTotal === 1 ? 'chat' : 'chats'}` : '',
+        routineTotal ? `${routineTotal} ${routineTotal === 1 ? 'routine' : 'routines'}` : '',
+      ].filter(Boolean).join(', ')
     : 'Not used yet'
   const uses = [
     ...chats.map((chat) => ({ kind: 'chat' as const, id: chat.id, title: chat.title })),
@@ -196,7 +200,12 @@ export function FileInfoCard({ file, viewerId, onManageAccess, onRename, onClose
                 {allUses ? 'Show fewer' : `Show all ${uses.length}`}
               </button>
             )}
-            {hidden > 0 && <p style={{ margin: '4px 0 0', ...label }}>and {hidden} more you cannot see</p>}
+            {/* The summary above already counts these, so with nothing listed say which they are, not "N more". */}
+            {hidden > 0 && (
+              <p style={{ margin: uses.length ? '4px 0 0' : 0, ...label }}>
+                {uses.length ? `and ${hidden} more you cannot see` : `You cannot see ${hidden === 1 ? 'it' : 'them'}`}
+              </p>
+            )}
           </>
         )}
       </div>

@@ -19,11 +19,24 @@ import { NoFilesYet } from './SuggestedView'
 
 const visuallyHidden: React.CSSProperties = { position: 'absolute', width: 1, height: 1, margin: -1, padding: 0, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }
 
+type FilesViewProps = { query: LibraryQuery; setQuery: SetLibraryQuery; isPending: boolean }
+
 /** All files and Shared, and search results: loading, error, empty and ready are all explicit states. */
-export function FilesView({ query, setQuery, isPending }: { query: LibraryQuery; setQuery: SetLibraryQuery; isPending: boolean }) {
+export function FilesView(props: FilesViewProps) {
+  const { dialog, closeDialog, handle } = useFileActions()
+  // The dialogs stay mounted whatever the list shows: deleting the last row empties the list, and
+  // unmounting them there lost the dialog's close-on-success and later reopened it on its own.
+  return (
+    <>
+      <FilesViewContent {...props} handle={handle} />
+      <FileDialogs dialog={dialog} onClose={closeDialog} />
+    </>
+  )
+}
+
+function FilesViewContent({ query, setQuery, isPending, handle }: FilesViewProps & { handle: ReturnType<typeof useFileActions>['handle'] }) {
   const { viewerId, orgKey } = useLibraryViewer()
   const list = useLibraryFiles(query)
-  const { dialog, closeDialog, handle } = useFileActions()
   const tab = effectiveListTab(query)
   const searching = isSearching(query)
   const filtered = appliedFilterCount(query) > 0
@@ -93,7 +106,6 @@ export function FilesView({ query, setQuery, isPending }: { query: LibraryQuery;
         isRefreshing={list.isRefreshing || isPending}
         label={searching ? 'Search results' : tab === 'shared' ? 'Shared files' : 'All files'}
       />
-      <FileDialogs dialog={dialog} onClose={closeDialog} />
     </>
   )
 }

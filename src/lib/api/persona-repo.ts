@@ -229,7 +229,8 @@ export class PersonaRepo {
     const v = this.currentVersion;
     return {
       id: this.id,
-      name: this.name,
+      // Renames are saved on the version; the repo keeps the name it was created with.
+      name: v?.name || this.name,
       handle: this.handle,
       description: this.description,
       imageUrl: this.imageUrl,

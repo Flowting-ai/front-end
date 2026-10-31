@@ -1,6 +1,7 @@
 "use client";
 
-import { LibraryCitationsProvider, stripLibraryMarkers } from "@/components/Library/chat/library-citations";
+import { LibraryCitationsProvider } from "@/components/Library/chat/library-citations";
+import { messageCopyText } from "@/lib/copy-text";
 import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from "react";
 import Image from "next/image";
 import { createPortal } from "react-dom";
@@ -754,7 +755,7 @@ export function ChatMessage({
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(stripLibraryMarkers(message.content));
+      await navigator.clipboard.writeText(messageCopyText(message.content));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {

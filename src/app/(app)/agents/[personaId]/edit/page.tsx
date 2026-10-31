@@ -33,6 +33,7 @@ import { recordFromRepo } from '@/lib/agent-record'
 import { regenerateInstructions } from '@/lib/agent-generate'
 import { defaultAvatarChoice } from '@/components/PersonaCard/AnimatedPersonaAvatar'
 import { setStoredAvatarChoice, useStoredAvatarChoice } from '@/lib/avatar-choice'
+import { useNavGuard } from '@/context/nav-guard-context'
 import {
   AGENT_EDIT_ROUTE,
   AGENTS_ROUTE,
@@ -98,6 +99,15 @@ function EditAgentContent() {
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
+
+  // Leaving by the sidebar, a link or browser Back goes through the app's navigation guard, which
+  // asks before unsaved edits are dropped (the header Back has its own dialog via go()).
+  const { setIsDirty, setGuardMessage } = useNavGuard()
+  useEffect(() => {
+    setIsDirty(dirty)
+    setGuardMessage(dirty ? { title: 'Leave without saving?', description: 'Your changes to this agent will be lost.' } : null)
+  }, [dirty, setIsDirty, setGuardMessage])
+  useEffect(() => () => { setIsDirty(false); setGuardMessage(null) }, [setIsDirty, setGuardMessage])
 
   // ── Who may edit ────────────────────────────────────────────────────────────
   const viewerUserId = resolveViewerUserId(members, user?.email)

@@ -53,7 +53,8 @@ export function TeamInviteOnboardingProvider({
       })
       .catch((err: unknown) => {
         if (err instanceof ApiError) {
-          if (err.status === 404) setStatus("not_found");
+          // 422 = an id that is not even well-formed, so no such invite either.
+          if (err.status === 404 || err.status === 422) setStatus("not_found");
           else if (err.status === 410) setStatus("expired");
           else {
             setErrorMsg(err.message);

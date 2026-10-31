@@ -71,6 +71,11 @@ export function Catalog({
   const [browseItems, setBrowseItems] = useState<ConnectorCatalog[]>([])
   const [browseHasMore, setBrowseHasMore] = useState(false)
   const [browseBusy, setBrowseBusy] = useState(false)
+  // The view/query/category/page the shown `browseItems` belong to. Until the
+  // fetch for the current one lands (e.g. right after picking a category, before
+  // the effect below has even run) the grid shows the skeleton, not stale rows
+  // filtered down to nothing.
+  const [browseLoadedKey, setBrowseLoadedKey] = useState<string | null>(null)
   const [debouncedQuery, setDebouncedQuery] = useState(query.trim())
   const sectionRef = useRef<HTMLElement>(null)
   const lastPageRef = useRef(1)
@@ -128,6 +133,7 @@ export function Catalog({
         if (cancelled) return
         setBrowseItems(result.connectors)
         setBrowseHasMore(result.hasMore)
+        setBrowseLoadedKey(`${paginationKey}::${page}`)
         onRows?.(result.connectors)
         if (result.nextCursor) {
           cursorsRef.current[page] = result.nextCursor
@@ -139,13 +145,14 @@ export function Catalog({
         if (!cancelled) {
           setBrowseItems([])
           setBrowseHasMore(false)
+          setBrowseLoadedKey(`${paginationKey}::${page}`)
         }
       })
       .finally(() => {
         if (!cancelled) setBrowseBusy(false)
       })
     return () => { cancelled = true }
-  }, [skipBrowse, debouncedQuery, category, view, page, onRows])
+  }, [skipBrowse, debouncedQuery, category, view, page, onRows, paginationKey])
 
   // Changing page keeps the scroll position, so the new connectors landed off-screen: bring the top of
   // the list back into view.
@@ -180,8 +187,8 @@ export function Catalog({
     ? []
     : sorted.filter(summary => summary.connections.length === 0 && !summary.linked)
   const showConnectedLabel = connectedItems.length > 0 && availableItems.length > 0
-  const loadingPage = browseBusy && !skipBrowse
-  const empty = !browseBusy && connectedItems.length === 0 && availableItems.length === 0
+  const loadingPage = !skipBrowse && (browseBusy || browseLoadedKey !== `${paginationKey}::${page}`)
+  const empty = !loadingPage && connectedItems.length === 0 && availableItems.length === 0
 
   const connectedSlugs = new Set(linkedRows.map(row => row.slug))
   const needle = debouncedQuery.toLowerCase()

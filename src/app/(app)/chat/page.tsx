@@ -10,6 +10,9 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { ChatHomeActions } from "@/components/chat/ChatHomeActions";
 import homeStyles from "@/components/chat/ChatHome.module.css";
 import { useProjects } from "@/context/projects-context";
+import { useQuery } from "@tanstack/react-query";
+import { getChatLibraryState } from "@/lib/api/chat";
+import { ApiError } from "@/lib/api/client";
 import { addChatToProject } from "@/lib/api/projects";
 import { ExhaustionBanner } from "@/components/ExhaustionBanner";
 import { takeLibraryChat } from "@/lib/library/chat-handoff";
@@ -23,6 +26,7 @@ import { modelIconSource, pickDefaultModel } from "@/lib/ai-models";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { emitChatCreated, useSidebarEvents } from "@/hooks/use-sidebar-events";
 import { AGENT_SELECT_EVENT } from "@/components/AgentsPanel";
+import { agentChatBlocked } from "@/lib/agent-chat-gate";
 import { useHighlight } from "@/context/highlight-context";
 import { FILE_CONSTRAINTS, useFileUpload } from "@/hooks/use-file-upload";
 import { libraryPickAsFile, pickedLibraryFileId, useComposerUploads } from "@/lib/library/upload/composer-uploads";
@@ -105,17 +109,27 @@ export default function ChatPage() {
   // whatever state/highlights it was still carrying) outright, no race
   // possible. Lives here, not inside ChatPageInner, so the counter survives
   // the very remounts it triggers.
-  const [newChatEpoch, setNewChatEpoch] = useState(0);
-  useSidebarEvents({ onNewChat: () => setNewChatEpoch((e) => e + 1) });
+  //
+  // The event fires before the sidebar pushes /chat, so the fresh instance
+  // mounts while the URL (and useSearchParams) still names the chat being
+  // left. It is handed that id so it starts blank instead of re-adopting it —
+  // otherwise the next message could go into the old chat.
+  const [newChat, setNewChat] = useState<{ epoch: number; leftChatId?: string }>({ epoch: 0 });
+  useSidebarEvents({
+    onNewChat: () => setNewChat((prev) => ({
+      epoch: prev.epoch + 1,
+      leftChatId: new URLSearchParams(window.location.search).get("id") ?? undefined,
+    })),
+  });
   return (
     <Suspense fallback={null}>
-      <ChatPageInner key={`chat-${newChatEpoch}`} />
+      <ChatPageInner key={`chat-${newChat.epoch}`} leftChatId={newChat.leftChatId} />
       <WelcomeModal />
     </Suspense>
   );
 }
 
-function ChatPageInner() {
+function ChatPageInner({ leftChatId }: { leftChatId?: string }) {
   const searchParams = useSearchParams();
   const { replace, push } = useRouter();
   const creditStatus = useCreditStatus();
@@ -123,7 +137,11 @@ function ChatPageInner() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice();
 
-  const chatIdFromUrl = searchParams.get("id") ?? undefined;
+  const urlChatId = searchParams.get("id") ?? undefined;
+  // The chat "New chat" just left, ignored until the URL moves off it.
+  const [staleChatId, setStaleChatId] = useState(leftChatId);
+  if (staleChatId && urlChatId !== staleChatId) setStaleChatId(undefined);
+  const chatIdFromUrl = urlChatId === staleChatId ? undefined : urlChatId;
   const msgFromUrl    = searchParams.get("msg") ?? undefined;
   // Deep-link trigger for the Share modal (?share=1) — set by the sidebar's
   // "Share" chat-menu item, which navigates here instead of opening the
@@ -567,7 +585,19 @@ function ChatPageInner() {
   // that copy option, so it stays a separate flag (see ChatInterface's and
   // ChatShareOverlay's own `archived` props) rather than folding into readOnly.
   const activeChatCanManage = activeChatRecord?.can_edit === true && !activeChatArchived;
-  const activeChatReadOnly = activeChatRecord?.can_edit === false;
+  // A chat missing from the viewer's own list may be someone else's, opened by its URL (a link
+  // pasted into Slack, say). Its messages load for anyone it is shared with, but GET /chats/<id>
+  // answers only its owner: a 404 there means view-only, so it gets the read-only view and
+  // "Make a copy" instead of a composer whose sends fail with "chat no longer exists".
+  const ownership = useQuery({
+    queryKey: ["chat-ownership", activeChatId],
+    queryFn: () => getChatLibraryState(activeChatId!),
+    enabled: !!activeChatId && !activeChatRecord && !activeChatId.startsWith("temp-"),
+    retry: false,
+    staleTime: Infinity,
+  });
+  const notOwnedByViewer = !activeChatRecord && ownership.error instanceof ApiError && ownership.error.status === 404;
+  const activeChatReadOnly = activeChatRecord?.can_edit === false || notOwnedByViewer;
   const { loadForChat: loadHighlightsForChat, clearHighlights } = useHighlight();
 
   // Load highlights whenever the URL chat ID changes — reads chatIdFromUrl directly
@@ -585,7 +615,8 @@ function ChatPageInner() {
   useLayoutEffect(() => {
     // Read directly from the live URL to avoid stale/transient undefined values
     // that useSearchParams() can return during Suspense transitions or hydration.
-    const liveId = new URLSearchParams(window.location.search).get("id") ?? undefined;
+    const urlId = new URLSearchParams(window.location.search).get("id") ?? undefined;
+    const liveId = urlId === staleChatId ? undefined : urlId;
     if (liveId !== activeChatId) {
       // Intentional: layout effect so the state commits before paint (see comment above).
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -970,6 +1001,7 @@ function ChatPageInner() {
           >
             <ChatInterface
               chatId={activeChatId}
+              projectId={selectedProjectId}
               onChatCreated={handleChatCreated}
               onTitleUpdate={handleTitleUpdate}
               onChatMoveToTop={handleChatMoveToTop}
@@ -1002,7 +1034,7 @@ function ChatPageInner() {
               onBeforeSend={interceptCreateAgent}
               injectedMessages={injectedMessages}
               onInjectedMessagesConsumed={() => setInjectedMessages(null)}
-              onUseAgent={setSelectedPersona}
+              onUseAgent={(agent) => { if (!agentChatBlocked()) setSelectedPersona(agent) }}
               agentMention={{ onSelect: setSelectedPersona, selectedAgentId: selectedPersona?.id ?? null }}
             />
           </m.div>
