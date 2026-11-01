@@ -78,10 +78,13 @@ function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: 
       window.removeEventListener('project:chat-title-updated',  titleHandler);
     };
   }, []);
-  useEffect(() => {
+  // Reset on real Next.js navigation — adjusted during render, not in an effect.
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
     setActualPathname(pathname);
-    setDynamicChatTitle(null); // reset on real Next.js navigation
-  }, [pathname]);
+    setDynamicChatTitle(null);
+  }
 
   // Detect page type from pathname
   const projectChatMatch    = actualPathname.match(/^\/project\/([^/]+)\/chat\/([^/]+)$/);

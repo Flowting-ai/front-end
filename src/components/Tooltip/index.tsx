@@ -110,9 +110,12 @@ export function Tooltip({
   const rafRef = useRef<number>(0)
   const contentBoxRef = useRef<HTMLDivElement | null>(null)
 
-  useEffect(() => {
+  // Adjusted during render when `disabled` changes, not in an effect.
+  const [prevDisabled, setPrevDisabled] = useState(disabled)
+  if (disabled !== prevDisabled) {
+    setPrevDisabled(disabled)
     if (disabled) setInternalOpen(false)
-  }, [disabled])
+  }
 
   const open = isControlled ? openProp : internalOpen
   const effectiveOpen = disabled ? false : open

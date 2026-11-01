@@ -6,7 +6,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { toast } from "sonner";
 import { ArrowDownOneIcon, InformationCircleIcon } from "@strange-huge/icons";
 import { IconButton } from "@/components/ui/button";
-import { ChatMessageMemo } from "./ChatMessage";
+import { LiveChatMessage } from "./LiveChatMessage";
 import { ChatInput, type ChatInputProps } from "./ChatInput";
 import { TurnStatusChips } from "./TurnStatusChips";
 import { PinMentionDropdown } from "./PinMentionDropdown";
@@ -62,6 +62,7 @@ import { PINS_ENABLED } from "@/lib/feature-flags";
 import type { UIMessage } from "@/types/chat";
 import { AgentCreatedCard } from "@/components/AgentEditor/AgentCreatedCard";
 import { mergeInjectedMessages } from "@/lib/agent-card-messages";
+import { seedModelMeta } from "@/lib/seed-model-meta";
 import type { SelectedPersonaInfo } from "@/lib/chat-personas";
 import {
   useStreamingChat,
@@ -292,10 +293,15 @@ export function ChatInterface({
 }: ChatInterfaceProps) {
   const hidePinActions = hidePinActionsProp || !PINS_ENABLED;
   const [streamState, setStreamState] = useState<StreamState>("idle");
-  const [inputValue, setInputValue] = useState("");
-  useEffect(() => {
+  const [inputValue, setInputValue] = useState(draft ?? "");
+  // A draft handed in from outside (e.g. a scheduled prompt) fills the box when it
+  // changes — adjusted during render rather than in an effect, so there is no extra
+  // render and an unchanged draft never overwrites what the user has typed since.
+  const [prevDraft, setPrevDraft] = useState(draft);
+  if (draft !== prevDraft) {
+    setPrevDraft(draft);
     if (draft) setInputValue(draft);
-  }, [draft]);
+  }
 
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   // Files upload into Library as soon as they are attached; Send waits until they are ready.
@@ -351,7 +357,12 @@ export function ChatInterface({
   // switch — what the user typed (or queued) during its first reply stays.
   const createdChatIdRef = useRef<string | null>(null);
 
+  // The chat the reset below last ran for. Starts at the mounted chat so the first run
+  // (and StrictMode's re-run) leaves the initial draft alone — there is nothing to reset.
+  const resetChatIdRef = useRef(chatId);
   useEffect(() => {
+    if (resetChatIdRef.current === chatId) return;
+    resetChatIdRef.current = chatId;
     if (chatId && chatId === createdChatIdRef.current) {
       createdChatIdRef.current = null;
       return;
@@ -432,7 +443,23 @@ export function ChatInterface({
     messagesLoadError,
   } = useChatState(chatId, chatStateOptions);
 
-  const messages = rawMessages ?? [];
+  // Append host-supplied local messages (the agent card) as soon as they arrive — merged
+  // during render, not in an effect. Declared after useChatState so, on a fresh mount, its
+  // "no chat yet" reset cannot clear them (that reset never clears a first-mounted view).
+  const [mergedInjected, setMergedInjected] = useState<UIMessage[] | null>(null);
+  if (injectedMessages && injectedMessages.length > 0 && injectedMessages !== mergedInjected) {
+    setMergedInjected(injectedMessages);
+    setMessages((prev) => mergeInjectedMessages(prev, injectedMessages));
+  }
+  // Tell the host they are in; its state update cannot happen during this render.
+  useEffect(() => {
+    if (mergedInjected) onInjectedMessagesConsumed?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- notify once per merged batch
+  }, [mergedInjected]);
+
+  // Model logo + name for assistant messages with thinking but no model identity (the
+  // history API may omit model_name) — derived at render, never written back to state.
+  const messages = seedModelMeta(rawMessages ?? [], contextModel);
 
   // Hand the live messages to the Context panel, which renders in the app shell outside
   // this tree. Cleared on unmount (only if still ours) so a closed chat leaves no stale data.
@@ -443,33 +470,6 @@ export function ChatInterface({
   // republish (which would flash the panel's empty state); this only runs on
   // unmount or when the chat changes.
   useEffect(() => () => clearChatContext(chatId), [chatId]);
-
-  // Append host-supplied local messages once. Declared after useChatState so, on a
-  // fresh mount, its "no chat yet" reset has already run and cannot clear them.
-  useEffect(() => {
-    if (!injectedMessages || injectedMessages.length === 0) return;
-    setMessages((prev) => mergeInjectedMessages(prev, injectedMessages));
-    onInjectedMessagesConsumed?.();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when the host supplies new messages
-  }, [injectedMessages]);
-
-  // Seed model logo + name on assistant messages that have thinking content but no
-  // model identity when the history API does not return model_name.
-  useEffect(() => {
-    if (!contextModel) return;
-    setMessages(prev => {
-      const needsPatch = prev.some(m => m.role === 'assistant' && m.thinking && !m.modelName && !m.modelMeta);
-      if (!needsPatch) return prev;
-      const modelName = contextModel.modelName;
-      const company   = contextModel.companyName;
-      const modelId   = String(contextModel.modelId ?? contextModel.id ?? '');
-      return prev.map(m => {
-        if (m.role !== 'assistant' || !m.thinking || m.modelName || m.modelMeta) return m;
-        return { ...m, modelName, modelMeta: { modelId, modelName, company } };
-      });
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, contextModel]);
 
   // ── Tab / page-reload resilience ──────────────────────────────────────────
 
@@ -596,6 +596,9 @@ export function ChatInterface({
     setStreamState,
     onStreamDone: refreshUser,
     currentChatIdRef,
+    // Streamed tokens go to lib/chat/stream-store and re-render only the
+    // streaming row (LiveChatMessage), not this whole tree.
+    liveOverlay: true,
     ...(endpoint ? { endpoint } : {}),
     ...(onStopBackend ? { onStopBackend } : {}),
   });
@@ -1647,7 +1650,7 @@ export function ChatInterface({
                       onUse={onUseAgent}
                     />
                   ) : (
-                  <ChatMessageMemo
+                  <LiveChatMessage
                     message={message}
                     isLast={idx === messages.length - 1}
                     isNewMessage={idx === messages.length - 1 && isStreaming}

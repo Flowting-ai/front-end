@@ -4,7 +4,15 @@ import React, { useState } from 'react'
 import { useStoredAvatarChoice } from '@/lib/avatar-choice'
 import { defaultAvatarChoice, getAvatarChoice } from './AnimatedPersonaAvatar'
 import { AgentOrb } from './AgentOrb'
-import { HeroScene, sceneFor } from './HeroScene'
+import dynamic from 'next/dynamic'
+import type { AvatarTheme } from './AnimatedPersonaAvatar'
+import type { SceneKind } from './scenes'
+
+// The animated scenery (scenes + job-scenes, ~1.5k lines of SVG builders) is decorative and
+// absolutely positioned, so it loads after first paint with no placeholder and no layout shift.
+const HeroScene = dynamic(() => import('./HeroScene').then((m) => m.HeroScene), { ssr: false })
+/** Mirrors HeroScene.sceneFor without pulling the scene modules into this chunk. */
+const sceneFor = (theme: AvatarTheme | null): SceneKind => theme ?? 'orbit'
 import { GazeChannel } from './gaze'
 
 // The banner every agent card opens with (the layout of a Grok Bot template card): the agent's

@@ -50,9 +50,12 @@ export function CreditStatusBanner({ suppress = false }: { suppress?: boolean } 
 
   // Re-arm the dismissible low warning if the user drops back to normal
   // (e.g. after a topup) so it can show again next time they run low.
-  useEffect(() => {
+  // Adjusted during render when the level changes, not in an effect.
+  const [prevLevel, setPrevLevel] = useState(level)
+  if (level !== prevLevel) {
+    setPrevLevel(level)
     if (level === 'normal') setDismissedLow(false)
-  }, [level])
+  }
 
   // `suppress` hides the banner entirely — e.g. when chatting with a Super Link
   // agent billed to the sharer, where this user's own exhaustion is irrelevant.

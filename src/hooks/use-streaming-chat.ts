@@ -1,6 +1,8 @@
 "use client"
 
 import { useRef } from "react"
+import { flushSync } from "react-dom"
+import { clearStreamFields, publishStreamFields } from "@/lib/chat/stream-store"
 import { appendChatModelSelection } from "@/lib/chat-model-selection"
 import { extractThinkingContent } from "@/lib/parsers/content-parser"
 import { mergeStreamingText } from "@/lib/streaming"
@@ -122,6 +124,11 @@ export interface UseStreamingChatParams {
   /** Ref to the chatId currently displayed in the UI. When provided, setStreamState calls are
    *  suppressed for background streams whose chatId no longer matches what is displayed. */
   currentChatIdRef?: React.RefObject<string | undefined>
+  /** Keep the streaming message's in-flight fields (text, reasoning) in
+   *  lib/chat/stream-store instead of React state, committing them into
+   *  `messages` only at milestones (tool events, end, stop, error). The caller
+   *  must render rows through useLiveMessage or tokens won't show until then. */
+  liveOverlay?: boolean
 }
 
 /** Continue a turn parked on a prompt: POST the answer to the prompt's
@@ -145,6 +152,7 @@ export function useStreamingChat({
   directEndpoints,
   onStopBackend,
   currentChatIdRef,
+  liveOverlay = false,
 }: UseStreamingChatParams) {
   const xhrRef = useRef<XMLHttpRequest | null>(null)
   const stopRequestedRef = useRef(false)
@@ -153,6 +161,8 @@ export function useStreamingChat({
   const pendingFieldsRef = useRef<Partial<UIMessage> | null>(null)
   const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const rafScheduledRef = useRef(false)
+  // liveOverlay: the message id whose uncommitted fields sit in the stream store.
+  const publishedKeyRef = useRef<string | null>(null)
 
   // The temp ID of the loading placeholder being updated during a stream
   const loadingMessageIdRef = useRef<string | null>(null)
@@ -174,11 +184,20 @@ export function useStreamingChat({
     )
   }
 
+  // Commits the pending fields into messages. In liveOverlay mode this is the
+  // only path to React state for streamed text: the commit renders
+  // synchronously, then the store entry is dropped, so the row never shows a
+  // frame with neither (no flash back to older text).
   const flushPending = () => {
-    if (!pendingFieldsRef.current) return
     const fields = pendingFieldsRef.current
+    const key = publishedKeyRef.current
     pendingFieldsRef.current = null
-    applyUpdate(fields)
+    publishedKeyRef.current = null
+    if (fields) {
+      if (key) flushSync(() => applyUpdate(fields))
+      else applyUpdate(fields)
+    }
+    if (key) clearStreamFields(key)
   }
 
   const queueUpdate = (fields: Partial<UIMessage>, immediate = false) => {
@@ -187,6 +206,16 @@ export function useStreamingChat({
       : fields
     if (immediate) {
       flushPending()
+      return
+    }
+    if (liveOverlay) {
+      // Stays out of React state until the next commit; the store batches
+      // notifications to one per animation frame.
+      const msgId = loadingMessageIdRef.current
+      if (!msgId) return
+      if (publishedKeyRef.current && publishedKeyRef.current !== msgId) clearStreamFields(publishedKeyRef.current)
+      publishedKeyRef.current = msgId
+      publishStreamFields(msgId, pendingFieldsRef.current)
       return
     }
     // Schedule a microtask flush as backup (in case setInterval is delayed)
@@ -200,7 +229,7 @@ export function useStreamingChat({
   }
 
   const startFlushInterval = () => {
-    if (flushTimerRef.current) return
+    if (liveOverlay || flushTimerRef.current) return
     flushTimerRef.current = setInterval(flushPending, FLUSH_INTERVAL_MS)
   }
 
@@ -631,6 +660,8 @@ export function useStreamingChat({
             const realMessageId =
               asString(savedMsg.message_id)
             if (realMessageId && msgId && realMessageId !== msgId) {
+              // Commit text held under the temp id before the id changes.
+              flushPending()
               loadingMessageIdRef.current = realMessageId
               setMessages((prev) =>
                 prev.map((msg) =>
