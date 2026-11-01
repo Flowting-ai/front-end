@@ -24,6 +24,7 @@ import { formatCredits } from '@/lib/format-credits'
 import { useGuardedRouter, useNavGuard } from '@/context/nav-guard-context'
 import { AUTH_LOGIN_ROUTE, SETTINGS_ACCOUNT_ROUTE, SETTINGS_USAGE_ROUTE, SETTINGS_HELP_ROUTE, SETTINGS_REPORT_BUG_ROUTE, SETTINGS_FEATURE_REQUEST_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE, SETTINGS_LIBRARY_ROUTE, ORG_LIBRARY_ROUTE, ORG_AUDIT_LOG_ROUTE, ORG_INVENTORY_ROUTE } from '@/lib/routes'
 import { LIBRARY_SETTINGS_ENABLED } from '@/lib/feature-flags'
+import { Sheet, SheetContent } from '@/components/ui/sheet'
 
 // ── Nav icons — Settings v1.5 sidebar ────────────────────────────────────────
 // Figma: https://www.figma.com/design/EirgiIxJWDEeUNZnKwr3f8/Settings-v1.5?node-id=18-27780
@@ -134,6 +135,25 @@ const HELP_ITEMS = [
 ]
 
 
+// Narrow screens: the settings nav opens as a left-side Sheet (Radix Dialog) with a scrim —
+// Escape / scrim click close it, focus is trapped inside and returns to the menu button.
+// Wide screens: the nav renders inline.
+function NarrowDrawer({ narrow, open, onOpenChange, children }: {
+  narrow: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  children: React.ReactNode
+}) {
+  if (!narrow) return <>{children}</>
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="left" title="Settings menu" data-testid="settings-sidebar-drawer" style={{ display: 'flex' }}>
+        {children}
+      </SheetContent>
+    </Sheet>
+  )
+}
+
 export function SettingsSidebar() {
   // Guarded push — same app-wide "unsaved changes" system LeftSidebar uses
   // (nav-guard-context), so leaving a dirty Settings page shows the shared
@@ -146,12 +166,7 @@ export function SettingsSidebar() {
   // Choosing a page closes the narrow-screen drawer.
   const [drawerPath, setDrawerPath] = useState(pathname)
   if (drawerPath !== pathname) { setDrawerPath(pathname); setDrawerOpen(false) }
-  useEffect(() => {
-    if (!drawerOpen) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setDrawerOpen(false) }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [drawerOpen])
+  // Escape, scrim click, focus trap and focus return are handled by the Radix Sheet below.
   const { user, logout, isAuthenticated } = useAuth()
   const { guardedNavigate } = useNavGuard()
   const { orgId, org, plan, orgRole, currentUserRole, orgReady } = useOrg()
@@ -266,16 +281,13 @@ export function SettingsSidebar() {
     {isNarrow && (
       <div style={{ width: 48, flexShrink: 0, height: '100%', backgroundColor: 'var(--neutral-50)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, paddingTop: 24 }}>
         <IconButton variant="ghost" size="sm" aria-label="Go back" icon={<ArrowLeftOneIcon size={20} />} onClick={() => safeNavigate(CHAT_ROUTE)} />
-        <IconButton variant="ghost" size="sm" aria-label="Open settings menu" aria-expanded={drawerOpen} icon={<SidebarLeftIcon size={20} variant="open" />} onClick={() => setDrawerOpen(true)} />
+        <IconButton variant="ghost" size="sm" aria-label="Open settings menu" aria-haspopup="dialog" aria-expanded={drawerOpen} icon={<SidebarLeftIcon size={20} variant="open" />} onClick={() => setDrawerOpen(true)} />
       </div>
     )}
-    {isNarrow && drawerOpen && (
-      <div aria-hidden data-testid="settings-sidebar-scrim" onClick={() => setDrawerOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 49, backgroundColor: 'rgba(0, 0, 0, 0.32)' }} />
-    )}
+    <NarrowDrawer narrow={isNarrow} open={drawerOpen} onOpenChange={setDrawerOpen}>
     <div
       style={{
-        // Kept mounted while the narrow drawer is closed so its nav state survives.
-        display:         isNarrow && !drawerOpen ? 'none' : 'flex',
+        display:         'flex',
         flexDirection:   'column',
         width:           294,
         maxWidth:        isNarrow ? 'calc(100vw - 48px)' : undefined,
@@ -283,7 +295,7 @@ export function SettingsSidebar() {
         backgroundColor: 'var(--neutral-50)',
         flexShrink:      0,
         overflow:        'hidden',
-        ...(isNarrow ? { position: 'fixed' as const, top: 0, left: 0, bottom: 0, zIndex: 50, boxShadow: '4px 0 24px rgba(0, 0, 0, 0.16)' } : null),
+        ...(isNarrow ? { boxShadow: '4px 0 24px rgba(0, 0, 0, 0.16)' } : null),
       }}
     >
       {/* ── Title row — fixed ── */}
@@ -531,6 +543,7 @@ export function SettingsSidebar() {
         )}
       </div>
     </div>
+    </NarrowDrawer>
 
     {/* Unsaved-changes confirmation is now the shared NavGuardModal (mounted
         once app-wide in (app)/layout.tsx) — see useGuardedRouter() above. */}

@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 import { type CardBrand } from '@/components/CardBrandLogo'
 import { useAuth, useAuthReady } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
-import { useMounted } from '@/hooks/use-mounted'
+import { useIsClient } from '@/hooks/use-is-client'
 import {
   Usage,
   TeamsTier,
@@ -36,7 +36,7 @@ import {
 export function usePersonalBillingView() {
   const router = useRouter()
   const { user, refreshUser, isHydrated, jwtToken } = useAuth()
-  const portalMounted = useMounted()
+  const portalMounted = useIsClient()
 
   // Lazy-init from the cached snapshot (runs once; SSR-safe) so returning from
   // Stripe paints instantly instead of flashing an empty "No Plan" state.

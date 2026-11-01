@@ -300,7 +300,11 @@ export function AccountMenu({
   // item, which then stretches (align-self:stretch default) to fill the full
   // container width. Without this, fluid SidebarMenuItem's width:100% can't
   // resolve against an indefinite inline-flex containing block.
-  const onOpenSettingsClick = () => handleOpenChange(!open)
+  // Dropdown.Float (Radix DropdownMenu) already toggles the menu on pointerdown and on
+  // Enter / Space / ArrowDown at its trigger wrapper. Toggling again from the trigger's own
+  // click / key handler would immediately undo that (the menu never opened), so this is
+  // deliberately a no-op; it is kept so trigger visuals keep their click affordance.
+  const onOpenSettingsClick = () => {}
 
   const trigger: React.ReactElement = renderTrigger ? renderTrigger({ onOpenSettingsClick }) : (
     <SidebarMenuItem

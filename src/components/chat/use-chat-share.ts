@@ -128,13 +128,6 @@ export function useChatShare({ chatId, canManage, onCopied, autoOpen }: Omit<Cha
     }
   }
 
-  useEffect(() => {
-    if (!chatShareOpen) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setChatShareOpen(false) }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [chatShareOpen])
-
   // Deep-link open — fires once when autoOpen/chatId/canManage settle true
   // (e.g. canManage flips true once the chat record finishes loading), not on
   // every render, so dismissing the modal doesn't reopen it on an unrelated

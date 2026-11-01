@@ -1,11 +1,12 @@
 'use client'
 
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useForm, ValidationError } from '@formspree/react'
 import { CancelOneIcon } from '@strange-huge/icons'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/auth-context'
-import { useFocusTrap } from '@/hooks/use-focus-trap'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 
 const SHADOW_MODAL = '0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px rgba(130,122,116,0.1)'
@@ -56,8 +57,6 @@ export function RequestFeatureModal({ onClose }: RequestFeatureModalProps) {
   const displayName = user ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.name || '' : ''
   const [message, setMessage] = useState(readDraft)
   const [state, handleSubmit] = useForm('mrerelnz')
-  const dialogRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(dialogRef, true, onClose)
 
   useEffect(() => {
     writeDraft(message)
@@ -85,27 +84,23 @@ export function RequestFeatureModal({ onClose }: RequestFeatureModalProps) {
   }, [state.errors, state.submitting, state.succeeded])
 
   return (
-    <div
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'var(--overlay-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
-    >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
+    <Dialog open onOpenChange={(next) => { if (!next) onClose() }}>
+      <DialogContent
+        hideClose
         aria-label="Request a feature"
-        tabIndex={-1}
         className="kaya-scrollbar"
-        style={{ background: 'var(--modal-bg)', borderRadius: 20, padding: 8, boxShadow: SHADOW_MODAL, width: '100%', maxWidth: 738, maxHeight: 'calc(100dvh - 48px)', overflow: 'auto', outline: 'none' }}
+        style={{ background: 'var(--modal-bg)', borderRadius: 20, padding: 8, boxShadow: SHADOW_MODAL, width: 738, maxWidth: 'calc(100vw - 48px)', maxHeight: 'calc(100dvh - 48px)', overflow: 'auto', display: 'block' }}
       >
         <form onSubmit={handleSubmit}>
           <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
             {/* Header */}
             <div style={{ padding: '12px 12px 0', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <DialogPrimitive.Title asChild>
               <p style={{ flex: '1 0 0', fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
                 Request a feature
               </p>
+              </DialogPrimitive.Title>
               <button type="button" onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8, display: 'flex', color: 'var(--neutral-700)', flexShrink: 0 }}>
                 <CancelOneIcon size={20} />
               </button>
@@ -113,9 +108,11 @@ export function RequestFeatureModal({ onClose }: RequestFeatureModalProps) {
 
             {/* Subtitle */}
             <div style={{ padding: '0 12px 24px' }}>
+              <DialogPrimitive.Description asChild>
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: 0 }}>
                 Got an idea for Souvenir?
               </p>
+              </DialogPrimitive.Description>
             </div>
 
             {/* Form container */}
@@ -173,8 +170,8 @@ export function RequestFeatureModal({ onClose }: RequestFeatureModalProps) {
 
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

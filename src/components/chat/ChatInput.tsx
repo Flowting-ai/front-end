@@ -14,7 +14,7 @@ import { Tooltip } from "@/components/Tooltip";
 import { ModelIcon } from "@/components/ModelIcon";
 import { Dropdown, type DropdownPlacement } from "@/components/Dropdown";
 import { cn } from "@/lib/utils";
-import { useMounted } from "@/hooks/use-mounted";
+import { useIsClient } from "@/hooks/use-is-client";
 import SpeechRecognition, {
   useSpeechRecognition,
 } from "react-speech-recognition";
@@ -229,7 +229,7 @@ export function ChatInput(
     const [addMenuOpen,   setAddMenuOpen]   = useState(false);
     const reduceMotion = useReducedMotion();
     const [modelMenuOpen, setModelMenuOpen] = useState(false);
-    const mounted = useMounted();
+    const mounted = useIsClient();
     const [isPinDragOver, setIsPinDragOver] = useState(false);
 
     const audioCtxRef = useRef<AudioContext | null>(null);
@@ -889,8 +889,10 @@ export function ChatInput(
                       />
                     }
                   >
-                    {/* Wrap in a click handler so any menu action closes the dropdown immediately */}
-                    <div onClick={() => setAddMenuOpen(false)}>
+                    {/* Presentational wrapper (role="none" so it adds nothing to the menu tree): a
+                        bubbled click/Enter/Space activation from any of addMenu's own menu items
+                        closes the dropdown immediately. The items keep their menuitem semantics. */}
+                    <div role="none" onClick={() => setAddMenuOpen(false)}>
                       {addMenu}
                     </div>
                   </Dropdown.Float>

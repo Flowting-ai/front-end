@@ -1,7 +1,8 @@
 'use client'
 
-import { useRef, useState } from 'react'
-import { useFocusTrap } from '@/hooks/use-focus-trap'
+import { useState } from 'react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog'
 import { CancelCircleIcon, TickTwoIcon } from '@strange-huge/icons'
 import { RoleGlyph, ROLE_TOKENS, ROLE_LABEL } from '@/components/RoleBadge'
 import { Button, IconButton } from '@/components/ui/button'
@@ -20,63 +21,42 @@ const ROLE_STACK_BADGE_SIZE = 36
 const ROLE_STACK_RAIL_WIDTH = ROLE_STACK_BADGE_SIZE
 
 export function RolesPermissionsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  // Same mousedown+click double-check as ManageRoleModal's own backdrop.
-  const backdropMouseDown = useRef(false)
   const [detailOpen, setDetailOpen] = useState(false)
-  // Tab stays inside and Escape closes; paused while the comparison dialog is open on top.
-  const dialogRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(dialogRef, open && !detailOpen, onClose)
-
-  if (!open) return null
+  // Radix shell: focus trap, Escape and outside-press close. The comparison dialog
+  // stacks on top as its own layer, so Escape/outside clicks reach it first.
 
   return (
     <>
-    <div
-      ref={dialogRef}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Roles & Permissions"
-      style={{
-        position:        'fixed',
-        inset:           0,
-        zIndex:          300,
-        display:         'flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        backgroundColor: 'color-mix(in srgb, var(--static-black) 35%, transparent)',
-      }}
-      onMouseDown={(e) => { backdropMouseDown.current = e.target === e.currentTarget }}
-      onClick={(e) => {
-        if (backdropMouseDown.current && e.target === e.currentTarget) onClose()
-        backdropMouseDown.current = false
-      }}
-    >
-      <div
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
+      <DialogContent
+        hideClose
+        aria-label="Roles & Permissions"
         style={{
-          width:           640,
-          maxWidth:        'calc(100vw - 32px)',
-          maxHeight:       'calc(100vh - 64px)',
-          borderRadius:    20,
-          backgroundColor: 'var(--legacy-f9f5f1)',
-          border:          '1px solid var(--border-default)',
-          boxShadow:       '0px 8px 32px color-mix(in srgb, var(--static-black) 12%, transparent)',
-          overflow:        'hidden',
-          display:         'flex',
-          flexDirection:   'column',
+          width:      640,
+          maxHeight:  'calc(100vh - 64px)',
+          borderRadius: 20,
+          background: 'var(--legacy-f9f5f1)',
+          border:     '1px solid var(--border-default)',
+          boxShadow:  '0px 8px 32px color-mix(in srgb, var(--static-black) 12%, transparent)',
         }}
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '24px 24px 16px' }}>
           <div>
+            <DialogPrimitive.Title asChild>
             <h2 style={{ fontFamily: 'var(--font-title)', fontWeight: 500, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-900)', margin: 0 }}>
               Roles &amp; Permissions
             </h2>
+            </DialogPrimitive.Title>
+            <DialogPrimitive.Description asChild>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '4px 0 0' }}>
               Default behavior for new projects and chats across the workspace.
             </p>
+            </DialogPrimitive.Description>
           </div>
-          <IconButton variant="ghost" size="sm" aria-label="Close" icon={<CancelCircleIcon size={18} />} onClick={onClose} />
+          <DialogClose asChild>
+            <IconButton variant="ghost" size="sm" aria-label="Close" icon={<CancelCircleIcon size={18} />} />
+          </DialogClose>
         </div>
 
         {/* Hierarchical stack, highest role first — a vertical timeline (rail +
@@ -167,8 +147,8 @@ export function RolesPermissionsModal({ open, onClose }: { open: boolean; onClos
             View in detail
           </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
 
     <RoleComparisonModal open={detailOpen} onClose={() => setDetailOpen(false)} />
     </>
@@ -203,59 +183,38 @@ const ROLE_CAPABILITIES: { label: string; grants: Record<'admin' | 'member', boo
 ]
 
 function RoleComparisonModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const backdropMouseDown = useRef(false)
-  const dialogRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(dialogRef, open, onClose)
-
-  if (!open) return null
 
   return (
-    <div
-      ref={dialogRef}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Role comparison"
-      style={{
-        position:        'fixed',
-        inset:           0,
-        zIndex:          400,
-        display:         'flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        backgroundColor: 'color-mix(in srgb, var(--static-black) 35%, transparent)',
-      }}
-      onMouseDown={(e) => { backdropMouseDown.current = e.target === e.currentTarget }}
-      onClick={(e) => {
-        if (backdropMouseDown.current && e.target === e.currentTarget) onClose()
-        backdropMouseDown.current = false
-      }}
-    >
-      <div
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
+      <DialogContent
+        hideClose
+        aria-label="Role comparison"
         style={{
-          width:           720,
-          maxWidth:        'calc(100vw - 32px)',
-          maxHeight:       'calc(100vh - 64px)',
-          borderRadius:    20,
-          backgroundColor: 'var(--modal-bg)',
-          border:          '1px solid var(--border-default)',
-          boxShadow:       '0px 8px 32px color-mix(in srgb, var(--static-black) 12%, transparent)',
-          overflow:        'hidden',
-          display:         'flex',
-          flexDirection:   'column',
+          width:      720,
+          maxHeight:  'calc(100vh - 64px)',
+          borderRadius: 20,
+          background: 'var(--modal-bg)',
+          border:     '1px solid var(--border-default)',
+          boxShadow:  '0px 8px 32px color-mix(in srgb, var(--static-black) 12%, transparent)',
         }}
-        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '24px 24px 16px' }}>
           <div>
+            <DialogPrimitive.Title asChild>
             <h2 style={{ fontFamily: 'var(--font-title)', fontWeight: 500, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-900)', margin: 0 }}>
               Role comparison
             </h2>
+            </DialogPrimitive.Title>
+            <DialogPrimitive.Description asChild>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '4px 0 0' }}>
               What each role can do, side by side.
             </p>
+            </DialogPrimitive.Description>
           </div>
-          <IconButton variant="ghost" size="sm" aria-label="Close" icon={<CancelCircleIcon size={18} />} onClick={onClose} />
+          <DialogClose asChild>
+            <IconButton variant="ghost" size="sm" aria-label="Close" icon={<CancelCircleIcon size={18} />} />
+          </DialogClose>
         </div>
 
         {/* Table */}
@@ -313,7 +272,7 @@ function RoleComparisonModal({ open, onClose }: { open: boolean; onClose: () => 
           </div>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

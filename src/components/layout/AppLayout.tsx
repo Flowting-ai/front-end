@@ -179,14 +179,16 @@ export function AppLayout({
           backgroundColor: 'var(--neutral-white)',
         }}
       >
-        <Suspense fallback={null}>
-          <LeftSidebar
-            activeChatId={activeChatId}
-            onSelectChat={onSelectChat}
-            onNewChat={onNewChat}
-            defaultCollapsed={defaultSidebarCollapsed}
-          />
-        </Suspense>
+        <ErrorBoundary variant="region" label="Sidebar">
+          <Suspense fallback={null}>
+            <LeftSidebar
+              activeChatId={activeChatId}
+              onSelectChat={onSelectChat}
+              onNewChat={onNewChat}
+              defaultCollapsed={defaultSidebarCollapsed}
+              />
+          </Suspense>
+        </ErrorBoundary>
         {/* The page's landmark — every other branch wraps the page in a <main> too. */}
         <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           <ErrorBoundary>{children}</ErrorBoundary>
@@ -207,14 +209,16 @@ export function AppLayout({
       }}
     >
       {/* ── Left sidebar ── */}
-      <Suspense fallback={null}>
-        <LeftSidebar
-          activeChatId={activeChatId}
-          onSelectChat={onSelectChat}
-          onNewChat={onNewChat}
-          defaultCollapsed={defaultSidebarCollapsed}
-        />
-      </Suspense>
+      <ErrorBoundary variant="region" label="Sidebar">
+        <Suspense fallback={null}>
+          <LeftSidebar
+            activeChatId={activeChatId}
+            onSelectChat={onSelectChat}
+            onNewChat={onNewChat}
+            defaultCollapsed={defaultSidebarCollapsed}
+            />
+        </Suspense>
+      </ErrorBoundary>
 
       {/* ── Center column - neutral-50 bg, flex-column so credit banner sits above content ── */}
       <div
@@ -330,9 +334,11 @@ export function AppLayout({
 
       {/* ── Right sidebar (Pinboard) ── */}
       {PINS_ENABLED && (
-        <Suspense fallback={null}>
-          <RightSidebar />
-        </Suspense>
+        <ErrorBoundary variant="region" label="Pinboard">
+          <Suspense fallback={null}>
+            <RightSidebar />
+          </Suspense>
+        </ErrorBoundary>
       )}
 
       {/* ── Highlight sidebar ── */}

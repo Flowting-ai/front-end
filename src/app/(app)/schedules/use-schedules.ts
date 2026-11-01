@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import type { ScheduleDetailItem, ScheduleEditData, ScheduleScope } from '@/components/Schedules'
-import { copyAutomation, deleteAutomation, runAutomationNow } from '@/lib/api/automations'
+import { copyAutomation, runAutomationNow } from '@/lib/api/automations'
 import { ApiError } from '@/lib/api/client'
 import { trackBrowserEvent } from '@/lib/analytics/events'
 import { logger } from '@/lib/logger'
@@ -16,12 +16,11 @@ import { createRunGuard } from '@/lib/schedules/run-guard'
 import { errorDetail, listItemToDetail } from '@/lib/schedules/schedule-mappers'
 import {
   ScheduleNotFoundError,
-  forgetSchedule,
   mySchedulesQuery,
   organizationSchedulesQuery,
   scheduleDetailQuery,
-  toggleScheduleActive,
 } from '@/lib/schedules/schedule-queries'
+import { deleteScheduleOptions, toggleScheduleOptions } from '@/lib/schedules/schedule-mutations'
 
 type ScheduleAction = 'load' | 'load_organization' | 'pause' | 'resume' | 'delete' | 'run' | 'copy'
 
@@ -80,33 +79,40 @@ export function useSchedules(scheduleId: string | undefined) {
     })
   }, [queryClient])
 
+  const deleteOpts = deleteScheduleOptions(queryClient)
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteAutomation(id),
-    onSuccess: (_res, id) => {
+    ...deleteOpts,
+    onSuccess: (res, id, ctx, mctx) => {
+      deleteOpts.onSuccess?.(res, id, ctx, mctx)
       trackBrowserEvent('schedule_deleted', {})
       toast.success('Schedule deleted')
-      forgetSchedule(queryClient, id)
       if (scheduleId) replace(SCHEDULES_ROUTE)
     },
-    onError: (err: unknown) => {
+    onError: (err, id, ctx, mctx) => {
+      deleteOpts.onError?.(err, id, ctx, mctx)
       logFailure('delete', err)
       toast.error('Failed to delete schedule', { description: errorDetail(err) })
     },
   })
 
+  // Optimistic; reverts on failure (e.g. resuming a schedule with no future run → 409).
+  const toggleOpts = toggleScheduleOptions(queryClient)
+  const { mutate: toggleMutate } = useMutation({
+    ...toggleOpts,
+    onSuccess: (_res, { active }) => {
+      if (active) trackBrowserEvent('schedule_resumed', {})
+      else trackBrowserEvent('schedule_paused', {})
+    },
+    onError: (err, vars, ctx, mctx) => {
+      toggleOpts.onError?.(err, vars, ctx, mctx)
+      logFailure(vars.active ? 'resume' : 'pause', err)
+      toast.error(vars.active ? 'Failed to resume schedule' : 'Failed to pause schedule', { description: errorDetail(err) })
+    },
+  })
   const toggleActive = useCallback((active: boolean) => {
     if (!selectedId) return
-    // Reverts on failure (e.g. resuming a schedule with no future run → 409).
-    toggleScheduleActive(queryClient, selectedId, active)
-      .then(() => {
-        if (active) trackBrowserEvent('schedule_resumed', {})
-        else trackBrowserEvent('schedule_paused', {})
-      })
-      .catch((err: unknown) => {
-        logFailure(active ? 'resume' : 'pause', err)
-        toast.error(active ? 'Failed to resume schedule' : 'Failed to pause schedule', { description: errorDetail(err) })
-      })
-  }, [selectedId, queryClient])
+    toggleMutate({ id: selectedId, active })
+  }, [selectedId, toggleMutate])
 
   // The run starts after the POST returns, so a refetch now would still read is_running false and
   // re-enable Run now. Mark it running instead: polling then follows the run until the server says it ended.

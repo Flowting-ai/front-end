@@ -94,7 +94,7 @@ export const scheduleDetailQuery = (id: string | undefined) =>
     refetchInterval: q => pollWhileRunning(q.state.data),
   })
 
-function setActive(qc: QueryClient, id: string, active: boolean) {
+export function setActive(qc: QueryClient, id: string, active: boolean) {
   qc.setQueryData<ScheduleListItem[]>(queryKeys.schedules.mine(), prev => prev?.map(s => (s.id === id ? { ...s, isActive: active } : s)))
   qc.setQueryData<ScheduleDetailItem>(queryKeys.schedules.detail(id), prev => (prev ? { ...prev, isActive: active } : prev))
 }

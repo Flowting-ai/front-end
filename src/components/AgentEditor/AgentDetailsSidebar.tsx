@@ -12,7 +12,8 @@ import { useProjectPanel } from '@/context/project-panel-context'
 import { useAgentDraftSync } from '@/hooks/use-agent-draft-sync'
 import { usePersonaRepoById } from '@/hooks/use-persona-repos'
 import { useSaveAgent } from '@/hooks/use-save-agent'
-import { fetchModelsWithCache, modelIconSource } from '@/lib/ai-models'
+import { modelsQuery, modelIconSource } from '@/lib/ai-models'
+import { useQuery } from '@tanstack/react-query'
 import { stableKey } from '@/hooks/use-model-selection'
 import type { AIModel } from '@/types/ai-model'
 import {
@@ -99,6 +100,8 @@ function SaveChanges({ count, onClick, loading }: { count: number; onClick: () =
   )
 }
 
+const EMPTY_MODELS: AIModel[] = []
+
 /** The details content itself (model saves as you pick; name and description have their own save tick; Fine-tune) — no header or frame. */
 export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string; canEdit: boolean; onClose: () => void }) {
   const { repo, isLoading } = usePersonaRepoById(repoId)
@@ -106,19 +109,12 @@ export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string;
   const { draft, baseline, notice, edit, markSaved, accept, dismissNotice } = useAgentDraftSync(record)
   const { save, saving } = useSaveAgent({ record, baseline, markSaved })
 
-  const [models, setModels] = useState<AIModel[]>([])
-  const [modelsLoading, setModelsLoading] = useState(true)
+  // The shared model catalogue (React Query); a failed load shows an empty list.
+  const modelsQ = useQuery(modelsQuery())
+  const models: AIModel[] = modelsQ.data ?? EMPTY_MODELS
+  const modelsLoading = modelsQ.isPending && modelsQ.fetchStatus !== 'idle'
   const router = useRouter()
   const [problem, setProblem] = useState<string | null>(null)
-  useEffect(() => {
-    let cancelled = false
-    fetchModelsWithCache()
-      .then(list => { if (!cancelled) setModels(list) })
-      .catch(() => { if (!cancelled) setModels([]) })
-      .finally(() => { if (!cancelled) setModelsLoading(false) })
-    return () => { cancelled = true }
-  }, [])
-
   // Escape closes the panel — but not while a dialog is open on top of it, and not
   // from inside a field, where Escape must never throw away what was just typed.
   useEffect(() => {
@@ -126,11 +122,13 @@ export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string;
       if (event.key !== 'Escape') return
       const target = event.target
       if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return
-      if (document.querySelector('[aria-modal="true"]')) return
+      // Radix dialogs (the model picker, Fine-tune) carry role="dialog" but no aria-modal, and close
+      // themselves on this same Escape: listening on window in the capture phase runs before they do.
+      if (document.querySelector('[aria-modal="true"], [role="dialog"], [role="alertdialog"]')) return
       onClose()
     }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [onClose])
 
   /**

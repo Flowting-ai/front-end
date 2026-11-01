@@ -5,12 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useOrg } from '@/context/org-context'
-import {
-  ConnectorCatalog,
-  ConnectorConnection,
-  deleteCustomApi,
-  unlinkAccount,
-} from '@/lib/api/connectors'
+import type { ConnectorCatalog, ConnectorConnection } from '@/lib/api/connectors'
+import { useDeleteCustomApi, useUnlinkAccount } from '@/lib/connectors/connector-mutations'
 import { connectorDetailQuery, linkedConnectorsQuery, mergeCatalog } from '@/lib/connectors/connector-queries'
 import { queryKeys } from '@/lib/query-keys'
 import { ORG_CONNECTORS_ROUTE } from '@/lib/routes'
@@ -71,7 +67,8 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   const [deleteApiOpen, setDeleteApiOpen] = useState(false)
 
   const [removeAccount, setRemoveAccount] = useState<ConnectorConnection | null>(null)
-  const [removeBusy, setRemoveBusy] = useState(false)
+  const unlink = useUnlinkAccount()
+  const deleteApi = useDeleteCustomApi()
   // Slug whose catalog card is mid-fetch (selectFromCatalog's cold-start
   // path) — lets the card show a spinner instead of staying clickable while
   // it silently loads connector details before the setup modal opens.
@@ -227,17 +224,16 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
     const slug = active.slug
     setDeletingSlug(slug)
     try {
-      await deleteCustomApi(slug)
+      await deleteApi.mutateAsync(slug)
     } catch (err) {
       setDeletingSlug(null)
       throw err
     }
     toast.success(`${active.name} deleted`)
     backToConnections()
-    queryClient.removeQueries({ queryKey: queryKeys.connectors.detail(slug), exact: true })
     setDeletingSlug(null)
     void fetchAll()
-  }, [active, backToConnections, fetchAll, queryClient])
+  }, [active, backToConnections, fetchAll, deleteApi])
 
   const requestRemove = useCallback((account: ConnectorConnection) => {
     setRemoveAccount(account)
@@ -245,10 +241,9 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
 
   const confirmRemove = useCallback(async () => {
     if (!removeAccount || !removeAccount.canManage) return
-    setRemoveBusy(true)
     try {
       // One id, whether it is shared or not — the row is the account.
-      await unlinkAccount(removeAccount.id)
+      await unlink.mutateAsync(removeAccount)
       toast.success(`${removeAccount.nickname} removed`)
       setRemoveAccount(null)
       const rows = await fetchAll()
@@ -258,10 +253,8 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
       else backToConnections()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove account')
-    } finally {
-      setRemoveBusy(false)
     }
-  }, [removeAccount, backToConnector, backToConnections, fetchAll])
+  }, [removeAccount, backToConnector, backToConnections, fetchAll, unlink])
 
   if (!orgReady) {
     return <ConnectionsView catalog={[]} loading select={() => {}} addCustomApi={() => {}} />
@@ -343,7 +336,7 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
           account={removeAccount}
           catalog={active}
           blockedReason={removeAccount.canManage ? undefined : 'This account was shared with you. Only the person who connected it can remove it.'}
-          busy={removeBusy}
+          busy={unlink.isPending}
           cancel={() => setRemoveAccount(null)}
           confirm={() => void confirmRemove()}
         />

@@ -300,18 +300,21 @@ export class PersonaRepoCollection {
 // ── The shared collection ─────────────────────────────────────────────────────
 
 /** GET /persona — one request, one cache (React Query), shared by every consumer. */
-export function fetchPersonaRepos(): Promise<PersonaRepoCollection> {
-  return getQueryClient().fetchQuery({
+/** The shared agent collection as a query (useQuery / fetchQuery). */
+export const personaReposQuery = () => ({
     queryKey: PERSONA_REPOS_QUERY_KEY,
     staleTime: PERSONAS_CACHE_TTL,
     retry: false,
-    queryFn: async () => {
-      const raw = await apiFetchJson<unknown>(PERSONAS_ENDPOINT)
+    queryFn: async ({ signal }: { signal?: AbortSignal }) => {
+      const raw = await apiFetchJson<unknown>(PERSONAS_ENDPOINT, { signal })
       return new PersonaRepoCollection(
         personaRepoSchema.array().parse(raw).map(wire => new PersonaRepo(wire)),
       )
     },
-  })
+})
+
+export function fetchPersonaRepos(): Promise<PersonaRepoCollection> {
+  return getQueryClient().fetchQuery(personaReposQuery())
 }
 
 /** GET /persona/{repo_id} */

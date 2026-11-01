@@ -64,6 +64,6 @@ export type StarterCard = z.infer<typeof starterCardSchema>
 export type ConnectorPick = z.infer<typeof connectorPickSchema>
 export type Recommendations = z.infer<typeof recommendationsSchema>
 
-export async function fetchRecommendations(): Promise<Recommendations> {
-  return recommendationsSchema.parse(await apiFetchJson<unknown>(RECOMMENDATIONS))
+export async function fetchRecommendations(signal?: AbortSignal): Promise<Recommendations> {
+  return recommendationsSchema.parse(await apiFetchJson<unknown>(RECOMMENDATIONS, { signal }))
 }

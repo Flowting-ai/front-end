@@ -1,10 +1,9 @@
 'use client'
 
-import React, { useEffect, useEffectEvent, useRef, useState } from 'react'
-import { useFocusTrap } from '@/hooks/use-focus-trap'
-import { useMounted } from '@/hooks/use-mounted'
-import { createPortal } from 'react-dom'
+import React, { useEffect, useRef, useState } from 'react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { AnimatePresence, m } from 'framer-motion'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { CancelOneIcon } from '@strange-huge/icons'
 import { IconButton, Button } from '@/components/ui/button'
 import { Badge } from '@/components/Badge'
@@ -98,10 +97,7 @@ export function EditProjectModal({
   const visibilityNote = accessChangeNote(visibility, draft.visibility)
   const [tagInput,  setTagInput]    = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const mounted = useMounted()
   const prevOpenRef = useRef(false)
-  const panelRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(panelRef, open && mounted)
 
   useEffect(() => {
     if (open && !prevOpenRef.current) {
@@ -126,14 +122,6 @@ export function EditProjectModal({
     setField('tags', draft.tags.filter(t => t.id !== id))
   }
 
-  const closeOnEscape = useEffectEvent(onClose)
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeOnEscape() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open])
-
   const handleSave = form.handleSubmit(async (data) => {
     if (submitting) return
     setSubmitting(true)
@@ -147,7 +135,8 @@ export function EditProjectModal({
       toast.success(creating ? 'Project created' : 'Project updated')
       onClose()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : creating ? 'Failed to create project' : 'Failed to update project')
+      // Edits go through the update-project mutation, which already toasts (and rolls back) on failure.
+      if (creating) toast.error(err instanceof Error ? err.message : 'Failed to create project')
     } finally {
       setSubmitting(false)
     }
@@ -166,285 +155,250 @@ export function EditProjectModal({
     })
   }
 
-  if (!mounted) return null
-
-  return createPortal(
-    <AnimatePresence>
-      {open && (
-        <m.div
-          key="edit-project-backdrop"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.15 }}
-          onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+  return (
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
+      <DialogContent
+        hideClose
+        aria-label={creating ? 'New project' : 'Edit project'}
+        aria-describedby={undefined}
+        // Autofocus goes to the Name input (autoFocus), not the first button.
+        onOpenAutoFocus={(e) => { e.preventDefault(); document.getElementById('edit-project-name')?.focus() }}
+        style={{
+          borderRadius: 20,
+          boxShadow:    '0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)',
+          width:        560,
+          height:       580,
+          maxHeight:    'calc(100dvh - 64px)',
+        }}
+      >
+        {/* ── Header ── */}
+        <div
           style={{
-            position:        'fixed',
-            inset:           0,
-            // Dropdown panels sit at z-index 9998 (see Dropdown.Float) — this
-            // modal can be opened from a dropdown item (e.g. ProjectCard's
-            // "Edit"), so it must render above that layer, not below it.
-            zIndex:          10000,
-            display:         'flex',
-            alignItems:      'center',
-            justifyContent:  'center',
-            backgroundColor: 'var(--overlay-bg)',
-            backdropFilter:  'blur(2px)',
+            display:        'flex',
+            alignItems:     'center',
+            justifyContent: 'space-between',
+            padding:        '20px 20px 16px',
+            flexShrink:     0,
           }}
         >
-          <m.div
-            key="edit-project-modal"
-            ref={panelRef}
-            role="dialog"
-            aria-modal="true"
-            aria-label={creating ? 'New project' : 'Edit project'}
-            initial={{ opacity: 0, scale: 0.96, y: 8 }}
-            animate={{ opacity: 1, scale: 1,    y: 0 }}
-            exit={{    opacity: 0, scale: 0.96, y: 8 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 32, mass: 0.8 }}
-            onClick={(e) => e.stopPropagation()}
+          <DialogPrimitive.Title asChild>
+          <p
             style={{
-              background:    'var(--neutral-white)',
-              borderRadius:  '20px',
-              boxShadow:     '0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)',
-              width:         '560px',
-              maxWidth:      'calc(100vw - 32px)',
-              height:        '580px',
-              maxHeight:     'calc(100dvh - 64px)',
-              display:       'flex',
-              flexDirection: 'column',
-              overflow:      'hidden',
+              fontFamily: 'var(--font-title)',
+              fontWeight: 'var(--font-weight-regular)',
+              fontSize:   '24px',
+              lineHeight: '32px',
+              color:      'var(--legacy-1a1714)',
+              margin:     0,
             }}
           >
-            {/* ── Header ── */}
-            <div
-              style={{
-                display:        'flex',
-                alignItems:     'center',
-                justifyContent: 'space-between',
-                padding:        '20px 20px 16px',
-                flexShrink:     0,
-              }}
-            >
-              <p
-                style={{
-                  fontFamily: 'var(--font-title)',
-                  fontWeight: 'var(--font-weight-regular)',
-                  fontSize:   '24px',
-                  lineHeight: '32px',
-                  color:      'var(--legacy-1a1714)',
-                  margin:     0,
-                }}
-              >
-                {creating ? 'New project' : 'Edit'}
+            {creating ? 'New project' : 'Edit'}
+          </p>
+          </DialogPrimitive.Title>
+          <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" onClick={onClose} disabled={submitting} />
+        </div>
+
+        <div style={{ height: '1px', background: 'var(--neutral-100)', flexShrink: 0 }} />
+
+        {/* ── Body — scrolls on its own so the header/dividers/footer stay
+            fixed and full-width; kaya-scrollbar's permanent gutter only
+            applies within this region, not the whole card. ── */}
+        <div
+          className="kaya-scrollbar"
+          style={{
+            display:       'flex',
+            flexDirection: 'column',
+            gap:           '20px',
+            padding:       '24px 20px',
+            flex:          '1 1 0',
+            minHeight:     0,
+            overflowY:     'auto',
+          }}
+        >
+          {/* Name */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label htmlFor="edit-project-name" style={LABEL_STYLE}>Name<RequiredMark /></label>
+            <input
+              id="edit-project-name"
+              type="text"
+              value={draft.name}
+              onChange={(e) => setField('name', e.target.value)}
+              placeholder="Name your project"
+              style={INPUT_BASE}
+              onFocus={focusInput}
+              onBlur={blurInput}
+              autoFocus
+              aria-required="true"
+              aria-invalid={form.errors.name ? true : undefined}
+              aria-describedby={form.errors.name ? 'edit-project-name-error' : undefined}
+            />
+            {form.errors.name && (
+              <p id="edit-project-name-error" role="alert" style={{ fontFamily: 'var(--font-body)', fontSize: '12px', lineHeight: '16px', color: 'var(--red-500, #ef4444)', margin: 0 }}>
+                {form.errors.name}
               </p>
-              <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" onClick={onClose} disabled={submitting} />
-            </div>
+            )}
+          </div>
 
-            <div style={{ height: '1px', background: 'var(--neutral-100)', flexShrink: 0 }} />
-
-            {/* ── Body — scrolls on its own so the header/dividers/footer stay
-                fixed and full-width; kaya-scrollbar's permanent gutter only
-                applies within this region, not the whole card. ── */}
-            <div
-              className="kaya-scrollbar"
-              style={{
-                display:       'flex',
-                flexDirection: 'column',
-                gap:           '20px',
-                padding:       '24px 20px',
-                flex:          '1 1 0',
-                minHeight:     0,
-                overflowY:     'auto',
-              }}
-            >
-              {/* Name */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label htmlFor="edit-project-name" style={LABEL_STYLE}>Name<RequiredMark /></label>
-                <input
-                  id="edit-project-name"
-                  type="text"
-                  value={draft.name}
-                  onChange={(e) => setField('name', e.target.value)}
-                  placeholder="Name your project"
-                  style={INPUT_BASE}
-                  onFocus={focusInput}
-                  onBlur={blurInput}
-                  autoFocus
-                  aria-required="true"
-                  aria-invalid={form.errors.name ? true : undefined}
-                  aria-describedby={form.errors.name ? 'edit-project-name-error' : undefined}
-                />
-                {form.errors.name && (
-                  <p id="edit-project-name-error" role="alert" style={{ fontFamily: 'var(--font-body)', fontSize: '12px', lineHeight: '16px', color: 'var(--red-500, #ef4444)', margin: 0 }}>
-                    {form.errors.name}
-                  </p>
-                )}
-              </div>
-
-              {/* Who can see this — owner-only, inline so it can't open
-                  underneath this modal's z-index layer. */}
-              {visibilityOptions.length > 1 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <span id="edit-project-visibility" style={LABEL_STYLE}>Who can see this</span>
-                  <div role="radiogroup" aria-labelledby="edit-project-visibility" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {visibilityOptions.map(opt => {
-                      const selected = draft.visibility === opt.value
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          role="radio"
-                          aria-checked={selected}
-                          onClick={() => setField('visibility', opt.value)}
-                          style={{
-                            display:         'flex',
-                            alignItems:      'center',
-                            gap:             '10px',
-                            width:           '100%',
-                            padding:         '8px 12px',
-                            borderRadius:    '10px',
-                            border:          selected ? '1px solid var(--blue-400)' : '1px solid var(--border-default)',
-                            background:      selected ? 'color-mix(in srgb, var(--info-500) 6%, transparent)' : 'var(--neutral-white)',
-                            cursor:          'pointer',
-                            textAlign:       'left',
-                          }}
-                        >
-                          <span
-                            aria-hidden="true"
-                            style={{
-                              width:        14,
-                              height:       14,
-                              flexShrink:   0,
-                              borderRadius: '50%',
-                              boxShadow:    selected ? 'inset 0 0 0 4px var(--blue-400)' : 'inset 0 0 0 1.5px rgba(59,54,50,0.28)',
-                            }}
-                          />
-                          <span style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: '14px', lineHeight: '20px', color: 'var(--neutral-800)' }}>
-                              {opt.label}
-                            </span>
-                            <span style={{ fontFamily: 'var(--font-body)', fontSize: '12px', lineHeight: '16px', color: 'var(--neutral-500)' }}>
-                              {opt.description}
-                            </span>
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                  {visibilityNote && (
-                    <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', lineHeight: '16px', color: visibilityNote.losesAccess ? 'var(--red-500, #ef4444)' : 'var(--neutral-500)', margin: 0 }}>
-                      {visibilityNote.text}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Description */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label htmlFor="edit-project-desc" style={LABEL_STYLE}>Description<RequiredMark /></label>
-                <textarea
-                  id="edit-project-desc"
-                  className="kaya-chat-textarea"
-                  value={draft.description}
-                  onChange={(e) => setField('description', e.target.value)}
-                  placeholder="e.g. All discovery and design work for the V2 redesign"
-                  rows={6}
-                  style={{ ...INPUT_BASE, resize: 'none', lineHeight: '22px' }}
-                  onFocus={focusInput}
-                  onBlur={blurInput}
-                  aria-required="true"
-                />
-              </div>
-
-              {/* Tags */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span style={LABEL_STYLE}>Tags</span>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
-                  <AnimatePresence initial={false}>
-                    {draft.tags.map((tag) => (
-                      <m.div
-                        key={tag.id}
-                        initial={{ opacity: 0, scale: 0.85 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.85 }}
-                        transition={{ duration: 0.12 }}
-                        style={{ display: 'flex', alignItems: 'center', gap: '2px' }}
-                      >
-                        <Badge label={tag.label} color={tag.color} />
-                        <button
-                          type="button"
-                          onClick={() => removeTag(tag.id)}
-                          aria-label={`Remove tag ${tag.label}`}
-                          style={{
-                            display:        'flex',
-                            alignItems:     'center',
-                            justifyContent: 'center',
-                            width:          16,
-                            height:         16,
-                            borderRadius:   '50%',
-                            border:         'none',
-                            background:     'transparent',
-                            cursor:         'pointer',
-                            padding:        0,
-                            color:          'var(--neutral-500)',
-                          }}
-                        >
-                          <CancelOneIcon style={{ width: 10, height: 10 }} />
-                        </button>
-                      </m.div>
-                    ))}
-                  </AnimatePresence>
-                  {draft.tags.length < MAX_TAGS && (
-                    <ChipInput
-                      placeholder="Add tag…"
-                      value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') { e.preventDefault(); commitTag() }
+          {/* Who can see this — owner-only, inline so it can't open
+              underneath this modal's z-index layer. */}
+          {visibilityOptions.length > 1 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <span id="edit-project-visibility" style={LABEL_STYLE}>Who can see this</span>
+              <div role="radiogroup" aria-labelledby="edit-project-visibility" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {visibilityOptions.map(opt => {
+                  const selected = draft.visibility === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => setField('visibility', opt.value)}
+                      style={{
+                        display:         'flex',
+                        alignItems:      'center',
+                        gap:             '10px',
+                        width:           '100%',
+                        padding:         '8px 12px',
+                        borderRadius:    '10px',
+                        border:          selected ? '1px solid var(--blue-400)' : '1px solid var(--border-default)',
+                        background:      selected ? 'color-mix(in srgb, var(--info-500) 6%, transparent)' : 'var(--neutral-white)',
+                        cursor:          'pointer',
+                        textAlign:       'left',
                       }}
-                      aria-label="New tag"
-                    />
-                  )}
-                </div>
-                <p
-                  style={{
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 'var(--font-weight-regular)',
-                    fontSize:   '11px',
-                    lineHeight: '16px',
-                    color:      'var(--neutral-500)',
-                    margin:     0,
-                  }}
-                >
-                  {draft.tags.length >= MAX_TAGS ? `Maximum of ${MAX_TAGS} tags reached` : 'Press Enter to add a tag'}
-                </p>
+                    >
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          width:        14,
+                          height:       14,
+                          flexShrink:   0,
+                          borderRadius: '50%',
+                          boxShadow:    selected ? 'inset 0 0 0 4px var(--blue-400)' : 'inset 0 0 0 1.5px rgba(59,54,50,0.28)',
+                        }}
+                      />
+                      <span style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: '14px', lineHeight: '20px', color: 'var(--neutral-800)' }}>
+                          {opt.label}
+                        </span>
+                        <span style={{ fontFamily: 'var(--font-body)', fontSize: '12px', lineHeight: '16px', color: 'var(--neutral-500)' }}>
+                          {opt.description}
+                        </span>
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
+              {visibilityNote && (
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', lineHeight: '16px', color: visibilityNote.losesAccess ? 'var(--red-500, #ef4444)' : 'var(--neutral-500)', margin: 0 }}>
+                  {visibilityNote.text}
+                </p>
+              )}
             </div>
+          )}
 
-            <div style={{ height: '1px', background: 'var(--neutral-100)', flexShrink: 0 }} />
+          {/* Description */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <label htmlFor="edit-project-desc" style={LABEL_STYLE}>Description<RequiredMark /></label>
+            <textarea
+              id="edit-project-desc"
+              className="kaya-chat-textarea"
+              value={draft.description}
+              onChange={(e) => setField('description', e.target.value)}
+              placeholder="e.g. All discovery and design work for the V2 redesign"
+              rows={6}
+              style={{ ...INPUT_BASE, resize: 'none', lineHeight: '22px' }}
+              onFocus={focusInput}
+              onBlur={blurInput}
+              aria-required="true"
+            />
+          </div>
 
-            {/* ── Footer ── */}
-            <div
+          {/* Tags */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={LABEL_STYLE}>Tags</span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+              <AnimatePresence initial={false}>
+                {draft.tags.map((tag) => (
+                  <m.div
+                    key={tag.id}
+                    initial={{ opacity: 0, scale: 0.85 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.85 }}
+                    transition={{ duration: 0.12 }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '2px' }}
+                  >
+                    <Badge label={tag.label} color={tag.color} />
+                    <button
+                      type="button"
+                      onClick={() => removeTag(tag.id)}
+                      aria-label={`Remove tag ${tag.label}`}
+                      style={{
+                        display:        'flex',
+                        alignItems:     'center',
+                        justifyContent: 'center',
+                        width:          16,
+                        height:         16,
+                        borderRadius:   '50%',
+                        border:         'none',
+                        background:     'transparent',
+                        cursor:         'pointer',
+                        padding:        0,
+                        color:          'var(--neutral-500)',
+                      }}
+                    >
+                      <CancelOneIcon style={{ width: 10, height: 10 }} />
+                    </button>
+                  </m.div>
+                ))}
+              </AnimatePresence>
+              {draft.tags.length < MAX_TAGS && (
+                <ChipInput
+                  placeholder="Add tag…"
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); commitTag() }
+                  }}
+                  aria-label="New tag"
+                />
+              )}
+            </div>
+            <p
               style={{
-                display:        'flex',
-                justifyContent: 'flex-end',
-                alignItems:     'center',
-                gap:            '8px',
-                padding:        '16px 20px',
-                flexShrink:     0,
+                fontFamily: 'var(--font-body)',
+                fontWeight: 'var(--font-weight-regular)',
+                fontSize:   '11px',
+                lineHeight: '16px',
+                color:      'var(--neutral-500)',
+                margin:     0,
               }}
             >
-              <Button variant="ghost" onClick={onClose} disabled={submitting}>Cancel</Button>
-              <Button variant="default" onClick={handleSave} loading={submitting} disabled={!form.isValid || submitting}>
-                {creating ? 'Create project' : 'Save changes'}
-              </Button>
-            </div>
-          </m.div>
-        </m.div>
-      )}
-    </AnimatePresence>,
-    document.body
+              {draft.tags.length >= MAX_TAGS ? `Maximum of ${MAX_TAGS} tags reached` : 'Press Enter to add a tag'}
+            </p>
+          </div>
+        </div>
+
+        <div style={{ height: '1px', background: 'var(--neutral-100)', flexShrink: 0 }} />
+
+        {/* ── Footer ── */}
+        <div
+          style={{
+            display:        'flex',
+            justifyContent: 'flex-end',
+            alignItems:     'center',
+            gap:            '8px',
+            padding:        '16px 20px',
+            flexShrink:     0,
+          }}
+        >
+          <Button variant="ghost" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button variant="default" onClick={handleSave} loading={submitting} disabled={!form.isValid || submitting}>
+            {creating ? 'Create project' : 'Save changes'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

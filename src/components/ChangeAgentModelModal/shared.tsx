@@ -1,9 +1,7 @@
 'use client'
 
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { m, AnimatePresence } from 'framer-motion'
-import { useMounted } from '@/hooks/use-mounted'
+import React, { useEffect, useMemo, useState } from 'react'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { stableKey } from '@/hooks/use-model-selection'
 import { Badge, type BadgeColor } from '@/components/Badge'
 import { ModelSelectItem } from '@/components/ModelSelectItem'
@@ -78,92 +76,19 @@ export interface ModalShellProps {
   children: React.ReactNode
 }
 
-/** Portal + backdrop + centered dialog, with Escape-to-close and initial focus. */
+/** Centered dialog on the shared Radix shell: Esc/outside click call onClose, focus is trapped and returned. */
 export function ModalShell({ open, onClose, ariaLabel, width = 420, children }: ModalShellProps) {
-  const mounted   = useMounted()
-  const dialogRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.stopPropagation(); onClose() }
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [open, onClose])
-
-  // Move focus into the dialog so Escape and Tab land here rather than on
-  // whatever card was behind it.
-  useEffect(() => {
-    if (open) dialogRef.current?.focus()
-  }, [open])
-
-  if (!mounted) return null
-
-  return createPortal(
-    <AnimatePresence>
-      {open && (
-        <>
-          <m.div
-            key="backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            onClick={onClose}
-            style={{
-              position:        'fixed',
-              inset:           0,
-              backgroundColor: 'color-mix(in srgb, var(--static-black) 28%, transparent)',
-              backdropFilter:  'blur(2px)',
-              zIndex:          60,
-            }}
-          />
-
-          <div
-            style={{
-              position:       'fixed',
-              inset:          0,
-              display:        'flex',
-              alignItems:     'center',
-              justifyContent: 'center',
-              zIndex:         61,
-              pointerEvents:  'none',
-              padding:        16,
-            }}
-          >
-            <m.div
-              key="modal"
-              ref={dialogRef}
-              role="dialog"
-              aria-modal="true"
-              aria-label={ariaLabel}
-              tabIndex={-1}
-              initial={{ opacity: 0, scale: 0.96, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 8 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              style={{
-                pointerEvents:   'auto',
-                width,
-                maxWidth:        '100%',
-                maxHeight:       'calc(100vh - 32px)',
-                borderRadius:    16,
-                backgroundColor: 'var(--modal-bg)',
-                boxShadow:       SHADOW_MODAL,
-                overflow:        'hidden',
-                display:         'flex',
-                flexDirection:   'column',
-                outline:         'none',
-              }}
-            >
-              {children}
-            </m.div>
-          </div>
-        </>
-      )}
-    </AnimatePresence>,
-    document.body,
+  return (
+    <Dialog open={open} onOpenChange={next => { if (!next) onClose() }}>
+      <DialogContent
+        hideClose
+        aria-describedby={undefined}
+        style={{ width, background: 'var(--modal-bg)', boxShadow: SHADOW_MODAL }}
+      >
+        <DialogTitle className="sr-only">{ariaLabel}</DialogTitle>
+        {children}
+      </DialogContent>
+    </Dialog>
   )
 }
 

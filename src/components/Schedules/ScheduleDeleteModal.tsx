@@ -1,10 +1,9 @@
 'use client'
 
-import React, { useId, useRef } from 'react'
-import { AnimatePresence, m } from 'framer-motion'
+import React from 'react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Button } from '@/components/ui/button'
-import { springs } from '@/lib/springs'
-import { useFocusTrap } from '@/hooks/use-focus-trap'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -27,92 +26,61 @@ export function ScheduleDeleteModal({
   onClose,
   deleting = false,
 }: ScheduleDeleteModalProps) {
-  const cardRef = useRef<HTMLDivElement>(null)
-  const titleId = useId()
-  // Tab stays inside the card; Esc closes it unless a delete is in flight.
-  useFocusTrap(cardRef, isOpen, () => { if (!deleting) onClose() })
-
+  // Radix shell: focus stays inside; Esc / overlay click close it unless a delete is in flight.
   return (
-    <AnimatePresence initial={false}>
-      {isOpen && (
-        <m.div
-          key="schedule-delete-overlay"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={springs.fast}
-          onClick={deleting ? undefined : onClose}
-          style={{
-            position:        'fixed',
-            inset:           0,
-            backgroundColor: 'color-mix(in srgb, var(--neutral-black) 40%, transparent)',
-            display:         'flex',
-            alignItems:      'center',
-            justifyContent:  'center',
-            zIndex:          20,
-            padding:         24,
-          }}
-        >
-          <m.div
-            key="schedule-delete-card"
-            ref={cardRef}
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            aria-busy={deleting}
-            initial={{ opacity: 0, scale: 0.96, y: 8 }}
-            animate={{ opacity: 1, scale: 1,    y: 0 }}
-            exit={{    opacity: 0, scale: 0.96, y: 8 }}
-            transition={springs.fast}
-            onClick={e => e.stopPropagation()}
-            style={{
-              backgroundColor: 'var(--neutral-white)',
-              borderRadius:    16,
-              padding:         28,
-              maxWidth:        440,
-              width:           '100%',
-              display:         'flex',
-              flexDirection:   'column',
-              gap:             16,
-              boxShadow:       '0 8px 40px color-mix(in srgb, var(--static-black) 12%, transparent)',
-            }}
-          >
-            {/* Header */}
-            <span id={titleId} style={{
-              fontFamily: 'var(--font-body)',
-              fontSize:   'var(--font-size-body-lg)',
-              fontWeight: 'var(--font-weight-semibold)',
-              lineHeight: 'var(--line-height-body-lg)',
-              color:      'var(--neutral-900)',
-            }}>
-              Delete "{scheduleName}"?
-            </span>
+    <Dialog open={isOpen} onOpenChange={(next) => { if (!next && !deleting) onClose() }}>
+      <DialogContent
+        hideClose
+        role="alertdialog"
+        aria-modal="true"
+        aria-busy={deleting}
+        onEscapeKeyDown={(e) => { if (deleting) e.preventDefault() }}
+        onInteractOutside={(e) => { if (deleting) e.preventDefault() }}
+        style={{
+          padding:   28,
+          width:     440,
+          maxWidth:  'calc(100vw - 48px)',
+          gap:       16,
+          boxShadow: '0 8px 40px color-mix(in srgb, var(--static-black) 12%, transparent)',
+        }}
+      >
+        {/* Header */}
+        <DialogPrimitive.Title asChild>
+          <span style={{
+            fontFamily: 'var(--font-body)',
+            fontSize:   'var(--font-size-body-lg)',
+            fontWeight: 'var(--font-weight-semibold)',
+            lineHeight: 'var(--line-height-body-lg)',
+            color:      'var(--neutral-900)',
+          }}>
+            Delete &quot;{scheduleName}&quot;?
+          </span>
+        </DialogPrimitive.Title>
 
-            {/* Body */}
-            <p style={{
-              margin:     0,
-              fontFamily: 'var(--font-body)',
-              fontSize:   'var(--font-size-body)',
-              lineHeight: 'var(--line-height-body)',
-              color:      'var(--neutral-600)',
-            }}>
-              This will permanently remove the schedule and all its run history.
-            </p>
+        {/* Body */}
+        <DialogPrimitive.Description asChild>
+          <p style={{
+            margin:     0,
+            fontFamily: 'var(--font-body)',
+            fontSize:   'var(--font-size-body)',
+            lineHeight: 'var(--line-height-body)',
+            color:      'var(--neutral-600)',
+          }}>
+            This will permanently remove the schedule and all its run history.
+          </p>
+        </DialogPrimitive.Description>
 
-            {/* Actions */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
-              <Button variant="ghost" size="sm" onClick={onClose} disabled={deleting}>
-                Cancel
-              </Button>
-              <Button variant="danger" size="sm" loading={deleting} disabled={deleting} onClick={onConfirm}>
-                Delete schedule
-              </Button>
-            </div>
-
-          </m.div>
-        </m.div>
-      )}
-    </AnimatePresence>
+        {/* Actions */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button variant="danger" size="sm" loading={deleting} disabled={deleting} onClick={onConfirm}>
+            Delete schedule
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

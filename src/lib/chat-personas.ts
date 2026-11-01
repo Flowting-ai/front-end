@@ -6,7 +6,6 @@ import {
   type Persona,
   type PersonaRepoResponse,
 } from '@/lib/api/personas'
-import { onPersonasInvalidated } from '@/lib/api/persona-cache'
 
 export interface SelectedPersonaInfo {
   id:              string
@@ -116,22 +115,9 @@ export async function resolveSelectableChatPersonas(
   return resolved.filter((p): p is SelectedPersonaInfo => p !== null)
 }
 
-// 30-second TTL cache + in-flight dedup — the Agents floating panel calls
-// fetchSelectableChatPersonas() fresh on every open, which previously re-ran
-// fetchPersonas() + the copy-resolution pass every single time. Busted
-// whenever the personas list itself is busted (create/edit/publish/delete/
-// share), so a real mutation is never masked by a stale cache hit.
-const _selectableCache = new Map<string, { data: SelectedPersonaInfo[]; time: number }>()
-const _selectableInFlight = new Map<string, Promise<SelectedPersonaInfo[]>>()
-const SELECTABLE_CACHE_TTL = 30_000
-
-if (typeof window !== 'undefined') {
-  onPersonasInvalidated(() => {
-    _selectableCache.clear()
-    _selectableInFlight.clear()
-  })
-}
-
+// Caching and in-flight dedup live in React Query (useSelectableChatPersonas,
+// queryKeys.personas.selectable), under the ["personas"] prefix that
+// bustPersonasCache() invalidates.
 /** The complete set of agents the backend says this viewer may access.
  *  Drafts are excluded — they aren't published/usable yet. */
 export function fetchSelectableChatPersonas(
@@ -139,25 +125,13 @@ export function fetchSelectableChatPersonas(
   viewerUserId: string | number | null | undefined,
   fallbackOwned: boolean,
 ): Promise<SelectedPersonaInfo[]> {
-  const key = `${orgId ?? ''}:${viewerUserId ?? ''}:${fallbackOwned}`
-  const now = Date.now()
-  const cached = _selectableCache.get(key)
-  if (cached && now - cached.time < SELECTABLE_CACHE_TTL) return Promise.resolve(cached.data)
-
-  const inFlight = _selectableInFlight.get(key)
-  if (inFlight) return inFlight
-
-  const promise = (async () => {
+  return (async () => {
     const allPersonas = await fetchPersonas()
     // Team-visibility agents excluded — that UI is hidden for now (see
     // SharingTab.tsx), so they're not selectable here either. Drafts are
     // excluded too — they aren't published/usable yet.
     const personas = allPersonas.filter(persona => !isDraftPersona(persona) && persona.visibility === 'private')
     const resolved = await resolveSelectableChatPersonas(personas, {}, viewerUserId, fallbackOwned)
-    _selectableCache.set(key, { data: resolved, time: Date.now() })
     return resolved
-  })().finally(() => { _selectableInFlight.delete(key) })
-
-  _selectableInFlight.set(key, promise)
-  return promise
+  })()
 }

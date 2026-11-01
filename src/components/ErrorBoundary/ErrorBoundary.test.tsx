@@ -36,4 +36,17 @@ describe('ErrorBoundary', () => {
     expect(container.textContent).toContain('healthy page')
     await act(async () => root.unmount())
   })
+
+  it("region variant crashes alone with a small fallback, siblings stay up", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    const container = document.createElement("div")
+    const root = createRoot(container)
+    shouldThrow = true
+    await act(async () => root.render(<><ErrorBoundary variant="region" label="Sidebar"><Crashy /></ErrorBoundary><main>main pane</main></>))
+    expect(container.textContent).toContain("Sidebar couldn't load.")
+    expect(container.textContent).toContain("main pane")
+    expect(container.textContent).not.toContain("Something went wrong")
+    shouldThrow = false
+    await act(async () => root.unmount())
+  })
 })

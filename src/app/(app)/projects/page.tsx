@@ -6,6 +6,7 @@ import { AnimatePresence, m } from 'framer-motion'
 import { SearchOneIcon, PlusSignIcon, ArrowDownOneIcon, CancelCircleIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { useProjects } from '@/context/projects-context'
+import { useDeleteProject } from '@/lib/projects/project-mutations'
 import { canProject } from '@/lib/projects/project-permissions'
 import { ProjectCard } from '@/components/ProjectCard'
 import { Badge } from '@/components/Badge'
@@ -43,7 +44,8 @@ import { sortProjects, projectMemberCount, formatUpdated } from '@/lib/project-l
 function ProjectsPageInner() {
   const { push, replace }                                                     = useRouter()
   const searchParams                                                          = useSearchParams()
-  const { projects, loading, updateProject, deleteProject, loadProjectChats, refreshProjects } = useProjects()
+  const { projects, loading, updateProject, loadProjectChats, refreshProjects } = useProjects()
+  const deleteMutation = useDeleteProject()
   const { orgId, members }                                                    = useOrg()
   const { user }                                                              = useAuth()
   const syncedRef = useRef(false)
@@ -122,7 +124,6 @@ function ProjectsPageInner() {
 
   const [editTarget,     setEditTarget]     = useState<Project | null>(null)
   const [deleteTarget,   setDeleteTarget]   = useState<Project | null>(null)
-  const [isDeleting,     setIsDeleting]     = useState(false)
   const [leaveTarget,    setLeaveTarget]    = useState<Project | null>(null)
 
   // Personal projects have no membership to leave (backend 400s). The owner
@@ -170,9 +171,8 @@ function ProjectsPageInner() {
 
   async function handleDeleteConfirm() {
     if (!deleteTarget) return
-    setIsDeleting(true)
     try {
-      await deleteProject(deleteTarget.id)
+      await deleteMutation.mutateAsync(deleteTarget.id)
       if (deleteTarget.chatCount > 0) {
         const chatWord = deleteTarget.chatCount === 1 ? 'chat' : 'chats'
         toast.success(`"${deleteTarget.name}" and ${deleteTarget.chatCount} ${chatWord} deleted`)
@@ -181,9 +181,7 @@ function ProjectsPageInner() {
       }
       setDeleteTarget(null)
     } catch {
-      // error toast shown by context
-    } finally {
-      setIsDeleting(false)
+      // error toast (and rollback) handled by the mutation
     }
   }
 
@@ -526,7 +524,7 @@ function ProjectsPageInner() {
         projectName={deleteTarget?.name ?? ''}
         chatCount={deleteTarget?.chatCount ?? 0}
         restorable={!!deleteTarget && deleteTarget.visibility !== 'personal'}
-        loading={isDeleting}
+        loading={deleteMutation.isPending}
         onConfirm={handleDeleteConfirm}
         onClose={() => setDeleteTarget(null)}
       />

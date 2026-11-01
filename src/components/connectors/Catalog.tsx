@@ -2,17 +2,20 @@
 
 // The catalogue: Discover / All / Connected / Not connected, search, sort, category and paging.
 
-import React, { useEffect, useRef, useState, useTransition } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { ConnectorCatalogCard } from '@/components/ConnectorCatalogCard'
 import { Pagination } from '@/components/ConnectorBrowse'
 import { type ConnectorPick } from '@/lib/api/recommendations'
-import { ConnectorCatalog } from '@/lib/api/connectors'
+import { ConnectorCatalog, listConnectors } from '@/lib/api/connectors'
+import { queryKeys } from '@/lib/query-keys'
 
 import {
   AVAILABLE_PAGE_SIZE,
-  cachedPage,
-  fetchBrowsePage,
+  browseQuery,
+  PAGE_TTL_MS,
   SPACE,
   muted,
   type CatalogView,
@@ -32,134 +35,123 @@ import {
   useConnectorCategories,
 } from './CatalogDiscover'
 
+const VIEWS: readonly CatalogView[] = ['discover', 'all', 'connected', 'not-connected']
+const SORTS: readonly SortMode[] = ['name-asc', 'name-desc']
+
+/** How many pages past the loaded ones a URL ?page= may walk to before falling back to page 1. */
+const MAX_PAGE_WALK = 20
+
+/**
+ * Shallow URL update (history.replaceState, which Next's useSearchParams follows) for the catalogue's
+ * own keys: no navigation, no server round-trip, no scroll. Other params (open, connector…) are kept.
+ */
+function writeCatalogParams(patch: Record<string, string | null>) {
+  const url = new URL(window.location.href)
+  let changed = false
+  for (const [key, value] of Object.entries(patch)) {
+    if (!value) {
+      if (url.searchParams.has(key)) { url.searchParams.delete(key); changed = true }
+    } else if (url.searchParams.get(key) !== value) {
+      url.searchParams.set(key, value)
+      changed = true
+    }
+  }
+  if (changed) window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+}
+
+/**
+ * View, category, sort, page and search live in the URL (?view=&category=&sort=&page=&q=), so they
+ * survive back/forward and deep links (e.g. /connectors?q=slack from a quick action).
+ */
 export function Catalog({
-  catalog, query, select, onRows, pendingSlug,
+  catalog, select, onRows, pendingSlug,
 }: {
   catalog: ConnectorCatalog[]
-  query: string
+  /** The deep-linked search. Unused now: the catalogue reads `q` from the URL itself. */
+  query?: string
   select: (summary: ConnectorCatalog | ConnectorPick) => void
   onRows?: (rows: ConnectorCatalog[]) => void
   pendingSlug?: string | null
 }) {
+  const searchParams = useSearchParams()
+  const debouncedQuery = (searchParams.get('q') ?? '').trim()
+  const rawView = searchParams.get('view') as CatalogView | null
   // A deep-linked search lands on All — Discover would hide most matches.
-  const [view, setView] = useState<CatalogView>(query ? 'all' : 'discover')
+  const view: CatalogView = rawView && VIEWS.includes(rawView) ? rawView : debouncedQuery ? 'all' : 'discover'
+  const category = searchParams.get('category') ?? ''
+  const rawSort = searchParams.get('sort') as SortMode | null
+  const sort: SortMode = rawSort && SORTS.includes(rawSort) ? rawSort : 'name-asc'
+  const page = Math.max(1, Number.parseInt(searchParams.get('page') ?? '1', 10) || 1)
+
   const picks = useConnectorPicks()
   const catalogCategories = useConnectorCategories()
-  const [category, setCategory] = useState('')
   const linkedRows = catalog.filter(row => row.linked || row.connections.length > 0)
   const theirCategories = [...linkedRows, ...picks.sure, ...picks.maybe].map(row => row.categories)
   // Without GET /connectors/categories, the categories of the apps on screen.
   const categories = rankCategories(catalogCategories ?? [...new Set(theirCategories.flat())], theirCategories)
-  const [ownQuery, setOwnQuery] = useState(query)
-  // `query` (the `initialSearch` deep-link, e.g. /connectors?q=slack from a
-  // quick action) only seeds `ownQuery` once with a plain useState — a real
-  // gap if a second quick-action link changes `query` while this component
-  // stays mounted (a client-side navigation to /connectors?q=zoom while
-  // already on /connectors), since the search box would silently keep
-  // showing the old term. Re-adopt `query` during render whenever it
-  // actually changes, same "adjust state when a prop changes" pattern as
-  // AccountName's nickname sync in AccountDetailView.tsx.
-  const [syncedQuery, setSyncedQuery] = useState(query)
-  if (query !== syncedQuery) {
-    setSyncedQuery(query)
-    setOwnQuery(query)
-    if (query) setView('all')
+  // The search box types ahead of the URL (which follows 300ms later). When `q` changes from outside
+  // (back/forward, a second quick-action link), the box adopts it.
+  const [ownQuery, setOwnQuery] = useState(debouncedQuery)
+  const [seenUrlQuery, setSeenUrlQuery] = useState(debouncedQuery)
+  if (debouncedQuery !== seenUrlQuery) {
+    setSeenUrlQuery(debouncedQuery)
+    if (ownQuery.trim() !== debouncedQuery) setOwnQuery(debouncedQuery)
   }
-  const [sort, setSort] = useState<SortMode>('name-asc')
-  const [page, setPage] = useState(1)
-  const cursorsRef = useRef<(string | undefined)[]>([undefined])
-  const [browseItems, setBrowseItems] = useState<ConnectorCatalog[]>([])
-  const [browseHasMore, setBrowseHasMore] = useState(false)
-  const [browseBusy, setBrowseBusy] = useState(false)
-  // The view/query/category/page the shown `browseItems` belong to. Until the
-  // fetch for the current one lands (e.g. right after picking a category, before
-  // the effect below has even run) the grid shows the skeleton, not stale rows
-  // filtered down to nothing.
-  const [browseLoadedKey, setBrowseLoadedKey] = useState<string | null>(null)
-  const [debouncedQuery, setDebouncedQuery] = useState(query.trim())
   const sectionRef = useRef<HTMLElement>(null)
-  const lastPageRef = useRef(1)
 
+  // Typing settles into the URL; a new search starts again at page 1.
   useEffect(() => {
-    const handle = window.setTimeout(() => setDebouncedQuery(ownQuery.trim()), 300)
+    const next = ownQuery.trim()
+    if (next === debouncedQuery) return
+    const handle = window.setTimeout(() => writeCatalogParams({ q: next || null, page: null }), 300)
     return () => window.clearTimeout(handle)
-  }, [ownQuery])
+  }, [ownQuery, debouncedQuery])
 
-  // Was a `useEffect(() => { setPage(1); cursorsRef.current = [undefined] },
-  // [debouncedQuery, view])` — the `setPage(1)` half is a pure "reset
-  // pagination when the search term or tab changes" adjustment, not a
-  // subscription to anything external, so it converts to React's documented
-  // "adjust state when a prop/dependency changes" render-time pattern (no
-  // effect needed; self-terminating once paginationKey === syncedPaginationKey).
-  // The ref reset can't move into that same render-time block — React
-  // disallows writing a ref's `.current` during render (`react-hooks/refs`) —
-  // so it stays in a small dedicated effect below, keyed on the same value.
-  const paginationKey = `${view}::${debouncedQuery}::${category}`
-  const [syncedPaginationKey, setSyncedPaginationKey] = useState(paginationKey)
-  if (paginationKey !== syncedPaginationKey) {
-    setSyncedPaginationKey(paginationKey)
-    setPage(1)
-  }
-  useEffect(() => {
-    cursorsRef.current = [undefined]
-  }, [paginationKey])
-
-  // Same technique for the "nothing to browse-fetch" case (Recommended, or
-  // Connected with no search term — those rows come from the picks and
-  // `linkedRows` below, not `browseItems`): the reset itself is derivable
-  // from the current view/query, not a side effect, so it moves out of the
-  // fetch effect below instead of being its unconditional first branch.
+  // Recommended, and Connected with no search term, show rows from the picks and `linkedRows` below,
+  // so nothing is browse-fetched for them.
   const skipBrowse = view === 'discover' || (view === 'connected' && !debouncedQuery)
-  const [syncedSkipBrowse, setSyncedSkipBrowse] = useState(skipBrowse)
-  if (skipBrowse !== syncedSkipBrowse) {
-    setSyncedSkipBrowse(skipBrowse)
-    if (skipBrowse) {
-      setBrowseItems([])
-      setBrowseHasMore(false)
-      setBrowseBusy(false)
-    }
-  }
+
+  // The browse pages for one search/category, as one infinite query: pages[n] is page n + 1, and each
+  // page's nextCursor reaches the one after it. Pages seen before come from the cache (Previous is
+  // instant); a connect or disconnect invalidates them (bustConnectorCatalogCache, ["connectors"]).
+  // View and sort are not in the key: neither changes the request (both filter/sort on screen).
+  const browse = useInfiniteQuery({
+    queryKey: queryKeys.connectors.catalog({ q: debouncedQuery, category }),
+    queryFn: ({ pageParam }) => listConnectors(browseQuery(debouncedQuery, category, pageParam)),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: last => (last.hasMore && last.nextCursor ? last.nextCursor : undefined),
+    enabled: !skipBrowse,
+    staleTime: PAGE_TTL_MS,
+  })
+  const loadedPages = browse.data?.pages.length ?? 0
+  const currentPage = skipBrowse ? undefined : browse.data?.pages[page - 1]
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = browse
+  const browseSettled = browse.isSuccess || browse.isError
+
+  // Reach the page in the URL: fetch it when it is the next one, warm the one after the current page
+  // (so Next is instant), and fall back to page 1 when the URL names a page no cursor reaches.
+  useEffect(() => {
+    if (skipBrowse || !browseSettled || isFetchingNextPage || browse.isFetchNextPageError) return
+    if (page <= loadedPages - 1) return
+    // A deeper page (a reload on ?page=3) is reached by walking the cursors one page at a time, up to a cap.
+    if (hasNextPage && page <= loadedPages + MAX_PAGE_WALK) void fetchNextPage()
+    else if (page > loadedPages) writeCatalogParams({ page: null })
+  }, [skipBrowse, browseSettled, isFetchingNextPage, browse.isFetchNextPageError, page, loadedPages, hasNextPage, fetchNextPage])
 
   useEffect(() => {
-    if (skipBrowse) return
-    let cancelled = false
-    const cursor = cursorsRef.current[page - 1]
-    const hit = cachedPage(debouncedQuery, category, cursor)
-    // Not cached: show the loading skeleton until it arrives. Cached: no flash, apply right away.
-    if (!hit) setBrowseBusy(true)
-    const request = hit ? Promise.resolve(hit) : fetchBrowsePage(debouncedQuery, category, cursor)
-    void request
-      .then(result => {
-        if (cancelled) return
-        setBrowseItems(result.connectors)
-        setBrowseHasMore(result.hasMore)
-        setBrowseLoadedKey(`${paginationKey}::${page}`)
-        onRows?.(result.connectors)
-        if (result.nextCursor) {
-          cursorsRef.current[page] = result.nextCursor
-          // Warm the next page so clicking Next is instant.
-          if (result.hasMore) void fetchBrowsePage(debouncedQuery, category, result.nextCursor).catch(() => {})
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setBrowseItems([])
-          setBrowseHasMore(false)
-          setBrowseLoadedKey(`${paginationKey}::${page}`)
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setBrowseBusy(false)
-      })
-    return () => { cancelled = true }
-  }, [skipBrowse, debouncedQuery, category, view, page, onRows, paginationKey])
+    if (currentPage) onRows?.(currentPage.connectors)
+  }, [currentPage, onRows])
+
+  const browseFailed = browse.isError && (!browse.data || browse.isFetchNextPageError)
+  const browseItems = currentPage?.connectors ?? []
+  const browseHasMore = currentPage?.hasMore ?? false
 
   // Changing page keeps the scroll position, so the new connectors landed off-screen: bring the top of
   // the list back into view.
-  useEffect(() => {
-    if (lastPageRef.current !== page) sectionRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
-    lastPageRef.current = page
-  }, [page])
+  const changePage = (next: number) => {
+    writeCatalogParams({ page: next > 1 ? String(next) : null })
+    sectionRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  }
 
   const byName = (a: { name: string }, b: { name: string }) =>
     sort === 'name-desc' ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name)
@@ -187,7 +179,7 @@ export function Catalog({
     ? []
     : sorted.filter(summary => summary.connections.length === 0 && !summary.linked)
   const showConnectedLabel = connectedItems.length > 0 && availableItems.length > 0
-  const loadingPage = !skipBrowse && (browseBusy || browseLoadedKey !== `${paginationKey}::${page}`)
+  const loadingPage = !skipBrowse && !currentPage && !browseFailed
   const empty = !loadingPage && connectedItems.length === 0 && availableItems.length === 0
 
   const connectedSlugs = new Set(linkedRows.map(row => row.slug))
@@ -201,20 +193,12 @@ export function Catalog({
   // Discover is for browsing; typing a search moves to All's results.
   const changeQuery = (value: string) => {
     setOwnQuery(value)
-    if (value.trim() && view === 'discover') setView('all')
+    if (value.trim() && view === 'discover') writeCatalogParams({ view: 'all', page: null })
   }
-  // View, category and sort switches re-render a full grid of cards; as
-  // transitions they don't block the click or typing that caused them.
-  const [, startTransition] = useTransition()
-  const switchView = (next: CatalogView) => startTransition(() => setView(next))
-  const switchCategory = (next: string) => startTransition(() => setCategory(next))
-  const switchSort = (next: SortMode) => startTransition(() => setSort(next))
-  const viewCategory = (value: string) => {
-    startTransition(() => {
-      setCategory(value)
-      setView('all')
-    })
-  }
+  const switchView = (next: CatalogView) => writeCatalogParams({ view: next, page: null })
+  const switchCategory = (next: string) => writeCatalogParams({ category: next || null, page: null })
+  const switchSort = (next: SortMode) => writeCatalogParams({ sort: next === 'name-asc' ? null : next })
+  const viewCategory = (value: string) => writeCatalogParams({ category: value || null, view: 'all', page: null })
   const discoverSections = category ? [category] : categories.slice(0, DISCOVER_CATEGORY_COUNT)
 
   const toolbar = (
@@ -295,7 +279,7 @@ export function Catalog({
               )}
               {/* Locked while a page is loading, so a double-click cannot skip a page. */}
               <div style={{ marginTop: SPACE.xl, pointerEvents: loadingPage ? 'none' : undefined, opacity: loadingPage ? 0.6 : 1 }}>
-                <Pagination page={page} hasMore={browseHasMore} onChange={setPage} />
+                <Pagination page={page} hasMore={browseHasMore} onChange={changePage} />
               </div>
             </div>
           )}

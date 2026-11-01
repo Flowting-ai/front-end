@@ -16,6 +16,7 @@ import { Switch } from '@/components/Switch'
 import { Checkbox } from '@/components/Checkbox'
 import { Spinner } from '@/components/Spinner'
 import { cn } from '@/lib/utils'
+import { useMenuMode, DropdownMenuPrimitiveItem, DropdownMenuLabel } from '@/components/ui/dropdown-menu'
 
 // ── Shadow tokens ──────────────────────────────────────────────────────────────
 
@@ -304,14 +305,26 @@ export function DropdownMenuItem(
 
     const Comp = asChild ? Slot : 'div'
 
-    return (
+    // Inside a Radix menu (`Dropdown.Float` / `Dropdown.Submenu`) Radix owns
+    // role, tabIndex, disabled state and Enter/Space activation. Outside one
+    // the row provides them itself. Keys are omitted (not set to undefined)
+    // when Radix owns them, because Slot lets child props win.
+    const menuMode = useMenuMode()
+    const radixManaged = menuMode !== 'none'
+    const a11yProps: React.HTMLAttributes<HTMLDivElement> & { 'data-disabled'?: boolean } = radixManaged
+      ? {}
+      : {
+          role:            isHeader ? undefined : 'menuitem',
+          tabIndex:        isHeader || disabled || loading ? undefined : 0,
+          'aria-disabled': disabled || undefined,
+          'data-disabled': disabled || undefined,
+        }
+
+    const row = (
       <Comp
         ref={ref}
-        role={isHeader ? undefined : 'menuitem'}
-        tabIndex={isHeader || disabled || loading ? undefined : 0}
-        aria-disabled={disabled || undefined}
+        {...a11yProps}
         aria-busy={loading || undefined}
-        data-disabled={disabled || undefined}
         className={cn(!isHeader && 'kaya-dropdown-item', className)}
         style={{
           position:        'relative',
@@ -354,7 +367,8 @@ export function DropdownMenuItem(
           externalMouseLeave?.(e)
         }}
         onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
-          if (!isHeader && !disabled && !loading && (e.key === 'Enter' || e.key === ' ')) {
+          // Radix items turn Enter/Space into a click themselves.
+          if (!radixManaged && !isHeader && !disabled && !loading && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault()
             // When the row carries a Switch / Checkbox, Enter/Space toggles
             // it as well as firing the consumer's onClick - same intent as a
@@ -627,6 +641,21 @@ export function DropdownMenuItem(
           </>
         )}
       </Comp>
+    )
+
+    if (menuMode !== 'menu') return row
+    if (isHeader) return <DropdownMenuLabel asChild>{row}</DropdownMenuLabel>
+    return (
+      <DropdownMenuPrimitiveItem
+        asChild
+        disabled={disabled || loading}
+        // Selecting a row never auto-closes the menu - callers close it
+        // explicitly (same contract as before the Radix migration), so
+        // Switch / Checkbox rows stay open while toggling.
+        onSelect={(e) => e.preventDefault()}
+      >
+        {row}
+      </DropdownMenuPrimitiveItem>
     )
 }
 

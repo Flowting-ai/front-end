@@ -1,17 +1,16 @@
 'use client'
 
 import React, { createContext, useCallback, use, useEffect, useMemo } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { deleteProjectOptions, updateProjectOptions } from '@/lib/projects/project-mutations'
 import { toast } from 'sonner'
 import { useAuth } from '@/context/auth-context'
-import { trackBrowserEvent, trackFeature } from '@/lib/analytics/events'
+import { trackBrowserEvent } from '@/lib/analytics/events'
 import {
   fetchProjects,
   fetchProject,
   fetchProjectChats,
   createProjectApi,
-  updateProjectApi,
-  deleteProjectApi,
   addChatToProject,
   removeChatFromProject,
   removeProjectDocumentApi,
@@ -30,7 +29,6 @@ import {
   mergeProjectChats,
   mergeSummaries,
   saveStoredSizes,
-  toApiPatch,
   upsertProject,
   type Project,
   type ProjectChat,
@@ -162,51 +160,18 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     return project
   }, [currentUserId, holdList, setProjects])
 
-  const updateProject = useCallback(async (id: string, patch: ProjectPatch) => {
-    const snapshot = currentProject(id)
-    await holdList()
-    setProjects(prev => mapProject(prev, id, p => ({ ...p, ...patch, updatedAt: new Date().toISOString() })))
+  // Both writes are React Query mutations (lib/projects/project-mutations): optimistic, rolled back
+  // with an error toast on failure, and the list refetched once they settle.
+  const { mutateAsync: updateAsync } = useMutation(updateProjectOptions(qc, currentUserId))
+  const { mutateAsync: deleteAsync } = useMutation(deleteProjectOptions(qc, currentUserId))
 
-    const apiPatch = toApiPatch(patch)
-    if (Object.keys(apiPatch).length === 0) return
-    try {
-      const updated = await updateProjectApi(id, apiPatch, currentUserId)
-      setProjects(prev => mapProject(prev, id, p => apiToProject(updated, p, undefined)))
-      // Analytics: do people give projects instructions, or just make empty folders?
-      if (patch.instructions !== undefined) {
-        trackFeature('project_instructions_added', { has_instructions: !!patch.instructions.trim() })
-      }
-    } catch (err) {
-      if (snapshot) setProjects(prev => mapProject(prev, id, () => snapshot))
-      toast.error('Failed to update project', { description: errorDescription(err) })
-      throw err
-    }
-  }, [currentUserId, currentProject, holdList, setProjects])
+  const updateProject = useCallback(async (id: string, patch: ProjectPatch) => {
+    await updateAsync({ id, patch })
+  }, [updateAsync])
 
   const deleteProject = useCallback(async (id: string) => {
-    const snapshot = currentProject(id)
-
-    // Guardrail: owner-only, matching the backend exactly (requireDelete ===
-    // requireOwned, project.py).
-    if (snapshot && !snapshot.canEdit) {
-      toast.error("You don't have permission to delete this project.")
-      return
-    }
-
-    const chatsSnapshot = qc.getQueryData<ProjectChat[]>(chatsKey)?.filter(c => c.projectId === id) ?? []
-    await holdList()
-    setProjects(prev => prev.filter(p => p.id !== id))
-    setChats(prev => prev.filter(c => c.projectId !== id))
-
-    try {
-      await deleteProjectApi(id)
-    } catch (err) {
-      if (snapshot) setProjects(prev => [snapshot, ...prev])
-      if (chatsSnapshot.length) setChats(prev => [...chatsSnapshot.filter(c => !prev.some(p => p.id === c.id)), ...prev])
-      toast.error('Failed to delete project', { description: errorDescription(err) })
-      throw err
-    }
-  }, [qc, chatsKey, currentProject, holdList, setProjects, setChats])
+    await deleteAsync(id)
+  }, [deleteAsync])
 
   const loadProject = useCallback(async (id: string) => {
     try {

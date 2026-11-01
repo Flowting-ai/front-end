@@ -1,11 +1,11 @@
 'use client'
 
-import { AnimatePresence, m } from 'framer-motion'
 import { ShareOneIcon, CancelOneIcon } from '@strange-huge/icons'
 import { Avatar } from '@/components/Avatar'
 import { Checkbox } from '@/components/Checkbox'
 import { Button, IconButton } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { trackFeature } from '@/lib/analytics/events'
 
 // ── Top-right chat overlay: Share button + modal for chat owners, ──────────
@@ -52,7 +52,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
 
   return (
     <>
-      {chatId && canManage && !chatShareOpen && !!orgId && (
+      {chatId && canManage && !!orgId && (
         <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 10 }}>
           <Button
             variant="outline"
@@ -73,54 +73,27 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
         </div>
       )}
 
-      <AnimatePresence>
-        {chatShareOpen && (
-          <m.div
-            key="share-chat-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            onClick={() => setChatShareOpen(false)}
-            style={{
-              position:        'fixed',
-              inset:           0,
-              zIndex:          51,
-              display:         'flex',
-              alignItems:      'center',
-              justifyContent:  'center',
-              backgroundColor: 'color-mix(in srgb, var(--yellow-950) 40%, transparent)',
-              backdropFilter:  'blur(2px)',
-            }}
-          >
-            <m.div
-              key="share-chat-modal"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Share chat"
-              onClick={(e) => e.stopPropagation()}
-              initial={{ opacity: 0, scale: 0.96, y: 8 }}
-              animate={{ opacity: 1, scale: 1,    y: 0 }}
-              exit={{    opacity: 0, scale: 0.96, y: 8 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 32, mass: 0.8 }}
-              style={{
-                background:    'var(--modal-bg)',
-                borderRadius:  '20px',
-                boxShadow:     '0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)',
-                width:         '560px',
-                maxWidth:      'calc(100vw - 32px)',
-                height:        MODAL_HEIGHT,
-                maxHeight:     'calc(100vh - 64px)',
-                display:       'flex',
-                flexDirection: 'column',
-                overflow:      'hidden',
-              }}
-            >
+      <Dialog open={chatShareOpen} onOpenChange={setChatShareOpen}>
+        <DialogContent
+          hideClose
+          aria-describedby={undefined}          style={{
+            background:    'var(--modal-bg)',
+            borderRadius:  '20px',
+            boxShadow:     '0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)',
+            width:         '560px',
+            maxWidth:      'calc(100vw - 32px)',
+            height:        MODAL_HEIGHT,
+            maxHeight:     'calc(100vh - 64px)',
+            display:       'flex',
+            flexDirection: 'column',
+            overflow:      'hidden',
+          }}
+        >
               {/* Header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 20px 16px', flexShrink: 0 }}>
-                <p style={{ fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-regular)', fontSize: '24px', lineHeight: '32px', color: 'var(--legacy-1a1714)', margin: 0 }}>
+                <DialogTitle style={{ fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-regular)', fontSize: '24px', lineHeight: '32px', color: 'var(--legacy-1a1714)', margin: 0 }}>
                   Share chat
-                </p>
+                </DialogTitle>
                 <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" onClick={() => setChatShareOpen(false)} />
               </div>
 
@@ -343,10 +316,8 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                   </Button>
                 )}
               </div>
-            </m.div>
-          </m.div>
-        )}
-      </AnimatePresence>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

@@ -40,7 +40,7 @@ describe('ConfirmModal', () => {
     expect(document.getElementById(dialog.getAttribute('aria-describedby')!)?.textContent).toBe("This can't be undone.")
     expect(dialog.contains(document.activeElement)).toBe(true)
 
-    act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })) })
+    act(() => { (document.activeElement ?? document).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
     expect(onClose).toHaveBeenCalled()
   })
 })

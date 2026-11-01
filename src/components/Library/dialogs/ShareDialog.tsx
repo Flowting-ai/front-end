@@ -2,12 +2,14 @@
 
 import React, { useId, useState } from 'react'
 import { toast } from 'sonner'
+import { z } from 'zod'
 import { CancelOneIcon, LinkSixIcon, UserAddOneIcon } from '@strange-huge/icons'
 import { Button, IconButton } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/Skeleton'
 import { Tooltip } from '@/components/Tooltip'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { useZodForm } from '@/hooks/use-zod-form'
 import { personName } from '@/lib/library/access'
 import type { GrantTarget } from '@/lib/library/api'
 import { FILE_MESSAGES, MESSAGES } from '@/lib/library/messages'
@@ -26,6 +28,14 @@ const cx = (...names: (string | undefined | false)[]) => names.filter(Boolean).j
 
 /** Someone staged in the dialog, not shared with yet. */
 type Staged = { key: string; target: GrantTarget; label: string; toastLabel: string; person?: Person }
+
+/** The form: the search text and who is staged. Sharing needs at least one person or the workspace. */
+const shareFormSchema = z.object({
+  query: z.string(),
+  staged: z.array(z.custom<Staged>()).min(1, 'Add someone to share with'),
+})
+type ShareFormValues = { query: string; staged: Staged[] }
+const EMPTY_FORM: ShareFormValues = { query: '', staged: [] }
 
 const WORKSPACE: Staged = { key: 'workspace', target: { kind: 'workspace' }, label: FILE_MESSAGES.wholeWorkspace, toastLabel: 'everyone' }
 
@@ -98,10 +108,13 @@ export function ShareDialog({ file, onClose, onLostAccess }: { file: LibraryFile
   const inputId = useId()
   const listId = useId()
   const focusField = () => document.getElementById(inputId)?.focus()
-  const [query, setQuery] = useState('')
+  // Form state (search text + staged chips) runs through the shared Zod form helper.
+  const form = useZodForm<ShareFormValues>(shareFormSchema, EMPTY_FORM)
+  const { query, staged } = form.values
+  const setQuery = (value: string) => form.setField('query', value)
+  const setStaged = (next: Staged[]) => form.setField('staged', next)
   const [listOpen, setListOpen] = useState(false)
   const [active, setActive] = useState(0)
-  const [staged, setStaged] = useState<Staged[]>([])
   const [removing, setRemoving] = useState<AccessEntry | null>(null)
   const debounced = useDebouncedValue(query.trim(), 250)
   const access = useFileAccess(file.id)
@@ -137,33 +150,32 @@ export function ShareDialog({ file, onClose, onLostAccess }: { file: LibraryFile
   }
 
   const stage = (option: Staged) => {
-    setStaged((items) => [...items, option])
-    setQuery('')
+    form.reset({ query: '', staged: [...staged, option] })
     setActive(0)
     // Keep typing: focus stays in the field and the list stays open for the next person.
     focusField()
   }
 
   const unstage = (key: string) => {
-    setStaged((items) => items.filter((other) => other.key !== key))
+    setStaged(staged.filter((other) => other.key !== key))
     focusField()
   }
 
-  const submit = () => {
-    if (staged.length === 0 || share.isPending) return
+  const submit = form.handleSubmit((data) => {
+    if (share.isPending) return
     share.mutate(
-      { id: file.id, targets: staged.map((item) => ({ target: item.target, label: item.toastLabel })) },
+      { id: file.id, targets: data.staged.map((item) => ({ target: item.target, label: item.toastLabel })) },
       {
-        onSuccess: () => setStaged([]),
+        onSuccess: () => form.reset(EMPTY_FORM),
         // Part way through: the ones already shared (or who already had access) leave the field, so a retry sends only the rest.
         onError: (error) => {
           if (!(error instanceof PartialShareError)) return
           const settled = new Set(settledShareKeys(error.outcome))
-          setStaged((items) => items.filter((item) => !settled.has(item.key)))
+          form.reset({ query: '', staged: data.staged.filter((item) => !settled.has(item.key)) })
         },
       },
     )
-  }
+  })
 
   const showList = listOpen
   const activeIndex = Math.min(active, Math.max(options.length - 1, 0))
@@ -182,7 +194,7 @@ export function ShareDialog({ file, onClose, onLostAccess }: { file: LibraryFile
       if (showList && options[activeIndex]) stage(options[activeIndex])
       else submit()
     } else if (event.key === 'Backspace' && query === '' && staged.length > 0) {
-      setStaged((items) => items.slice(0, -1))
+      setStaged(staged.slice(0, -1))
     }
   }
 

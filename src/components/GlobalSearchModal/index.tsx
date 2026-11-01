@@ -8,10 +8,13 @@ import React, {
   useMemo,
 } from 'react'
 import { m, AnimatePresence } from 'framer-motion'
+import { useSearchParams } from 'next/navigation'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { SearchOneIcon } from '@strange-huge/icons'
 import { InputField } from '@/components/InputField'
 import { TabItem } from '@/components/TabItem'
 import { cn } from '@/lib/utils'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { resultCountMessage } from '@/lib/search/global-search'
 
 import {
@@ -61,6 +64,82 @@ export interface GlobalSearchModalProps {
   className?:    string
 }
 
+// ── URL state ─────────────────────────────────────────────────────────────────
+
+/** Search params the open modal mirrors its query and filter into, so they survive back/forward. */
+export const SEARCH_QUERY_PARAM = 'search'
+export const SEARCH_FILTER_PARAM = 'searchType'
+
+/**
+ * Shallow URL update: history.replaceState is picked up by Next's useSearchParams without a server
+ * round-trip, a navigation or a scroll. Only touches the given keys; no-op when nothing changes.
+ */
+function writeSearchParams(patch: Record<string, string | null>) {
+  if (typeof window === 'undefined') return
+  const url = new URL(window.location.href)
+  let changed = false
+  for (const [key, value] of Object.entries(patch)) {
+    if (!value) {
+      if (url.searchParams.has(key)) { url.searchParams.delete(key); changed = true }
+    } else if (url.searchParams.get(key) !== value) {
+      url.searchParams.set(key, value)
+      changed = true
+    }
+  }
+  if (changed) window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+}
+
+// ── Virtualized flat list (one type filter can hold every match) ─────────────
+
+const ROW_ESTIMATE = 54
+
+function VirtualResults({ items, focusedIndex, focusedId, query, scrollRef, onPick, onHover }: {
+  items: SearchResult[]
+  focusedIndex: number
+  focusedId: string | null
+  query: string
+  scrollRef: React.RefObject<HTMLDivElement | null>
+  onPick: (result: SearchResult) => void
+  onHover: (id: string | null) => void
+}) {
+  'use no memo' // useVirtualizer returns unmemoisable functions, so React Compiler skips this component.
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_ESTIMATE,
+    overscan: 8,
+    getItemKey: index => items[index].id,
+  })
+  // Keyboard focus may land on a row that isn't rendered yet: scroll it in (which also mounts it,
+  // so aria-activedescendant points at a real element).
+  useEffect(() => {
+    if (focusedIndex >= 0) virtualizer.scrollToIndex(focusedIndex, { align: 'auto' })
+  }, [focusedIndex, virtualizer])
+  return (
+    <div style={{ position: 'relative', width: '100%', height: virtualizer.getTotalSize() }}>
+      {virtualizer.getVirtualItems().map(row => {
+        const result = items[row.index]
+        return (
+          <div
+            key={row.key}
+            data-index={row.index}
+            ref={virtualizer.measureElement}
+            style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${row.start}px)` }}
+          >
+            <ResultRow
+              result={result}
+              focused={focusedId === result.id}
+              query={query}
+              onClick={() => onPick(result)}
+              onHover={onHover}
+            />
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── GlobalSearchModal ─────────────────────────────────────────────────────────
 
 const SECTION_ORDER: SearchResultType[] = ['chat', 'agent-chat', 'project', 'persona', 'pin', 'page']
@@ -91,61 +170,41 @@ export function GlobalSearchModal({
   noticeAction,
   className,
 }: GlobalSearchModalProps) {
+  const searchParams = useSearchParams()
   const [query,        setQuery]        = useState(defaultQuery)
-  const [activeFilter, setActiveFilter] = useState<FilterValue>('all')
   const [focusedId,    setFocusedId]    = useState<string | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const modalRef = useRef<HTMLDivElement>(null)
+  // The query the modal opened with (from the URL, e.g. after back/forward), handed to the parent once.
+  const [seedQuery,    setSeedQuery]    = useState('')
+  const inputRef  = useRef<HTMLInputElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Reset state on close; focus input on open
-  useEffect(() => {
-    if (!open) {
+  // The filter lives in the URL (?searchType=) so it survives back/forward; unknown values mean All.
+  const rawFilter = searchParams.get(SEARCH_FILTER_PARAM)
+  const activeFilter: FilterValue = FILTER_TABS.some(tab => tab.value === rawFilter) ? rawFilter as FilterValue : 'all'
+  const setActiveFilter = useCallback((next: FilterValue) => {
+    writeSearchParams({ [SEARCH_FILTER_PARAM]: next === 'all' ? null : next })
+  }, [])
+
+  // Open edge: adopt the query from the URL (or the fixture default). Close edge: reset.
+  const [wasOpen, setWasOpen] = useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    setFocusedId(null)
+    if (open) {
+      const seed = searchParams.get(SEARCH_QUERY_PARAM) ?? defaultQuery
+      setQuery(seed)
+      setSeedQuery(seed)
+    } else {
       setQuery('')
-      setActiveFilter('all')
-      setFocusedId(null)
-      return
+      setSeedQuery('')
     }
-    // Next frame: the input exists once the dialog has rendered.
-    const id = requestAnimationFrame(() => inputRef.current?.focus())
-    return () => cancelAnimationFrame(id)
-  }, [open])
-
-  // Focus trap — keep Tab / Shift+Tab cycling inside the modal card.
-  // Restores focus to the previously focused element on close.
+  }
   useEffect(() => {
-    if (!open) return
-
-    const previouslyFocused = document.activeElement as HTMLElement | null
-
-    const handleTab = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return
-      const modal = modalRef.current
-      if (!modal) return
-
-      const focusable = Array.from(
-        modal.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
-        ),
-      )
-      if (focusable.length === 0) return
-
-      const first = focusable[0]
-      const last  = focusable[focusable.length - 1]
-
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault()
-        last.focus()
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault()
-        first.focus()
-      }
-    }
-
-    document.addEventListener('keydown', handleTab)
-    return () => {
-      document.removeEventListener('keydown', handleTab)
-      previouslyFocused?.focus()
-    }
+    if (open && seedQuery) onQuery?.(seedQuery)
+  }, [open, seedQuery, onQuery])
+  // Closed by any route (parent included): drop the modal's params from the URL.
+  useEffect(() => {
+    if (!open) writeSearchParams({ [SEARCH_QUERY_PARAM]: null, [SEARCH_FILTER_PARAM]: null })
   }, [open])
 
   // Scroll focused result into view whenever it changes via keyboard
@@ -159,12 +218,13 @@ export function GlobalSearchModal({
   const handleQueryChange = useCallback((val: string) => {
     setQuery(val)
     setFocusedId(null)
+    writeSearchParams({ [SEARCH_QUERY_PARAM]: val })
     onQuery?.(val)
   }, [onQuery])
 
   const handleClose = useCallback(() => {
+    writeSearchParams({ [SEARCH_QUERY_PARAM]: null, [SEARCH_FILTER_PARAM]: null })
     setQuery('')
-    setActiveFilter('all')
     setFocusedId(null)
     onClose()
   }, [onClose])
@@ -197,17 +257,6 @@ export function GlobalSearchModal({
   // ── Keyboard navigation on the input ────────────────────────────────────────
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      // First Escape clears the query and returns to recents.
-      // Second Escape (or Escape with no query) closes the modal.
-      if (hasQuery) {
-        handleQueryChange('')
-      } else {
-        handleClose()
-      }
-      return
-    }
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       const next = focusedIndex < flatList.length - 1 ? focusedIndex + 1 : 0
@@ -223,62 +272,51 @@ export function GlobalSearchModal({
     if (e.key === 'Enter' && focusedId) {
       e.preventDefault()
       const hit = flatList.find(r => r.id === focusedId)
-      if (hit) { onSelect(hit); handleClose() }
+      // Close (and strip ?search=/?searchType=) before onSelect navigates: a history.replaceState
+      // issued after router.push has started overrides the pending navigation in Next.
+      if (hit) { handleClose(); onSelect(hit) }
     }
   }, [focusedIndex, flatList, focusedId, onSelect, handleClose])
 
   const handleResultClick = useCallback((result: SearchResult) => {
-    onSelect(result)
     handleClose()
+    onSelect(result)
   }, [onSelect, handleClose])
+
+  const filteredResults = useMemo(
+    () => (activeFilter === 'all' ? [] : results.filter(r => r.type === activeFilter)),
+    [activeFilter, results],
+  )
 
   const noResults = hasQuery && results.length === 0 && !loading
 
   return (
-    <AnimatePresence>
-      {open && (
-        <>
-          {/* Backdrop */}
+    <Dialog open={open} onOpenChange={next => { if (!next) handleClose() }}>
+      <DialogContent
+        hideClose
+        aria-describedby={undefined}
+        className={cn(className)}
+        // Focus the field rather than the first tabbable; Radix traps focus and returns it on close.
+        onOpenAutoFocus={e => { e.preventDefault(); inputRef.current?.focus() }}
+        // First Escape clears the query and returns to recents; Escape with no query closes.
+        onEscapeKeyDown={e => { if (hasQuery) { e.preventDefault(); handleQueryChange('') } }}
+        style={{
+          top:             132,
+          transform:       'translateX(-50%)',
+          width:           560,
+          maxHeight:       'none',
+          display:         'block',
+          backgroundColor: 'var(--modal-bg)',
+          boxShadow:       SHADOW_MODAL,
+          // The default entrance animates from the vertical centre; this card sits near the top instead.
+          animation:       'none',
+        }}
+      >
+        <DialogTitle className="sr-only">Search Souvenir</DialogTitle>
           <m.div
-            key="backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            onClick={handleClose}
-            style={{
-              position:        'fixed',
-              inset:           0,
-              backgroundColor: 'var(--overlay-bg)',
-              backdropFilter:  'blur(2px)',
-              zIndex:          20,
-            }}
-          />
-
-          {/* Modal card */}
-          <m.div
-            ref={modalRef}
-            key="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Search Souvenir"
-            initial={{ opacity: 0, scale: 0.97, y: -6, x: '-50%' }}
-            animate={{ opacity: 1, scale: 1, y: 0, x: '-50%' }}
-            exit={{ opacity: 0, scale: 0.97, y: -6, x: '-50%' }}
+            initial={{ opacity: 0, scale: 0.97, y: -6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className={cn(className)}
-            style={{
-              position:        'fixed',
-              top:             132,
-              left:            '50%',
-              zIndex:          21,
-              width:           560,
-              maxWidth:        'calc(100vw - 32px)',
-              borderRadius:    16,
-              backgroundColor: 'var(--modal-bg)',
-              boxShadow:       SHADOW_MODAL,
-              overflow:        'hidden',
-            }}
           >
 
             {/* ── Search header ──────────────────────────────────────────── */}
@@ -351,6 +389,7 @@ export function GlobalSearchModal({
 
             {/* ── Results list ────────────────────────────────────────────── */}
             <div
+              ref={scrollRef}
               id="global-search-results"
               role="listbox"
               className="kaya-scrollbar kaya-no-gutter"
@@ -479,7 +518,7 @@ export function GlobalSearchModal({
 
               {/* Has query + results + type filter → flat list */}
               {hasQuery && !loading && activeFilter !== 'all' && (
-                results.filter(r => r.type === activeFilter).length === 0 ? (
+                filteredResults.length === 0 ? (
                   <p style={{
                     margin:     '32px 0',
                     textAlign:  'center',
@@ -490,17 +529,15 @@ export function GlobalSearchModal({
                     No {TYPE_LABEL[activeFilter].toLowerCase()} match &ldquo;{query}&rdquo;
                   </p>
                 ) : (
-                  results
-                    .flatMap(result => result.type === activeFilter ? [(
-                      <ResultRow
-                        key={result.id}
-                        result={result}
-                        focused={focusedId === result.id}
-                        query={query}
-                        onClick={() => handleResultClick(result)}
-                        onHover={setFocusedId}
-                      />
-                    )] : [])
+                  <VirtualResults
+                    items={filteredResults}
+                    focusedIndex={focusedIndex}
+                    focusedId={focusedId}
+                    query={query}
+                    scrollRef={scrollRef}
+                    onPick={handleResultClick}
+                    onHover={setFocusedId}
+                  />
                 )
               )}
 
@@ -553,9 +590,8 @@ export function GlobalSearchModal({
             </div>
 
           </m.div>
-        </>
-      )}
-    </AnimatePresence>
+      </DialogContent>
+    </Dialog>
   )
 }
 

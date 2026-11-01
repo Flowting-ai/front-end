@@ -54,7 +54,7 @@ function renderTableCell(cell: TableCellValue, badgeMap?: TableData["badgeMap"])
       </span>
     );
   }
-  if (strVal === "✓") return <span style={{ color: "var(--green-600)", fontWeight: 700 }}>�"</span>;
+  if (strVal === "✓") return <span style={{ color: "var(--green-600)", fontWeight: 700 }}>{"✓"}</span>;
   if (strVal === "-") return <span style={{ color: "var(--neutral-300)", fontWeight: 400 }}>-</span>;
   return strVal;
 }
@@ -177,19 +177,19 @@ export function AnimatedTable({ data, onComplete, animate = true }: { data: Tabl
 
   return (
     <div>
-      <div style={{ border: "1px solid var(--brown-50)", borderRadius: 12, overflow: "hidden", fontSize: 14, ...(isMinimal ? { border: "none", borderRadius: 0 } : {}) }}>
+      <div role="table" aria-label={data.caption ? undefined : "Table"} aria-rowcount={data.rows.length + 1} style={{ border: "1px solid var(--brown-50)", borderRadius: 12, overflow: "hidden", fontSize: 14, ...(isMinimal ? { border: "none", borderRadius: 0 } : {}) }}>
         <AnimatePresence>
           {data.caption && isDone && (
-            <m.div key="cap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
+            <m.div key="cap" role="caption" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
               style={{ padding: "7px 14px", borderBottom: "1px solid var(--brown-50)", fontSize: 12, color: "var(--neutral-600)", fontStyle: "italic" }}>
               {data.caption}
             </m.div>
           )}
         </AnimatePresence>
-        <div style={{ display: "grid", gridTemplateColumns: gridCols, background: isMinimal ? "transparent" : "rgba(59,54,50,0.05)", borderBottom: "1px solid var(--brown-50)" }}>
+        <div role="row" style={{ display: "grid", gridTemplateColumns: gridCols, background: isMinimal ? "transparent" : "rgba(59,54,50,0.05)", borderBottom: "1px solid var(--brown-50)" }}>
           {data.headers.map((h, ci) => (
-            // eslint-disable-next-line react/no-array-index-as-key
-            <div key={ci} onClick={() => handleSort(ci)}
+            <div key={ci} role="columnheader"
+              aria-sort={data.sortable ? (sortCol === ci ? (sortDir === "asc" ? "ascending" : "descending") : "none") : undefined}
               style={{
                 padding: isCompact ? "6px 12px" : "9px 14px",
                 fontWeight: 600, color: "var(--neutral-900)", fontSize: 14, letterSpacing: "0.1px",
@@ -200,11 +200,17 @@ export function AnimatedTable({ data, onComplete, animate = true }: { data: Tabl
               }}
               onMouseEnter={(e) => { if (data.sortable) e.currentTarget.style.background = "var(--neutral-800-10)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
-              <span>{h}</span>
-              {data.sortable && (
-                <span style={{ fontSize: 12, lineHeight: 1, color: sortCol === ci ? "var(--brown-700)" : "var(--neutral-300)" }}>
-                  {sortCol === ci ? (sortDir === "asc" ? "�'" : "↓") : "↕"}
-                </span>
+              {data.sortable ? (
+                <button type="button" onClick={() => handleSort(ci)}
+                  className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                  style={{ appearance: "none", border: "none", background: "none", padding: 0, margin: 0, flex: 1, minWidth: 0, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "inherit", gap: 5, borderRadius: 4, font: "inherit", color: "inherit", letterSpacing: "inherit", textAlign: "inherit" }}>
+                  <span>{h}</span>
+                  <span aria-hidden style={{ fontSize: 12, lineHeight: 1, color: sortCol === ci ? "var(--brown-700)" : "var(--neutral-300)" }}>
+                  {sortCol === ci ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
+                  </span>
+                </button>
+              ) : (
+                <span>{h}</span>
               )}
             </div>
           ))}
@@ -214,15 +220,13 @@ export function AnimatedTable({ data, onComplete, animate = true }: { data: Tabl
              and causes zero JS-thread work or layout recalculations during streaming. */}
         <AnimatePresence>
           {skeletonVisible && (
-            <m.div key="skeleton" exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            <m.div key="skeleton" aria-hidden exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
               {data.rows.map((_, ri) => (
-                // eslint-disable-next-line react/no-array-index-as-key
                 <m.div key={ri}
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                   transition={{ delay: ri * 0.045, duration: 0.18 }}
                   style={{ display: "grid", gridTemplateColumns: gridCols, borderBottom: rowBorderBottom(ri), background: v === "striped" && ri % 2 === 1 ? "rgba(59,54,50,0.05)" : "white" }}>
                   {data.headers.map((_, ci) => (
-                    // eslint-disable-next-line react/no-array-index-as-key
                     <div key={ci} style={{ padding: cellPad, borderLeft: cellBorderLeft(ci), display: "flex", justifyContent: (isFinancial && ci > 0) ? "flex-end" : (v === "feature-comparison" && ci > 0) ? "center" : "flex-start" }}>
                       {isMixed && ci === 0 ? (
                         <div style={{ display: "flex", flexDirection: "column", gap: 5, width: "100%" }}>
@@ -247,7 +251,7 @@ export function AnimatedTable({ data, onComplete, animate = true }: { data: Tabl
             const isAccentRow = !!(data.accentRows?.includes(origIdx));
             const bg = rowBg(ri, isAccentRow, isTotalsRow);
             return (
-              <m.div key={`r-${origIdx}`}
+              <m.div key={`r-${origIdx}`} role="row"
                 initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.18, ease: "easeOut" }}
                 onMouseEnter={() => { if (isHoverable) setHoveredRow(ri); }}
@@ -259,8 +263,7 @@ export function AnimatedTable({ data, onComplete, animate = true }: { data: Tabl
                   const rightAlign = (isFinancial && ci > 0) || isNumericCell;
                   const centerAlign = v === "feature-comparison" && ci > 0 && typeof cell === "object";
                   return (
-                    // eslint-disable-next-line react/no-array-index-as-key
-                    <div key={ci} style={{
+                    <div key={ci} role="cell" style={{
                       padding: cellPad,
                       paddingLeft: isAccentRow && ci === 0 ? 17 : (isCompact ? 12 : 14),
                       color: ci === 0 && !isTotalsRow ? "var(--neutral-900)" : isTotalsRow ? "var(--neutral-900)" : "var(--neutral-700)",
