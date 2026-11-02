@@ -1,6 +1,6 @@
 'use client'
 
-// Where the chat's file panel sits: over the right side of the chat, the same place as the Sources panel.
+// Where the chat's file panel sits: over the right side of the chat, beside the answer.
 // A locked citation chip opens it (library-citations.tsx); closing it, or leaving the chat, shuts it.
 
 import React, { useEffect, useSyncExternalStore } from 'react'

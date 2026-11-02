@@ -76,7 +76,8 @@ export function applySourceEvents(refs: Record<string, FileRef>, events: SourceE
 
 // ── Sources panel ────────────────────────────────────────────────────────────
 
-export type SourceStatus = "deleted" | "locked" | "processing" | "cited" | "attached" | "found";
+/** `loading`: the file's ref is still on its way, so nothing is known yet (never shown as deleted). */
+export type SourceStatus = "loading" | "deleted" | "locked" | "processing" | "cited" | "attached" | "found";
 
 export type SourceRow = {
   id: string;
@@ -101,11 +102,14 @@ export type SourcesInput = {
   /** Files switched off for this chat. */
   offIds: string[];
   refs: Record<string, FileRef>;
+  /** Files whose ref is still loading. A file with no ref that is not pending reads as deleted. */
+  pendingIds?: string[];
   now?: number;
   timeZone?: string;
 };
 
 const STATUS_DETAIL: Record<SourceStatus, string> = {
+  loading: CHAT_MESSAGES.loadingFile,
   deleted: CHAT_MESSAGES.deleted,
   locked: CHAT_MESSAGES.lockedFileTip,
   processing: CHAT_MESSAGES.processing,
@@ -120,6 +124,7 @@ export function buildSourceRows(input: SourcesInput): SourceRow[] {
   const cited = new Set(input.citedIds);
   const attached = new Set(input.attachedIds);
   const off = new Set(input.offIds);
+  const pending = new Set(input.pendingIds ?? []);
   const titles = ids.map((id) => {
     const ref = input.refs[id];
     return isOpenRef(ref) ? ref.title : null;
@@ -127,6 +132,7 @@ export function buildSourceRows(input: SourcesInput): SourceRow[] {
   return ids.map((id, index) => {
     const ref = input.refs[id];
     const status: SourceStatus =
+      !ref && pending.has(id) ? "loading" :
       !ref || ref.state === "deleted" ? "deleted" :
       ref.state === "locked" ? "locked" :
       ref.phase && ref.phase !== "ready" ? "processing" :
@@ -143,14 +149,15 @@ export function buildSourceRows(input: SourcesInput): SourceRow[] {
       ref,
       status,
       off: isOff,
-      name: open ? ref.title : status === "locked" ? CHAT_MESSAGES.lockedFile : CHAT_MESSAGES.fileDeleted,
-      detail: isOff ? CHAT_MESSAGES.offForThisChat : `${STATUS_DETAIL[status]}${at}`,
+      name: open ? ref.title : status === "loading" ? CHAT_MESSAGES.loadingFile : status === "locked" ? CHAT_MESSAGES.lockedFile : CHAT_MESSAGES.fileDeleted,
+      // A loading row's line says how it came in (it is "Loading…" already in the name).
+      detail: isOff ? CHAT_MESSAGES.offForThisChat : status === "loading" ? STATUS_DETAIL[attached.has(id) ? "attached" : "found"] : `${STATUS_DETAIL[status]}${at}`,
       canToggle: open,
     };
   });
 }
 
-/** The header button count: distinct files in scope or cited. */
+/** How many Library files the chat used: distinct files in scope or cited. */
 export function sourcesCount(scopeIds: string[], citedIds: string[]): number {
   return new Set([...scopeIds, ...citedIds]).size;
 }

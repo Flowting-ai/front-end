@@ -7,6 +7,7 @@ import { stopActiveActivities } from "@/lib/activity"
 import { apiFetch } from "@/lib/api/client"
 import { CHAT_STOP_ENDPOINT } from "@/lib/config"
 import { notifyLibraryFilesChanged } from "@/lib/library/files-changed"
+import { libraryFileIdFor } from "@/lib/library/upload/composer-uploads"
 import { ensureFreshToken } from "@/lib/jwt-utils"
 import { logger } from "@/lib/logger"
 import { friendlyModelError } from "@/lib/model-error"
@@ -282,7 +283,16 @@ export function useStreamingChat({
       // The sent message remembers its Library files, for the chat's Sources panel.
       if (fileRefs.libraryFileIds.length > 0 && options?.userMessageId) {
         const sentIds = fileRefs.libraryFileIds
-        setMessages(updateMessage(options.userMessageId, (msg) => ({ ...msg, libraryFileIds: sentIds })))
+        // Each attachment that went as a Library file is marked, so Sources lists it once (as that file).
+        const sentFiles = options.files ?? []
+        setMessages(updateMessage(options.userMessageId, (msg) => ({
+          ...msg,
+          libraryFileIds: sentIds,
+          attachments: msg.attachments?.map((att, index) => {
+            const libraryFileId = sentFiles[index] ? libraryFileIdFor(sentFiles[index]) : undefined
+            return libraryFileId && !att.libraryFileId ? { ...att, libraryFileId } : att
+          }),
+        })))
       }
 
       const sseDecoder = new AguiSSEDecoder()

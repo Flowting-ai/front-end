@@ -60,6 +60,14 @@ export function composerUploadFormat(file: File) {
   return itemFor(file)?.format ?? null;
 }
 
+/** The Library id a file goes as on send (picked, or an upload that finished), or undefined if it goes as bytes. */
+export function libraryFileIdFor(file: File): string | undefined {
+  const picked = pickedIdByFile.get(file);
+  if (picked) return picked;
+  const item = itemFor(file);
+  return item?.status === "ready" && item.fileId ? item.fileId : undefined;
+}
+
 /**
  * Splits a turn's files into the Library ids of the ready uploads and the files that must still go as
  * bytes, plus the auto-save answer when one was given (false if any file is to stay in the chat).

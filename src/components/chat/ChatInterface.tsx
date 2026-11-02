@@ -5,7 +5,6 @@ import { ChatInput } from "./ChatInput";
 import { type PendingAttachment } from "./AttachmentManager";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { useComposerUploads } from "@/lib/library/upload/composer-uploads";
-import { ChatSources } from "@/components/Library/chat/ChatSources";
 import { ChatFilePanelSlot } from "@/components/Library/chat/ChatFilePanelSlot";
 import { useSaveChoice } from "@/components/Library/chat/useSaveChoice";
 import { useChatStreamActive } from "@/hooks/use-message-queue";
@@ -487,7 +486,6 @@ export function ChatInterface({
       }}
     >
       {saveDialog}
-      <ChatSources chatId={chatId && !chatId.startsWith("temp-") ? chatId : undefined} messages={messages} />
       <ChatFilePanelSlot chatId={chatId} />
       <FileDropOverlay visible={isDragging} />
 

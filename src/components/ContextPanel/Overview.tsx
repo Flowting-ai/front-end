@@ -2,21 +2,26 @@
 
 import { useMemo, useState } from 'react'
 import { DownloadOneIcon, FileTwoIcon, ImageTwoIcon, ShapesOneIcon } from '@strange-huge/icons'
+import { SourceFileRow } from '@/components/Library/chat/SourceFileRow'
+import { useChatLibrarySources, type ChatLibrarySources } from '@/components/Library/chat/useChatLibrarySources'
 import { Spinner } from '@/components/Spinner'
 import { Tooltip } from '@/components/Tooltip'
 import { useChatContext, turnTiming, type TurnTiming } from '@/lib/chat-context-store'
 import { toConnector } from '@/lib/connector'
 import type { UIMessage } from '@/types/chat'
 import { useUnmountTimeouts } from '@/hooks/use-unmount-timeouts'
+import { openChatFilePanel } from '@/lib/library/chat-file-panel'
+import { CHAT_MESSAGES } from '@/lib/library/messages'
+import type { SourceRow } from '@/lib/library/sources'
 import { AgentFace, ConnectorLogo, connectorSpecialistSlug, useConnectorIdentities } from './identity'
 import { AnimatedList, EmptyHint, ItemRow, PanelCard, PanelSection } from './overview/blocks'
-import { deriveOverview, downloadFile, extensionOf, formatElapsed, stepCount, turnState } from './overview/derive'
+import { deriveOverview, downloadFile, extensionOf, formatElapsed, stepCount, turnState, type SourceItem, type UploadItem } from './overview/derive'
 import { useExecutionSeconds, useShowAll, type SectionKey } from './overview/hooks'
 import { Favicon, PlanList, statusAside, TurnStatus } from './overview/marks'
 import { ROW_CLASS, TEXT } from './overview/styles'
 
 // The Context panel's overview: one card of collapsible sections — what the latest turn
-// is doing, and the agents, connectors, sources, documents and skills the chat has used.
+// is doing, and the agents, connectors, sources, outputs and skills the chat has used.
 // Everything comes from the activity the chat already streams (see use-streaming-chat),
 // so it reflects this session's turns; a chat reloaded from history shows what its saved
 // messages carry (sources, files) but no tool activity until it runs again.
@@ -25,19 +30,31 @@ import { ROW_CLASS, TEXT } from './overview/styles'
 
 export { AnimatedList, EmptyHint, ItemRow, PanelCard, PanelSection } from './overview/blocks'
 export { deriveOverview, downloadFile, formatElapsed, isRunning, stepCount, turnState } from './overview/derive'
-export type { DocumentItem, OverviewData, SourceItem, TurnState } from './overview/derive'
+export type { OutputItem, OverviewData, SourceItem, TurnState, UploadItem } from './overview/derive'
 export { StepIcon, stepLabelStyle } from './overview/marks'
 
 // ── Overview ──────────────────────────────────────────────────────────────────
 
 /** The overview for the open chat. */
 export function OverviewTab() {
-  const { messages } = useChatContext()
+  const { chatId, messages } = useChatContext()
   const latest = messages.filter(message => message.role === 'assistant').at(-1)
-  return <OverviewView messages={messages} timing={turnTiming(latest)} />
+  // Read here, while the panel is open, so names load before Sources is even expanded.
+  const library = useChatLibrarySources(chatId, messages)
+  return <OverviewView messages={messages} timing={turnTiming(latest)} library={library} />
 }
 
-export function OverviewView({ messages, timing }: { messages: UIMessage[]; timing: TurnTiming | undefined }) {
+type SourceEntry =
+  | { kind: 'file'; key: string; row: SourceRow; toggle: (fileId: string) => void }
+  | { kind: 'upload'; key: string; upload: UploadItem }
+  | { kind: 'web'; key: string; source: SourceItem }
+
+export function OverviewView({ messages, timing, library }: {
+  messages: UIMessage[]
+  timing:   TurnTiming | undefined
+  /** The chat's Library files (useChatLibrarySources); listed in Sources above the web pages. */
+  library?: ChatLibrarySources
+}) {
   const showAll = useShowAll()
   // Download all is staggered; closing the panel cancels the downloads not yet started.
   const later = useUnmountTimeouts()
@@ -56,8 +73,8 @@ export function OverviewView({ messages, timing }: { messages: UIMessage[]; timi
     progress:   data.plan?.length ?? 0,
     agents:     data.agents.length,
     connectors: data.connectors.length,
-    sources:    data.sources.length,
-    documents:  data.documents.length,
+    sources:    (library?.count ?? 0) + data.uploads.length + data.sources.length,
+    outputs:    data.outputs.length,
     skills:     data.skills.length,
   }
 
@@ -74,13 +91,19 @@ export function OverviewView({ messages, timing }: { messages: UIMessage[]; timi
     return (
       <PanelCard>
         <p style={{ ...TEXT, color: 'var(--neutral-500)', padding: 14 }}>
-          Nothing here yet. To-dos, agents, connectors, sources and documents for this chat show up as soon as it starts working.
+          Nothing here yet. To-dos, agents, connectors, sources and outputs for this chat show up as soon as it starts working.
         </p>
       </PanelCard>
     )
   }
 
-  const downloadable = data.documents.filter(doc => doc.kind === 'created')
+  // What the chat was given first (its Library files, then other uploads), then the web pages it
+  // read; "Show more" folds them all.
+  const sources: SourceEntry[] = [
+    ...(library ? library.rows.map(row => ({ kind: 'file' as const, key: `file:${row.id}`, row, toggle: library.toggle })) : []),
+    ...data.uploads.map(upload => ({ kind: 'upload' as const, key: upload.key, upload })),
+    ...data.sources.map(source => ({ kind: 'web' as const, key: source.key, source })),
+  ]
 
   return (
     <PanelCard>
@@ -130,25 +153,35 @@ export function OverviewView({ messages, timing }: { messages: UIMessage[]; timi
       </PanelSection>
 
       <PanelSection title="Sources" count={counts.sources} {...section('sources')}>
-        {data.sources.length === 0 ? <EmptyHint>No web pages were read.</EmptyHint> : (
+        {sources.length === 0 ? <EmptyHint>{CHAT_MESSAGES.noSourcesYet}</EmptyHint> : (
           <AnimatedList>
-            {showAll.limit('sources', data.sources).map(source => (
-              <ItemRow key={source.key} href={source.url} icon={<Favicon domain={source.domain} />} label={source.title} detail={source.domain} />
+            {showAll.limit('sources', sources).map(entry => entry.kind === 'file' ? (
+              <SourceFileRow key={entry.key} row={entry.row} onToggle={entry.toggle} onOpen={openChatFilePanel} />
+            ) : entry.kind === 'upload' ? (
+              <ItemRow
+                key={entry.key}
+                onClick={entry.upload.url ? () => downloadFile(entry.upload.url!, entry.upload.name) : undefined}
+                icon={entry.upload.image ? <ImageTwoIcon size={16} /> : <FileTwoIcon size={16} />}
+                label={entry.upload.name}
+                detail={[CHAT_MESSAGES.attached, extensionOf(entry.upload.name)].filter(Boolean).join(' · ')}
+              />
+            ) : (
+              <ItemRow key={entry.key} href={entry.source.url} icon={<Favicon domain={entry.source.domain} />} label={entry.source.title} detail={entry.source.domain} />
             ))}
           </AnimatedList>
         )}
-        {showAll.more('sources', data.sources, 'sources')}
+        {showAll.more('sources', sources, 'sources')}
       </PanelSection>
 
       <PanelSection
-        title="Documents"
-        count={counts.documents}
-        action={downloadable.length > 1 && (
-          <Tooltip content={`Download all ${downloadable.length}`}>
+        title="Outputs"
+        count={counts.outputs}
+        action={data.outputs.length > 1 && (
+          <Tooltip content={`Download all ${data.outputs.length}`}>
             <button
               type="button"
-              aria-label={`Download all ${downloadable.length} documents`}
-              onClick={() => downloadable.forEach((doc, index) => later(() => downloadFile(doc.url, doc.name), index * 250))}
+              aria-label={`Download all ${data.outputs.length} outputs`}
+              onClick={() => data.outputs.forEach((doc, index) => later(() => downloadFile(doc.url, doc.name), index * 250))}
               className={ROW_CLASS}
               style={{ width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: 0, borderRadius: 8, cursor: 'pointer', color: 'var(--neutral-500)' }}
             >
@@ -156,23 +189,23 @@ export function OverviewView({ messages, timing }: { messages: UIMessage[]; timi
             </button>
           </Tooltip>
         )}
-        {...section('documents')}
+        {...section('outputs')}
       >
-        {data.documents.length === 0 ? <EmptyHint>No files were created or shared.</EmptyHint> : (
+        {data.outputs.length === 0 ? <EmptyHint>Nothing created yet.</EmptyHint> : (
           <AnimatedList>
-            {showAll.limit('documents', data.documents).map(doc => (
+            {showAll.limit('outputs', data.outputs).map(doc => (
               <ItemRow
                 key={doc.key}
                 onClick={() => downloadFile(doc.url, doc.name)}
                 icon={doc.image ? <ImageTwoIcon size={16} /> : <FileTwoIcon size={16} />}
                 label={doc.name}
-                detail={[doc.kind === 'created' ? 'Created' : 'Uploaded', extensionOf(doc.name)].filter(Boolean).join(' · ')}
+                detail={['Created', extensionOf(doc.name)].filter(Boolean).join(' · ')}
                 right={<span className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" style={{ display: 'inline-flex' }}><DownloadOneIcon size={16} /></span>}
               />
             ))}
           </AnimatedList>
         )}
-        {showAll.more('documents', data.documents, 'documents')}
+        {showAll.more('outputs', data.outputs, 'outputs')}
       </PanelSection>
 
       <PanelSection title="Skills" count={counts.skills} {...section('skills')}>

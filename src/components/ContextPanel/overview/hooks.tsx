@@ -21,7 +21,7 @@ export function useExecutionSeconds(timing: TurnTiming | undefined, working: boo
   return end === undefined ? null : Math.max(0, Math.round((end - timing.startedAt) / 1000))
 }
 
-export type SectionKey = 'progress' | 'agents' | 'connectors' | 'sources' | 'documents' | 'skills'
+export type SectionKey = 'progress' | 'agents' | 'connectors' | 'sources' | 'outputs' | 'skills'
 
 const VISIBLE_ITEMS = 6
 
