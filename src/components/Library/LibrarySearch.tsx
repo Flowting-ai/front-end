@@ -60,6 +60,8 @@ export function LibrarySearch({ query, setQuery }: { query: LibraryQuery; setQue
         placeholder="Search Library"
         aria-label="Search Library"
         autoComplete="off"
+        // Own clear button below; hide the native one.
+        className="kaya-search-own-clear"
         style={{
           flex: '1 0 0', minWidth: 0, border: 'none', outline: 'none', background: 'transparent', padding: '0 2px', appearance: 'none',
           fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)',

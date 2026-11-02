@@ -1,9 +1,12 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { PersonaChatInterface } from "@/components/layout/PersonaChatInterface";
 import { PERSONA_CHAT_CREATED_EVENT, PERSONA_CHAT_NAV_EVENT } from "@/hooks/use-sidebar-events";
+import { Button } from "@/components/ui/button";
+import { AGENT_CHAT_ENABLED } from "@/lib/feature-flags";
+import { AGENTS_ROUTE } from "@/lib/routes";
 
 function PersonaChatPageInner() {
   const params       = useParams<{ personaId: string }>();
@@ -88,7 +91,33 @@ function PersonaChatPageInner() {
   );
 }
 
+// Sidebar agent rows and search results still link here; while the backend has no agent chat
+// (AGENT_CHAT_ENABLED), say so instead of opening a chat whose every send fails.
+function AgentChatUnavailable() {
+  const { push } = useRouter();
+  return (
+    <div
+      role="status"
+      style={{
+        flex: '1 0 0', display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', gap: 12, padding: 32, textAlign: 'center', minHeight: 0,
+      }}
+    >
+      <h2 style={{ margin: 0, fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)' }}>
+        Agent chats are unavailable right now
+      </h2>
+      <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)' }}>
+        You can still create, edit and share agents. Chatting with them will come back soon.
+      </p>
+      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+        <Button variant="secondary" onClick={() => push(AGENTS_ROUTE)}>Back to agents</Button>
+      </div>
+    </div>
+  );
+}
+
 export default function PersonaChatPage() {
+  if (!AGENT_CHAT_ENABLED) return <AgentChatUnavailable />;
   return (
     <Suspense fallback={null}>
       <PersonaChatPageInner />

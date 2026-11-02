@@ -10,7 +10,8 @@
  */
 
 export { libraryKeys } from "@/lib/library/keys";
-export { PERSONAS_QUERY_KEY, PERSONA_REPOS_QUERY_KEY, personaDetailQueryKey } from "@/lib/api/persona-cache";
+import { PERSONAS_QUERY_KEY, PERSONA_REPOS_QUERY_KEY, personaDetailQueryKey } from "@/lib/api/persona-cache";
+export { PERSONAS_QUERY_KEY, PERSONA_REPOS_QUERY_KEY, personaDetailQueryKey };
 
 /** The cache scope for workspace data: the org id, or "personal" for individual accounts. */
 export function orgScope(orgId: string | null | undefined): string {
@@ -28,6 +29,18 @@ export const queryKeys = {
     /** One-off first-page read used to pick up a generated title. */
     titleProbe: () => [...queryKeys.chats.all(), "title-probe"] as const,
   },
+
+  /** Persona-derived entries; all under ["personas"] so bustPersonasCache() hits them. */
+  personas: {
+    all: () => PERSONAS_QUERY_KEY,
+    repos: () => PERSONA_REPOS_QUERY_KEY,
+    detail: (repoId: string) => personaDetailQueryKey(repoId),
+    selectable: (org: string | null | undefined, viewer: string | null | undefined, role: string) =>
+      [...PERSONAS_QUERY_KEY, "selectable", orgScope(org), viewer ?? "", role] as const,
+  },
+
+  /** Per-user starter cards for the empty chat screen. */
+  recommendations: (user: string) => ["recommendations", user] as const,
 
   /** Model catalogue (user-level: blocked state is per user). */
   models: {
@@ -64,6 +77,8 @@ export const queryKeys = {
   connectors: {
     all: () => ["connectors"] as const,
     page: (query: object) => [...queryKeys.connectors.all(), "page", query] as const,
+    /** The catalogue browse grid: one infinite query (cursor pages) per search + category. */
+    catalog: (filters: { q: string; category: string }) => [...queryKeys.connectors.all(), "catalog", filters] as const,
     linked: () => [...queryKeys.connectors.all(), "linked"] as const,
     detail: (slug: string) => [...queryKeys.connectors.all(), "detail", slug] as const,
     categories: () => [...queryKeys.connectors.all(), "categories"] as const,

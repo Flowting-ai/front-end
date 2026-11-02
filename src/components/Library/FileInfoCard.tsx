@@ -114,8 +114,12 @@ export function FileInfoCard({ file, viewerId, onManageAccess, onRename, onClose
   const usedCount = chats.length + routines.length + hidden
   const chatTotal = chats.length + (usage.data?.hiddenChats ?? 0)
   const routineTotal = routines.length + (usage.data?.hiddenRoutines ?? 0)
+  // Totals include the hidden ones; zero kinds are left out ("1 chat", not "1 chat, 0 routines").
   const usedSummary = usedCount
-    ? `${chatTotal} ${chatTotal === 1 ? 'chat' : 'chats'}, ${routineTotal} ${routineTotal === 1 ? 'routine' : 'routines'}`
+    ? [
+        chatTotal ? `${chatTotal} ${chatTotal === 1 ? 'chat' : 'chats'}` : '',
+        routineTotal ? `${routineTotal} ${routineTotal === 1 ? 'routine' : 'routines'}` : '',
+      ].filter(Boolean).join(', ')
     : 'Not used yet'
   const uses = [
     ...chats.map((chat) => ({ kind: 'chat' as const, id: chat.id, title: chat.title })),
@@ -196,7 +200,12 @@ export function FileInfoCard({ file, viewerId, onManageAccess, onRename, onClose
                 {allUses ? 'Show fewer' : `Show all ${uses.length}`}
               </button>
             )}
-            {hidden > 0 && <p style={{ margin: '4px 0 0', ...label }}>and {hidden} more you cannot see</p>}
+            {/* The summary above already counts these, so with nothing listed say which they are, not "N more". */}
+            {hidden > 0 && (
+              <p style={{ margin: uses.length ? '4px 0 0' : 0, ...label }}>
+                {uses.length ? `and ${hidden} more you cannot see` : `You cannot see ${hidden === 1 ? 'it' : 'them'}`}
+              </p>
+            )}
           </>
         )}
       </div>
@@ -247,7 +256,7 @@ export function FileInfoCard({ file, viewerId, onManageAccess, onRename, onClose
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           {/* Ask and Download need the file itself: hidden when the viewer cannot open it. */}
           {caps.open && (
-            <Button variant="outline" size="sm" fluid leftIcon={<BubbleChatIcon size={14} />} disabled={trashed || file.phase === 'uploading'} onClick={onAsk}>
+            <Button variant="outline" size="sm" fluid leftIcon={<BubbleChatIcon size={14} />} disabled={trashed || file.phase === 'uploading' || (file.phase === 'failed' && !!file.failureReason)} onClick={onAsk}>
               Ask about this
             </Button>
           )}

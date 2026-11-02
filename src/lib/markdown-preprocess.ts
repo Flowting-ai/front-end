@@ -350,6 +350,12 @@ export function healStreamingTail(content: string): string {
   if (!inline.includes('***')) {
     if ((inline.match(/\*\*/g) ?? []).length % 2 === 1) return closeWith('**')
   }
+  // Strong with underscores ("__bold"); a run inside an identifier (dunder__names) is neither.
+  if (!inline.includes('___')) {
+    const strongOpen = (inline.match(/(?<!\w)__(?=[^\s_])/g) ?? []).length
+    const strongClose = (inline.match(/(?<=[^\s_])__(?!\w)/g) ?? []).length
+    if (strongOpen > strongClose) return closeWith('__')
+  }
   if ((inline.match(/~~/g) ?? []).length % 2 === 1) return closeWith('~~')
   // Single emphasis: "*word" opens (not a bullet or a spaced "*"), "word*" closes.
   // Underscores inside identifiers (snake_case) are neither.

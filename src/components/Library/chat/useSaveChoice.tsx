@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { CHAT_MESSAGES } from '@/lib/library/messages'
 import { useLibraryPrefs } from '@/lib/library/queries'
@@ -20,7 +20,11 @@ import { AskSaveDialog } from './AskSaveDialog'
 export function useSaveChoice(chatId?: string): { decideSave: (files: File[]) => Promise<void>; saveDialog: React.ReactNode } {
   const prefs = useLibraryPrefs()
   const dontSaveChat = useDontSaveChat(chatId)
-  const [pending, setPending] = useState<{ files: File[]; resolve: () => void } | null>(null)
+  // Questions waiting for an answer, oldest first: a second message asked about while the dialog is
+  // open waits its turn rather than replacing the first (whose send would then never go out).
+  const [asks, setAsks] = useState<Array<{ id: number; files: File[]; resolve: () => void }>>([])
+  const nextAskId = useRef(0)
+  const pending = asks[0] ?? null
 
   const decideSave = (files: File[]): Promise<void> => {
     if (files.length === 0) return Promise.resolve()
@@ -40,17 +44,21 @@ export function useSaveChoice(chatId?: string): { decideSave: (files: File[]) =>
       if (outcome.message) toast(outcome.message)
       return Promise.resolve()
     }
-    return new Promise((resolve) => setPending({ files, resolve }))
+    return new Promise((resolve) => {
+      const id = ++nextAskId.current
+      setAsks((current) => [...current, { id, files, resolve }])
+    })
   }
 
   const saveDialog = pending && (
     <AskSaveDialog
+      key={pending.id}
       files={pending.files.map((file, i) => ({ key: `${i}-${file.name}`, name: file.name, format: composerUploadFormat(file) }))}
       onChoose={(save) => {
         markSaveChoice(pending.files, save)
         if (!save) toast(CHAT_MESSAGES.notSavedAsk)
         pending.resolve()
-        setPending(null)
+        setAsks((current) => current.filter((ask) => ask !== pending))
       }}
     />
   )

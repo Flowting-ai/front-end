@@ -55,7 +55,9 @@ export const SENT_STATUS_BADGE: Record<SuperLinkStatus, { color: 'Green' | 'Neut
 }
 
 export function fmtRelative(iso: string): string {
-  const then = new Date(iso).getTime()
+  // persona-shares timestamps are UTC without a zone ("2026-10-26T12:53:05.14"); read as local time
+  // they were off by the viewer's UTC offset ("5h ago" for a link made minutes earlier).
+  const then = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(iso) ? iso : `${iso}Z`).getTime()
   if (Number.isNaN(then)) return ''
   const diffMin = Math.floor((Date.now() - then) / 60_000)
   if (diffMin < 1)  return 'just now'

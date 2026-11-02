@@ -49,6 +49,11 @@ export function useOrgBillingView() {
   const invoicesQ = useQuery(invoicesQuery(billingScope, !!orgId && isAdmin && needsInvoiceList(billingQ.isSuccess, billing)))
   const invoices = pickInvoices(billing, invoicesQ.data)
   const billingLoading = billingQ.isLoading || invoicesQ.isLoading
+  // A failed load used to fall through to the page with "No payment method on
+  // file" and no invoices; show it as an error with Retry instead.
+  const loadError = billingQ.isError && !billing
+  const retrying = billingQ.isFetching
+  const retryLoad = () => { void billingQ.refetch() }
 
   const pm = billing?.paymentMethod
   const cardBrand = (pm?.brand ?? 'unknown') as CardBrand
@@ -157,5 +162,5 @@ export function useOrgBillingView() {
   const nextBilling = plan?.cycleEndLabel ?? '—'
 
 
-  return { router, plan, isEnterprise, capModalOpen, setCapModalOpen, savingCap, showCancelDialog, setShowCancelDialog, isCanceling, isResuming, openingPortal, setOpeningPortal, isAdmin, overageCapUsd, overageUsd, overageUsedPct, totalCredits, usedCredits, hasPlan, billing, invoices, billingLoading, pm, cardBrand, hasDownloadableInvoice, handleStripePortal, handleExportAllInvoices, handleCancelSubscription, handleResumeSubscription, handleRequestPlanChange, handleRequestCapChange, handleSaveCap, nextBilling }
+  return { loadError, retrying, retryLoad, router, plan, isEnterprise, capModalOpen, setCapModalOpen, savingCap, showCancelDialog, setShowCancelDialog, isCanceling, isResuming, openingPortal, setOpeningPortal, isAdmin, overageCapUsd, overageUsd, overageUsedPct, totalCredits, usedCredits, hasPlan, billing, invoices, billingLoading, pm, cardBrand, hasDownloadableInvoice, handleStripePortal, handleExportAllInvoices, handleCancelSubscription, handleResumeSubscription, handleRequestPlanChange, handleRequestCapChange, handleSaveCap, nextBilling }
 }

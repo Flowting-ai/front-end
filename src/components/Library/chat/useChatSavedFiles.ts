@@ -1,13 +1,13 @@
 'use client'
 
 // The Library files a chat saved, for the Delete chat dialog ("2 saved files stay in Library", "Also delete
-// these files"). The ids come from the chat's own messages (`document_id` on each attachment); each file is
-// then read through the File detail query, and only files this chat created that the viewer may delete count.
-// When the history names fewer ids than it has attachments (the backend does not send `document_id` yet,
-// LIBRARY_FLOW_A_BACKEND_TICKET.md Part 3 A10) the list would be wrong, so the status is "unknown" instead.
+// these files"). Since 25 Oct `GET /chats/{id}` lists them (`savedFiles`: the caller's own, still in Library).
+// Where it can't (an agent chat, an older server) the ids come from the chat's own messages (`document_id` on
+// each attachment), and only files this chat created that the viewer may delete count. When that history names
+// fewer ids than it has attachments, the list would be wrong, so the status is "unknown" instead.
 
 import { useQuery } from '@tanstack/react-query'
-import { getChatMessages } from '@/lib/api/chat'
+import { getChatLibraryState, getChatMessages } from '@/lib/api/chat'
 import { libraryApi } from '@/lib/library/api'
 import { libraryKeys } from '@/lib/library/keys'
 import type { OpenFileRef } from '@/lib/library/sources'
@@ -18,7 +18,28 @@ const MAX_PAGES = 5
 
 export type ChatSavedFiles = { status: 'loading' } | { status: 'unknown' } | { status: 'ready'; files: OpenFileRef[] }
 
+/** The server's list, read as the dialog shows files; null when the chat endpoint can't say. */
+async function savedFilesFromChat(chatId: string): Promise<OpenFileRef[] | null> {
+  let saved
+  try {
+    saved = (await getChatLibraryState(chatId)).savedFiles
+  } catch {
+    return null
+  }
+  if (!Array.isArray(saved)) return null
+  const details = await Promise.allSettled(saved.map((file) => libraryApi.getFile(file.id)))
+  const files: OpenFileRef[] = []
+  for (const detail of details) {
+    if (detail.status !== 'fulfilled' || !detail.value.caps.delete) continue
+    const ref = refFromDetail(detail.value)
+    if (ref.state === 'open') files.push(ref)
+  }
+  return files
+}
+
 export async function savedFilesOf(chatId: string): Promise<ChatSavedFiles> {
+  const fromChat = await savedFilesFromChat(chatId)
+  if (fromChat) return { status: 'ready', files: fromChat }
   const ids: string[] = []
   let unnamed = 0
   let cursor: string | undefined

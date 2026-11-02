@@ -47,6 +47,7 @@ export const chatFormSchema = z.object({
   enable_thinking: flag,
   effort: z.string().max(20).optional(),
   personaId: id.optional(),
+  projectId: id.optional(),
   systemPrompt: z.string().max(MAX_SYSTEM_PROMPT_CHARS).optional(),
   temperature: z.coerce.number().min(0, "temperature must be between 0 and 2").max(2, "temperature must be between 0 and 2").optional(),
   toneId: z.string().max(50).optional(),

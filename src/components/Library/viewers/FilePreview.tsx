@@ -124,7 +124,7 @@ export default function FilePreview({ file, cite, onDownload }: FilePreviewProps
         return rendersSource(file) && !cite ? <SourceViewer file={file} fallback={indexed} /> : indexed
       })()}
       {data.kind === 'image' && <ImageViewer url={data.url} caption={data.caption} />}
-      {data.kind === 'audio' && <AudioViewer url={data.url} lines={data.lines} citeMs={cite?.type === 'time' ? Number(cite.value) : null} />}
+      {data.kind === 'audio' && <AudioViewer url={data.url} lines={data.lines} transcriptStatus={data.transcriptStatus} citeMs={cite?.type === 'time' ? Number(cite.value) : null} />}
       {data.kind === 'sheet' && (
         <SheetViewer
           preview={data}

@@ -12,6 +12,12 @@ export const dynamic = "force-dynamic"
 export const maxDuration = 800
 
 
+/** The browser's key for this send, passed on so the backend can refuse a repeat. Only a plain token is forwarded. */
+function idempotencyKeyOf(request: NextRequest): Record<string, string> {
+  const key = request.headers.get("idempotency-key")
+  return key && /^[A-Za-z0-9-]{8,100}$/.test(key) ? { "Idempotency-Key": key } : {}
+}
+
 /**
  * POST /api/chat
  *
@@ -51,7 +57,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return routeError(400, "bad_request", firstIssue(parsed.error))
   const {
     chatId, input, modelId, algorithm, pinIds, referenceMessageId, replaceMessageId,
-    webSearch, enable_thinking: thinking, effort, personaId, systemPrompt, temperature, toneId, libraryFileIds, saveToLibrary, librarySourcesOff,
+    webSearch, enable_thinking: thinking, effort, personaId, projectId, systemPrompt, temperature, toneId, libraryFileIds, saveToLibrary, librarySourcesOff,
   } = parsed.data
   const clientFiles = formData.getAll("files").filter((f): f is File => f instanceof File)
 
@@ -81,6 +87,8 @@ export async function POST(request: NextRequest) {
   fd.append("thinking", thinking ? "true" : "false")
   if (thinking && effort) fd.append("effort", effort)
   if (personaId) fd.append("persona_id", personaId)
+  // Only on create: the backend links the new chat to the project before the first turn runs.
+  if (projectId && !isExistingChat) fd.append("project_id", projectId)
   if (systemPrompt) fd.append("system_prompt", systemPrompt)
   if (temperature !== undefined) fd.append("temperature", String(temperature))
   if (toneId) fd.append("tone_id", toneId)
@@ -89,7 +97,7 @@ export async function POST(request: NextRequest) {
   if (saveToLibrary) fd.append("saveToLibrary", saveToLibrary)
   if (librarySourcesOff) fd.append("librarySourcesOff", librarySourcesOff)
   // The backend refuses fields it does not read yet (web_search, system_prompt, temperature,
-  // tone_id, librarySourcesOff), so they stop here.
+  // tone_id), so they stop here.
   keepAcceptedFields(fd, isExistingChat ? CHAT_STREAM_FIELDS : CHAT_CREATE_FIELDS)
 
   // ── Proxy request ────────────────────────────────────────────────────────────
@@ -104,6 +112,7 @@ export async function POST(request: NextRequest) {
         Authorization: `Bearer ${token}`,
         Accept: "text/event-stream",
         ...forwardGeoHeaders(request),
+        ...idempotencyKeyOf(request),
       },
       body: fd,
     }, requestId)

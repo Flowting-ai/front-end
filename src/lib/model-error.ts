@@ -30,6 +30,8 @@ const MODEL_TOO_LARGE_MESSAGE =
   "Your message is too large for this model. Try shortening it or removing attachments.";
 const MODEL_GENERIC_ERROR_MESSAGE =
   "Something went wrong generating a response. Please try again.";
+export const FILE_NOT_READY_MESSAGE =
+  "An attached file is still being processed. Try again in a moment.";
 export const CHAT_NOT_FOUND_MESSAGE =
   "This chat no longer exists — it may have been deleted. Start a new chat to continue.";
 
@@ -91,6 +93,11 @@ export function friendlyModelError(raw?: string | null, statusCode?: number): st
   // a bare 404 would otherwise get.
   if (lower.includes("chat not found")) {
     return CHAT_NOT_FOUND_MESSAGE;
+  }
+  // Also before the table: the chat endpoints answer 409 `not_ready` when an attached Library file is
+  // still being processed, which the 409 entry below would blame on the model.
+  if (lower.includes("not_ready") || lower.includes("isn't ready yet")) {
+    return FILE_NOT_READY_MESSAGE;
   }
 
   const code = statusCode ?? (() => {

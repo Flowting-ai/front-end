@@ -5,11 +5,11 @@ import { SouvenirLogo } from "@/components/SouvenirLogo";
 import { fillGreeting, pickGreeting, splitGreeting } from "@/lib/greetings";
 import styles from "./InitialPrompts.module.css";
 import { useAuth } from "@/context/auth-context";
-import { useMounted } from "@/hooks/use-mounted";
+import { useIsClient } from "@/hooks/use-is-client";
 
 export function InitialPrompts({ compact = false }: { compact?: boolean }) {
   const { user } = useAuth();
-  const mounted = useMounted();
+  const mounted = useIsClient();
   // No name → the greeting drops it ("Where were we?"); see fillGreeting.
   const name = user?.firstName || user?.name || "";
 

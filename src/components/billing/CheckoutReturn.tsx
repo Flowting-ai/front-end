@@ -34,6 +34,10 @@ function CheckoutReturnContent({ backLabel }: { backLabel: string }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { heading, description } = checkoutReturnCopy(searchParams.get('type'), searchParams.get('plan'))
+  // A checkout return always names what was bought (?type= / ?plan=). Opened bare, there was no
+  // payment: go to Plans & Billing (members are sent on to Usage) instead of claiming one.
+  const fromCheckout = searchParams.has('type') || searchParams.has('plan')
+  useEffect(() => { if (!fromCheckout) router.replace(ORG_PLANS_ROUTE) }, [fromCheckout, router])
 
   // Once on arrival: clear the checkout hint cookie and refetch the profile,
   // billing and the org pool (here and in other tabs) so the new plan or
@@ -42,6 +46,8 @@ function CheckoutReturnContent({ backLabel }: { backLabel: string }) {
     document.cookie = CLEAR_CHECKOUT_COOKIE
     notifyCreditsUpdated()
   }, [])
+
+  if (!fromCheckout) return null
 
   return (
     <div className="kaya-scrollbar flex h-full w-full items-center justify-center overflow-auto p-8">

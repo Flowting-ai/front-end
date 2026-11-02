@@ -26,6 +26,7 @@ import Image from 'next/image'
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition'
 import { toast } from 'sonner'
 import { trackFeature } from '@/lib/analytics/events'
+import { isImeKey } from '@/lib/ime'
 
 // ── Canonical default menu contents ───────────────────────────────────────────
 // The Add menu (Figma 3219:33599) and Model menu (Figma 3208:32989 + 3142:36710)
@@ -1037,7 +1038,7 @@ export function ChatInput({
     }
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter' && !e.shiftKey && value && !isStreaming) {
+      if (e.key === 'Enter' && !e.shiftKey && !isImeKey(e) && value && !isStreaming) {
         e.preventDefault()
         handleSend()
       }

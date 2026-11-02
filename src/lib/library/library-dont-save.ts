@@ -1,16 +1,17 @@
 // "Don't save files from this chat" (the chat's More menu), per chat. Files sent in such a chat go with
 // `saveToLibrary=false` and the sender sees "Not saved. This chat doesn't save files." The backend keeps
 // it on the chat (`GET`/`PATCH /chats/{id}` `libraryDontSave`, and it refuses to list a file from such a
-// chat whatever the send says). This module is the in-page copy the menu and the send read from.
+// chat whatever the send says). This module is the in-page copy the menu and the send read from. The same
+// read also brings the chat's stored Sources switches (`librarySourcesOff`, library-sources-off.ts).
 
 import { useEffect, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { apiFetchJson } from "@/lib/api/client";
+import { getChatLibraryState, type ChatLibraryState } from "@/lib/api/chat";
 import { CHAT_DELETE_ENDPOINT } from "@/lib/config";
 import { logger } from "@/lib/logger";
+import { seedSourcesOff } from "./library-sources-off";
 import { CHAT_MESSAGES } from "./messages";
-
-type ChatLibraryState = { id: string; libraryDontSave: boolean };
 
 const listeners = new Set<() => void>();
 let chats: ReadonlyMap<string, boolean> = new Map();
@@ -37,8 +38,9 @@ async function load(chatId: string): Promise<void> {
   if (loading.has(chatId) || chats.has(chatId)) return;
   loading.add(chatId);
   try {
-    const state = await apiFetchJson<ChatLibraryState>(CHAT_DELETE_ENDPOINT(chatId));
+    const state = await getChatLibraryState(chatId);
     if (!chats.has(chatId)) write(chatId, state.libraryDontSave === true);
+    if (Array.isArray(state.librarySourcesOff)) seedSourcesOff(chatId, state.librarySourcesOff);
   } catch (error) {
     // Not the caller's chat, or the backend is down: leave it off, as the server would.
     logger.warn("[library] could not read Don't save for chat", { chatId, error });

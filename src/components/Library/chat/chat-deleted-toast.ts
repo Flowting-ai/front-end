@@ -7,8 +7,9 @@ import { queryKeys } from '@/lib/query-keys'
 
 /**
  * The notice after Delete chat. A deleted chat stays restorable for the Trash window
- * (`POST /chats/{id}/restore`), so the notice offers Undo. Files moved to Trash with the
- * chat are not brought back by it, so the caller leaves Undo off in that case.
+ * (`POST /chats/{id}/restore`), so the notice offers Undo. Restore also brings back files the server
+ * moved to Trash with the chat (`deleteFiles`); files trashed one by one are not, so the caller leaves
+ * Undo off in that case.
  */
 export function chatDeletedToast(message: string, chatId: string, queryClient: QueryClient, orgKey: string, { undo = true } = {}): void {
   if (!undo) {

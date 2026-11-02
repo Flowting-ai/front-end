@@ -62,6 +62,28 @@ export function prependChat(data: ChatPages | undefined, chatId: string, chat?: 
   })
 }
 
+/**
+ * Put one chat back where it was in `snapshot` (same page, same position), leaving every other
+ * change alone. For a failed delete: restoring the whole snapshot would also bring back chats
+ * whose deletes succeeded in the meantime.
+ */
+export function restoreChat(data: ChatPages | undefined, snapshot: ChatPages | undefined, chatId: string): ChatPages | undefined {
+  if (!data || !snapshot) return data
+  const pageIndex = snapshot.pages.findIndex(page => (page.chats ?? []).some(c => c.id === chatId))
+  if (pageIndex < 0 || data.pages.some(page => (page.chats ?? []).some(c => c.id === chatId))) return data
+  const before = snapshot.pages[pageIndex].chats ?? []
+  const chat = before.find(c => c.id === chatId)!
+  const at = before.indexOf(chat)
+  return mapChats(data, (chats, i) => {
+    if (i !== Math.min(pageIndex, data.pages.length - 1)) return chats
+    // Keep its old neighbour order: insert after the last chat that preceded it and is still here.
+    const prior = new Set(before.slice(0, at).map(c => c.id))
+    let insertAt = 0
+    chats.forEach((c, k) => { if (prior.has(c.id)) insertAt = k + 1 })
+    return [...chats.slice(0, insertAt), chat, ...chats.slice(insertAt)]
+  })
+}
+
 /** A chat's title is still the placeholder the backend replaces after the first reply. */
 export function isPlaceholderTitle(title: string | null | undefined): boolean {
   return !title || title === 'New chat' || title === 'Untitled'

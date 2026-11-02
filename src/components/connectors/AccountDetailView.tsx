@@ -13,8 +13,8 @@
 // Parts: AccountPermissions.tsx (permissions tab), AccountRail.tsx (name,
 // sharing, removal), account-styles.ts.
 
-import React, { useEffect } from 'react'
-import { m } from 'framer-motion'
+import React from 'react'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { useOrg } from '@/context/org-context'
 import { connectionAddedBy } from '@/lib/connector-owner'
 import { CancelOneIcon } from '@strange-huge/icons'
@@ -40,29 +40,19 @@ export function AccountDetailView({
   const { members } = useOrg()
   const addedBy = connectionAddedBy(account, members)
 
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !event.defaultPrevented) close()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [close])
-
   return (
-    <div className={styles.overlay} onClick={close}>
-      <m.div
-        role="dialog"
-        aria-modal="true"
-        aria-label={`${catalog.name} · ${account.nickname}`}
+    // Radix handles Esc, outside click, focus trap and focus return (nested menus close first).
+    <Dialog open onOpenChange={open => { if (!open) close() }}>
+      <DialogContent
+        hideClose
+        aria-describedby={undefined}
         className={styles.dialog}
-        onClick={event => event.stopPropagation()}
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.16, ease: 'easeOut' }}
+        style={{ width: 'min(85vw, 1280px)', height: '85vh', maxHeight: '85vh', boxShadow: '0 24px 72px rgba(30, 28, 27, 0.28), 0 0 0 1px var(--neutral-100)' }}
       >
+        <DialogTitle className="sr-only">{`${catalog.name} · ${account.nickname}`}</DialogTitle>
         <header className={styles.header}>
           <ConnectorGlyph slug={catalog.slug} name={catalog.name} logoUrl={catalog.logoUrl} size={44} />
-          <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+          <div className="min-w-0 flex-auto">
             <AccountName account={account} onChanged={onChanged} />
             <p style={secondary}>
               {[catalog.name, account.email, `Added by ${addedBy}`, account.owned ? null : 'shared with you'].filter(Boolean).join(' · ')}
@@ -81,7 +71,7 @@ export function AccountDetailView({
             <PermissionsTab account={account} catalog={catalog} onChanged={onChanged} />
           </div>
         </div>
-      </m.div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

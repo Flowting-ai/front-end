@@ -92,6 +92,8 @@ export function useChatShare({ chatId, canManage, onCopied, autoOpen }: Omit<Cha
     setSelectedIds(failedIds)
     if (failedIds.size === 0) {
       toast.success(created.length === 1 ? 'Chat shared' : `Chat shared with ${created.length} people`)
+      // Everyone was shared with, so the dialog is done; a partial failure keeps it open to retry.
+      setChatShareOpen(false)
     } else if (created.length > 0) {
       toast.error(`Shared with ${created.length}, failed for ${failedIds.size}`)
     } else {
@@ -125,13 +127,6 @@ export function useChatShare({ chatId, canManage, onCopied, autoOpen }: Omit<Cha
       setCopyingChat(false)
     }
   }
-
-  useEffect(() => {
-    if (!chatShareOpen) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setChatShareOpen(false) }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [chatShareOpen])
 
   // Deep-link open — fires once when autoOpen/chatId/canManage settle true
   // (e.g. canManage flips true once the chat record finishes loading), not on

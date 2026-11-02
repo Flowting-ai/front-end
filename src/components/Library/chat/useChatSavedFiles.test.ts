@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const chat = vi.hoisted(() => ({ getChatMessages: vi.fn() }))
+const chat = vi.hoisted(() => ({ getChatMessages: vi.fn(), getChatLibraryState: vi.fn() }))
 const library = vi.hoisted(() => ({ getFile: vi.fn() }))
 
 vi.mock('@/lib/api/chat', () => chat)
@@ -35,7 +35,25 @@ const pages = (...messages: unknown[]) => chat.getChatMessages.mockResolvedValue
 describe('savedFilesOf', () => {
   beforeEach(() => {
     chat.getChatMessages.mockReset()
+    chat.getChatLibraryState.mockReset()
+    chat.getChatLibraryState.mockRejectedValue(new Error('no chat endpoint'))
     library.getFile.mockReset()
+  })
+
+  it('uses the chat list when the server sends one, without reading the history', async () => {
+    chat.getChatLibraryState.mockResolvedValue({ id: CHAT, libraryDontSave: false, savedFiles: [{ id: 'a', title: 'A', generated: false }, { id: 'v', title: 'V', generated: true }] })
+    library.getFile.mockImplementation(async (id: string) => detail(id, id === 'v' ? { canDelete: false } : {}))
+    const result = await savedFilesOf(CHAT)
+    expect(result.status === 'ready' && result.files.map((file) => file.id)).toEqual(['a'])
+    expect(chat.getChatMessages).not.toHaveBeenCalled()
+  })
+
+  it('falls back to the history when the chat state has no savedFiles (an older server)', async () => {
+    chat.getChatLibraryState.mockResolvedValue({ id: CHAT, libraryDontSave: false })
+    pages(message([{ file_name: 'a.txt', document_id: 'a' }]))
+    library.getFile.mockImplementation(async (id: string) => detail(id))
+    const result = await savedFilesOf(CHAT)
+    expect(result.status === 'ready' && result.files.map((file) => file.id)).toEqual(['a'])
   })
 
   it('lists the files this chat created that the viewer may delete', async () => {

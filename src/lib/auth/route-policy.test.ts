@@ -19,6 +19,7 @@ describe('routePolicy', () => {
     ['/auth/login', true, 'auth'],
     ['/api/chat', true, 'api'],
     [`${INVITE_LANDING_BASE_ROUTE}/abc`, true, 'public'],
+    ['/sign-in-error', true, 'public'],
     ['/onboarding/role', true, 'onboarding'],
     ['/chat', true, 'app'],
     ['/', true, 'app'],

@@ -1,68 +1,26 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { AnimatePresence, m } from "framer-motion";
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { toast } from "sonner";
-import { ArrowDownOneIcon, InformationCircleIcon } from "@strange-huge/icons";
-import { IconButton } from "@/components/ui/button";
-import { ChatMessageMemo } from "./ChatMessage";
-import { ChatInput, type ChatInputProps } from "./ChatInput";
-import { TurnStatusChips } from "./TurnStatusChips";
-import { PinMentionDropdown } from "./PinMentionDropdown";
-import { PinChipStrip } from "./PinChipStrip";
-import {
-  AttachmentManager,
-  type PendingAttachment,
-} from "./AttachmentManager";
-import { useFileDrop } from "@/hooks/use-file-drop";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { ChatInput } from "./ChatInput";
+import { type PendingAttachment } from "./AttachmentManager";
 import { useFileUpload } from "@/hooks/use-file-upload";
 import { useComposerUploads } from "@/lib/library/upload/composer-uploads";
-import { UploadNotices } from "@/components/Library/upload/UploadNotices";
-import { LibrarySearchOffNote } from "@/components/Library/chat/LibrarySearchOffNote";
 import { ChatSources } from "@/components/Library/chat/ChatSources";
 import { ChatFilePanelSlot } from "@/components/Library/chat/ChatFilePanelSlot";
 import { useSaveChoice } from "@/components/Library/chat/useSaveChoice";
-import { QueuedMessagesTray, type QueuedRowExit } from "./QueuedMessagesTray";
-import { useChatQueue, useChatStreamActive } from "@/hooks/use-message-queue";
+import { useChatStreamActive } from "@/hooks/use-message-queue";
 import {
-  combineQueuedMessages,
   getChatQueue,
-  holdQueue,
-  joinMessageText,
-  mergeAttachments,
-  newChatQueueKey,
-  queueMessage,
   refreshQueuedContext,
   rekeyQueue,
-  restoreQueuedMessage,
-  setQueueForeground,
-  takeAllQueuedMessages,
-  takeNextQueuedMessage,
-  takeQueuedMessage,
-  type QueuedMessage,
-  type QueuedMessagePart,
   type QueuedTurnContext,
 } from "@/lib/message-queue";
-import { stopStream, type StreamOutcome } from "@/lib/stream-registry";
-import { registerChatScroller } from "@/lib/chat-scroller";
-import {
-  createStickToBottom,
-  scrollIntentForKey,
-  shouldAdjustScrollOnItemResize,
-  USER_SCROLL_WINDOW_MS,
-} from "@/lib/stick-to-bottom";
+import { stopStream } from "@/lib/stream-registry";
 import { buildTurnOptions, getFolderPinIds, type TurnInput, type TurnSettings } from "@/lib/turn-options";
-import { getRegenerateTarget, resolveEditReplaceId } from "@/lib/replace-message-id";
-import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
 import { useChatState, type UseChatStateOptions } from "@/hooks/use-chat-state";
-import { publishChatContext, clearChatContext } from "@/lib/chat-context-store";
 import { usePinMentions } from "@/hooks/use-pin-mentions";
 import { PINS_ENABLED } from "@/lib/feature-flags";
-import type { UIMessage } from "@/types/chat";
-import { AgentCreatedCard } from "@/components/AgentEditor/AgentCreatedCard";
-import { mergeInjectedMessages } from "@/lib/agent-card-messages";
-import type { SelectedPersonaInfo } from "@/lib/chat-personas";
+import { seedModelMeta } from "@/lib/seed-model-meta";
 import {
   useStreamingChat,
   type StreamState,
@@ -71,176 +29,29 @@ import { useModelSelectorContext } from "@/context/model-selector-context";
 import { usePinboard } from "@/context/pinboard-context";
 import { useAuth } from "@/context/auth-context";
 import { useOrgPlan } from "@/context/org-context";
-import { InlineCreditNotice } from "@/components/InlineCreditNotice";
-import { ExhaustionBanner } from "@/components/ExhaustionBanner";
 import { useCreditStatus } from "@/hooks/use-credit-status";
 import { useWorkspaceCreditNotice } from "@/hooks/use-workspace-credit-notice";
-import type { PinFolder } from "@/lib/api/pins";
-import { ChatMessagesSkeleton } from "@/components/chat/ChatMessagesSkeleton";
-import { Upload } from "lucide-react";
-import { MentionChip } from "@/components/chat/MentionChip";
+import { useLatestCallback } from "@/hooks/use-latest-callback";
+import { usePageHidden } from "@/hooks/use-page-hidden";
+import { FileDropOverlay } from "./FileDropOverlay";
+import { ChatMessageList, type ChatMessageListHandle } from "./ChatMessageList";
+import { ChatMessagesPane } from "./ChatMessagesPane";
+import { ChatComposerArea } from "./ChatComposerArea";
+import { ComposerAttachmentsSlot } from "./ChatInterfaceParts";
+import type { ChatInterfaceProps } from "./chat-interface-props";
+import { getComposerPlaceholder, getQueuePausedReason, getQueueStatus } from "./chat-interface-helpers";
+import { useChatSwitchReset } from "./hooks/use-chat-switch-reset";
+import { useChatContextPublish, useInjectedMessages, useStreamTabResilience } from "./hooks/use-chat-lifecycle";
+import { useChatScroll, useChatScrollerRegistration, useFollowLive, useStickToBottom } from "./hooks/use-chat-scroll";
+import { NO_QUEUED_MESSAGES, useQueueForeground } from "./hooks/use-queue-foreground";
+import { useInitialPrompt } from "./hooks/use-initial-prompt";
+import { useAttachmentIntake } from "./hooks/use-attachment-intake";
+import { useComposerQueue, useQueuedSend } from "./hooks/use-composer-queue";
+import { useRevealSettle } from "./hooks/use-reveal-settle";
+import { sendTurn as sendTurnWith, useMessageActions, useTurnGuards, type TurnKit } from "./hooks/use-chat-turns";
 
-// How long to wait, once a stream has ended, for a reply's reveal to report
-// settled before the completion UI stops waiting — see handleRevealSettled.
-// The short wait applies while the reply's row isn't rendered (nothing on
-// screen to wait for); the cap applies while it is.
-const REVEAL_SETTLE_FALLBACK_MS = 2_000;
-const REVEAL_SETTLE_MAX_MS = 30_000;
-// After a reply finishes, keep following content growth this long (lazy code
-// highlighting, chart mounts) before growth counts as the user's own doing.
-const FOLLOW_GRACE_MS = 1_500;
-// A queued message goes out this long after the reply before it has finished,
-// so the finished reply registers before the next turn starts below it.
-const QUEUE_SEND_DELAY_MS = 450;
-
-// Touch screens: focusing the box on its own would pop the keyboard up.
-const prefersNoAutoFocus = () =>
-  typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;
-
-const NO_QUEUED_MESSAGES: readonly QueuedMessage[] = [];
-
-interface ChatInterfaceProps {
-  chatId: string | undefined;
-  onChatCreated?: (chatId: string) => void;
-  onTitleUpdate?: (chatId: string, title: string) => void;
-  onChatMoveToTop?: (chatId: string) => void;
-  selectedModel?: string;
-  /** Provider the model button's logo resolves from; defaults to the model name. */
-  selectedModelIcon?: string | null;
-  selectedModelId?: string | number | null;
-  /** Souvenir's own auto-routing tier ('base'/'pro'), when the composer's
-   *  model menu has that selected instead of a direct `selectedModelId`. The
-   *  two are mutually exclusive (see ModelSelectorContext), so this and
-   *  `selectedModelId` are never both set. */
-  algorithm?: 'base' | 'pro' | null;
-  onModelClick?: React.MouseEventHandler<HTMLButtonElement>;
-  /** Dropdown content for the `+` add button in ChatInput. */
-  addMenu?: React.ReactNode;
-  /** Dropdown content for the model selector button in ChatInput. */
-  modelMenu?: React.ReactNode;
-  /** If provided, ChatInterface auto-sends this message on mount (new chat). */
-  initialPrompt?: string | null;
-  /** Prefills the input for the user to review and send. */
-  draft?: string | null;
-  /** Whether web search is currently enabled (controlled by parent). */
-  webSearchEnabled?: boolean;
-  /** Thinking effort for the turn; `null` is thinking off, `undefined` sends no thinking field. */
-  reasoningEffort?: string | null;
-  /** Files selected via the add-menu file picker (controlled by parent). */
-  addMenuFiles?: File[];
-  /** Called after send to let the parent clear its add-menu file list. */
-  onClearAddMenuFiles?: () => void;
-  /** Files attached in the new-chat input before the first send (initial prompt only). */
-  initialFiles?: File[];
-  /** Called after the initial prompt is sent to clear the initial file list. */
-  onClearInitialFiles?: () => void;
-  /** Chip elements rendered in the ChatInput footer (web search, file chips…). */
-  chips?: React.ReactNode;
-  /** Pin folders selected in the add menu — their pins are sent as context on every send. */
-  selectedFolders?: PinFolder[];
-  /**
-   * @-mentioned pins (id + label) from the new-chat landing page before the first send.
-   * These are one-shot: only used by the initial auto-send when ChatInterface mounts.
-   */
-  initialMentionedPins?: Array<{ id: string; label: string }>;
-  /** Persona version id sent as `persona_id` on the regular /chats endpoint
-   *  to apply the persona as an overlay on top of style / web search / etc. */
-  selectedPersonaId?: string | null;
-  /** System instruction for the selected persona, forwarded explicitly to the backend. */
-  selectedPersonaSystemPrompt?: string | null;
-  /** Temperature override from the selected persona. */
-  selectedPersonaTemperature?: number | null;
-  /**
-   * True while a just-selected persona's active version (system prompt,
-   * temperature, model) is still being fetched. Selecting an agent doesn't
-   * arrive with that data — the caller resolves it async right after — so
-   * sending immediately after picking an agent raced that fetch and sent
-   * `systemPrompt: undefined`, breaking only the first turn (subsequent
-   * sends always had it by then). Blocks sending until it resolves instead.
-   */
-  personaConfigLoading?: boolean;
-  /** Style/tone ID to send with every message (e.g. "professional", "teaching"). */
-  selectedStyleId?: string | null;
-  /**
-   * When set, scrolls to the message with this ID once the chat finishes
-   * loading. Navigated here from the pinboard "Show in chat" button.
-   */
-  scrollToMessageId?: string | null;
-  /**
-   * When true, the model selector button is shown but non-interactive.
-   * Use when a persona's model is locked and should not be changed.
-   */
-  disabledModelSelector?: boolean;
-  /**
-   * Override the SSE proxy endpoint. Defaults to "/api/chat".
-   * Set to "/api/persona-chat" for persona-scoped chats.
-   */
-  endpoint?: string;
-  /**
-   * Custom backend stop handler. When provided, called instead of the default
-   * POST /chats/{id}/stop. Use for persona stop endpoints.
-   */
-  onStopBackend?: (chatId: string) => void;
-  /**
-   * Connector slugs forwarded to the backend on every send.
-   * Used by persona chats that have connectors wired to a specific version.
-   */
-  connectorSlugs?: string[];
-  /**
-   * Rendered when the message list is empty and not loading.
-   * Use to show a persona avatar / greeting instead of nothing.
-   */
-  emptyState?: React.ReactNode;
-  /**
-   * Override the default message fetcher (getChatMessages).
-   * When provided, called with the chatId on mount; must return UIMessage[].
-   * Pagination is disabled when this is set.
-   */
-  loadMessages?: (chatId: string) => Promise<UIMessage[]>;
-  /**
-   * When true, hide the pin @-mention dropdown and chips.
-   * Persona chats don't use pins.
-   */
-  hidePinActions?: boolean;
-  /** Readable shared chat whose original is owned by somebody else. */
-  readOnly?: boolean;
-  /**
-   * This chat's own visibility is "archived" (see Chat.visibility / the
-   * /chats page's Archived tab). Distinct from `readOnly` — an archived chat
-   * is still owned by the current user, so unlike a shared/not-owned chat it
-   * must NOT offer a "Create a copy" affordance; there's no unarchive
-   * endpoint yet either, so the composer just stays disabled.
-   */
-  archived?: boolean;
-  /**
-   * True only once the caller has positively confirmed (e.g. via the chat
-   * list's own `can_edit` field) that this chat belongs to the current user.
-   * `undefined`/omitted means "unknown" (e.g. this chat hasn't loaded into
-   * the sidebar's chat-history list yet) — NOT the same as `false`. Gates
-   * whether the streaming hook is allowed to bypass the proxy and hit the
-   * backend directly; see `chatOwnershipConfirmed` in use-streaming-chat.ts.
-   */
-  chatOwnershipConfirmed?: boolean;
-  /**
-   * Lets the host take over a message before it is sent (e.g. "Create an agent
-   * that…" starting the agent-creation flow). Return true to say the host has
-   * handled it: nothing is sent and the input is cleared. `sendAnyway` sends the
-   * same text as an ordinary message, skipping this check.
-   */
-  onBeforeSend?: (text: string, sendAnyway: () => void) => boolean;
-  /** Turns on `@agent` mentions in the input — see ChatInput. */
-  agentMention?: ChatInputProps["agentMention"];
-  /**
-   * Messages that exist only in this browser (never sent to the backend), to be
-   * appended to the thread once — e.g. the card of an agent just created from chat.
-   * The host clears them via `onInjectedMessagesConsumed` after they are added.
-   */
-  injectedMessages?: UIMessage[] | null;
-  onInjectedMessagesConsumed?: () => void;
-  /** "Use now" on an agent card: attach that agent to the chat. */
-  onUseAgent?: (agent: SelectedPersonaInfo) => void;
-}
-
+// The container for a chat: message state, sending/queueing turns and the
+// composer. Each hook below is called in the order its effects must run.
 export function ChatInterface({
   chatId,
   onChatCreated,
@@ -285,17 +96,26 @@ export function ChatInterface({
   injectedMessages,
   onInjectedMessagesConsumed,
   onUseAgent,
+  projectId,
 }: ChatInterfaceProps) {
   const hidePinActions = hidePinActionsProp || !PINS_ENABLED;
   const [streamState, setStreamState] = useState<StreamState>("idle");
-  const [inputValue, setInputValue] = useState("");
-  useEffect(() => {
+  const [inputValue, setInputValue] = useState(draft ?? "");
+  // A draft handed in from outside (e.g. a scheduled prompt) fills the box when it
+  // changes — adjusted during render rather than in an effect, so there is no extra
+  // render and an unchanged draft never overwrites what the user has typed since.
+  const [prevDraft, setPrevDraft] = useState(draft);
+  if (draft !== prevDraft) {
+    setPrevDraft(draft);
     if (draft) setInputValue(draft);
-  }, [draft]);
+  }
 
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   // Files upload into Library as soon as they are attached; Send waits until they are ready.
   const { attachments: attachmentChips, uploadsBusy, notices: uploadNotices } = useComposerUploads(attachments, setAttachments, chatId && !chatId.startsWith("temp-") ? chatId : undefined);
+  // The draft's attachments as of the last render, for the chat-switch reset below.
+  const attachmentsRef = useRef(attachments);
+  useEffect(() => { attachmentsRef.current = attachments; });
   // Auto-save setting (Always / Ask each time / Never) applied to the files on send.
   const { decideSave, saveDialog } = useSaveChoice(chatId && !chatId.startsWith("temp-") ? chatId : undefined);
   const {
@@ -314,62 +134,18 @@ export function ChatInterface({
     restoreMentions,
   } = usePinMentions(setInputValue);
 
-  // Whether the view follows new content at the bottom ("stuck") — see
-  // stick-to-bottom.ts. `atBottom` mirrors it for the scroll-to-bottom button.
-  const [stickToBottom] = useState(() => createStickToBottom());
-  const [atBottom, setAtBottom] = useState(true);
+  const { stickToBottom, atBottom, setAtBottom, isSettling, setIsSettling, scheduleFollowRef, stickAndFollow } = useStickToBottom();
 
-  // True during the brief window after messages load while the virtualizer
-  // measures all rendered items. Keeps the spinner up and content hidden so
-  // the first visible frame is already at settled positions (no jitter).
-  const [isSettling, setIsSettling] = useState(false);
-
-  // Reset composed-but-unsent input whenever the user switches to a different
-  // chat (the second effect below; a new chat getting its id is not a switch).
-  const prevChatIdRef = useRef<string | null | undefined>(chatId)
-  useEffect(() => {
-    const prev = prevChatIdRef.current
-    prevChatIdRef.current = chatId ?? null
-    // Switching to a different real chat: reset streamState so the new chat's
-    // input doesn't inherit a streaming indicator from the previous chat's
-    // background stream. Exclude the null→realId transition for new chats.
-    if (prev !== chatId && prev !== null && prev !== undefined) {
-      setStreamState("idle")
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only run when chatId identity changes
-  }, [chatId])
-
-  // The id of the chat this view just created (see handleChatCreated). When it
-  // arrives as `chatId`, it's the same conversation getting its id, not a
-  // switch — what the user typed (or queued) during its first reply stays.
-  const createdChatIdRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (chatId && chatId === createdChatIdRef.current) {
-      createdChatIdRef.current = null;
-      return;
-    }
-    setInputValue("");
-    setAttachments([]);
-    clearMentions();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: only run when chatId identity changes
-  }, [chatId]);
-
-  // Ref always pointing to the currently displayed chatId.
-  // Passed to useStreamingChat to suppress setStreamState calls for background streams.
-  // Assigned in an effect, not during render — see the selectModelRef comment
-  // in chat/page.tsx for why mutating a ref's `.current` during render is unsafe.
-  const currentChatIdRef = useRef<string | undefined>(chatId ?? undefined)
-  useEffect(() => {
-    currentChatIdRef.current = chatId ?? undefined
-  }, [chatId])
+  // Reset composed-but-unsent input whenever the user switches to a different chat.
+  const { createdChatIdRef, currentChatIdRef } = useChatSwitchReset({
+    chatId, setStreamState, setInputValue, attachmentsRef, setAttachments, clearMentions,
+  });
 
   const messagesEndRef       = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesListRef      = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  // Tracks which attachment IDs already have an active simulation interval
-  // — simulation ref removed; upload progress now comes from real XHR in useStreamingChat —
+  // The virtualized list's handle (see ChatMessageList).
+  const listRef              = useRef<ChatMessageListHandle>(null);
 
   const { processFiles, removeAttachment: removeOne, FILE_ACCEPT, FILE_CONSTRAINTS } = useFileUpload({ libraryValidates: true });
 
@@ -400,7 +176,6 @@ export function ChatInterface({
 
   const chatStateOptions = useMemo<UseChatStateOptions | undefined>(
     () => loadMessages ? { loadMessages } : undefined,
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadMessages identity is stable per render of the caller
     [loadMessages],
   )
 
@@ -418,153 +193,22 @@ export function ChatInterface({
     messagesLoadError,
   } = useChatState(chatId, chatStateOptions);
 
-  const messages = rawMessages ?? [];
+  // Append host-supplied local messages (the agent card) — merged during render; see the hook.
+  useInjectedMessages(injectedMessages, setMessages, onInjectedMessagesConsumed);
 
-  // Hand the live messages to the Context panel, which renders in the app shell outside
-  // this tree. Cleared on unmount (only if still ours) so a closed chat leaves no stale data.
-  useEffect(() => {
-    publishChatContext({ chatId, messages });
-  }, [chatId, messages]);
-  // Separate from the publish above so a normal message update doesn't clear and
-  // republish (which would flash the panel's empty state); this only runs on
-  // unmount or when the chat changes.
-  useEffect(() => () => clearChatContext(chatId), [chatId]);
+  // Model logo + name for assistant messages with thinking but no model identity (the
+  // history API may omit model_name) — derived at render, never written back to state.
+  const messages = seedModelMeta(rawMessages ?? [], contextModel);
 
-  // Append host-supplied local messages once. Declared after useChatState so, on a
-  // fresh mount, its "no chat yet" reset has already run and cannot clear them.
-  useEffect(() => {
-    if (!injectedMessages || injectedMessages.length === 0) return;
-    setMessages((prev) => mergeInjectedMessages(prev, injectedMessages));
-    onInjectedMessagesConsumed?.();
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when the host supplies new messages
-  }, [injectedMessages]);
-
-  // Seed model logo + name on assistant messages that have thinking content but no
-  // model identity when the history API does not return model_name.
-  useEffect(() => {
-    if (!contextModel) return;
-    setMessages(prev => {
-      const needsPatch = prev.some(m => m.role === 'assistant' && m.thinking && !m.modelName && !m.modelMeta);
-      if (!needsPatch) return prev;
-      const modelName = contextModel.modelName;
-      const company   = contextModel.companyName;
-      const modelId   = String(contextModel.modelId ?? contextModel.id ?? '');
-      return prev.map(m => {
-        if (m.role !== 'assistant' || !m.thinking || m.modelName || m.modelMeta) return m;
-        return { ...m, modelName, modelMeta: { modelId, modelName, company } };
-      });
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, contextModel]);
-
-  // ── Tab / page-reload resilience ──────────────────────────────────────────
-
-  // Warn before page reload when a stream is active so the user doesn't
-  // accidentally lose a response that's still being generated.
-  useEffect(() => {
-    const isActive = streamState === "streaming" || streamState === "waiting"
-    if (!isActive) return
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault()
-      e.returnValue = ""
-    }
-    window.addEventListener("beforeunload", handleBeforeUnload)
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
-  }, [streamState])
-
-  // When the browser tab regains focus, check if the SSE connection died
-  // silently while the tab was hidden (e.g. server timeout, proxy close).
-  // If there's a stuck loading message but no active stream, reload from the
-  // API so the user sees whatever the backend managed to save.
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState !== "visible") return
-      const hasStuckMsg = messages.some((m) => m.isLoading)
-      const streamNotActive = streamState !== "streaming" && streamState !== "waiting"
-      if (hasStuckMsg && streamNotActive) {
-        void refreshMessages()
-      }
-    }
-    document.addEventListener("visibilitychange", handleVisibilityChange)
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshMessages is stable; messages/streamState intentional deps
-  }, [messages, streamState, refreshMessages])
-
-  const msgVirtualizer = useVirtualizer({
-    count:            messages.length,
-    getScrollElement: () => messagesContainerRef.current,
-    // Role-aware size estimates so corrections when items are first measured
-    // are small, preventing scroll-position jumps when scrolling upward.
-    // User bubbles: short (≈80px base). AI messages scale with content length.
-    // These are estimates only — measureElement always wins once rendered.
-    estimateSize: (i) => {
-      const msg = messages[i]
-      if (!msg) return 200
-      if (msg.agentCard) return 190
-      if (msg.role === "user") {
-        // Base height for the bubble + padding; add ~16px per 80 chars
-        return 80 + Math.ceil((msg.content?.length ?? 0) / 80) * 16
-      }
-      // Assistant: base 120px + rough line estimate from content length
-      const contentLen = msg.content?.length ?? 0
-      const hasBlocks = (msg.responseBlocks?.length ?? 0) > 0
-      return Math.min(120 + Math.ceil(contentLen / 60) * 20 + (hasBlocks ? 300 : 0), 2000)
-    },
-    overscan:         10,
-  });
-
-  // The last (streaming) row's growth is left to the stick-to-bottom logic
-  // below instead of the virtualizer's scroll compensation — see
-  // shouldAdjustScrollOnItemResize.
-  useEffect(() => {
-    msgVirtualizer.shouldAdjustScrollPositionOnItemSizeChange = (item, _delta, instance) =>
-      shouldAdjustScrollOnItemResize(item, instance.options.count, instance.scrollOffset ?? 0);
-  }, [msgVirtualizer]);
+  useChatContextPublish(chatId, messages);
+  useStreamTabResilience(streamState, messages, refreshMessages);
 
   const { moveToTop } = { moveToTop: onChatMoveToTop ?? (() => {}) };
 
-  // Register the virtualizer-backed scroller so jump-gutter / highlight-panel
-  // can bring virtualized messages into view before querying the DOM.
-  useEffect(() => {
-    registerChatScroller((messageId, onRendered) => {
-      const idx = messages.findIndex((m) => m.id === messageId)
-      if (idx === -1) return
-      // A jump the user asked for — stop following the bottom so new content
-      // doesn't pull the view straight back down.
-      stickToBottom.unstick()
-      setAtBottom(false)
-      msgVirtualizer.scrollToIndex(idx, { align: 'center', behavior: 'smooth' })
-      // Poll until the row renders in the DOM (up to 40 × 50 ms = 2 s)
-      let attempts = 0
-      const poll = setInterval(() => {
-        const el = document.querySelector(`[data-message-id="${messageId}"]`)
-        if (el || attempts++ >= 40) {
-          clearInterval(poll)
-          if (el) onRendered(el)
-        }
-      }, 50)
-    }, () => {
-      stickToBottom.unstick()
-      setAtBottom(false)
-    })
-    return () => registerChatScroller(null)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, msgVirtualizer, stickToBottom])
+  useChatScrollerRegistration(messages, listRef, stickToBottom, setAtBottom);
 
   // ── Message queue (see message-queue.ts) ─────────────────────────────────
-  // This view's key for its chat's queued message: the chat id, or — until a
-  // new chat's first reply brings one — a stand-in that then moves to it.
-  const [newChatKey] = useState(newChatQueueKey);
-  const queueKey = chatId ?? newChatKey;
-  const chatQueue = useChatQueue(queueKey);
-  const queuedMessages = chatQueue?.messages ?? NO_QUEUED_MESSAGES;
-  // Tells the queue which chat is on screen here: that chat's queued message
-  // is sent by this view, any other by MessageQueueRunner in the background.
-  const [queueViewToken] = useState(() => Symbol("chat-view"));
-  useEffect(() => {
-    setQueueForeground(queueViewToken, queueKey);
-  }, [queueViewToken, queueKey]);
-  useEffect(() => () => setQueueForeground(queueViewToken, null), [queueViewToken]);
+  const { newChatKey, queueKey, chatQueue, queuedMessages } = useQueueForeground(chatId);
 
   // Wrap onChatCreated to mark the new ID as optimistic BEFORE the parent
   // updates the URL/chatId prop - prevents useChatState from wiping messages.
@@ -583,6 +227,9 @@ export function ChatInterface({
     setStreamState,
     onStreamDone: refreshUser,
     currentChatIdRef,
+    // Streamed tokens go to lib/chat/stream-store and re-render only the
+    // streaming row (LiveChatMessage), not this whole tree.
+    liveOverlay: true,
     ...(endpoint ? { endpoint } : {}),
     ...(onStopBackend ? { onStopBackend } : {}),
   });
@@ -593,45 +240,13 @@ export function ChatInterface({
   const chatStreamActive = useChatStreamActive(chatId);
   const replyInFlight = isStreaming || chatStreamActive;
 
-  // Synchronous reentrancy guard for handleSend/handleRegenerate. `isStreaming` is
-  // state-derived and lands a render behind the click, so a double-click (or an
-  // Enter-then-click race) within the same tick can slip two fetchAiResponse calls
-  // through before the button disables — this ref closes that gap.
-  const isSendingRef = useRef(false);
-  // isSendingRef for rendering. The streaming hook runs one stream at a time,
-  // including one still finishing for a chat the user has since left — a
-  // message sent meanwhile is queued until it's free.
-  const [hookBusy, setHookBusy] = useState(false);
-  const beginTurn = () => {
-    isSendingRef.current = true;
-    setHookBusy(true);
-  };
-  const endTurn = () => {
-    isSendingRef.current = false;
-    setHookBusy(false);
-  };
-  // A reply that failed or was stopped holds back the message queued after
-  // it. Streams with a chat id report this through the stream registry; this
-  // also covers a new chat's first reply that failed before it got one.
-  const settleTurn = (key: string, outcome: StreamOutcome) => {
-    if (outcome !== "done") holdQueue(key, outcome);
-  };
+  const {
+    isSendingRef, hookBusy, beginTurn, endTurn,
+    composerFocusRequest, setComposerFocusRequest,
+    askingSaveRef, askingSave, askSave,
+  } = useTurnGuards(decideSave);
   // Set by the host's "send anyway" so the next handleSend skips onBeforeSend.
   const skipBeforeSendRef = useRef(false);
-
-  // Schedules a frame that scrolls to the bottom while stuck; installed by the
-  // follow effect further down.
-  const scheduleFollowRef = useRef<() => void>(() => {});
-
-  // A user's own send always returns the view to the bottom and follows the
-  // new reply, unlike passively arriving content, which never yanks someone
-  // away from history they scrolled up to read — sending is an explicit
-  // action by the user, not a background event.
-  const stickAndFollow = () => {
-    stickToBottom.stick();
-    setAtBottom(true);
-    scheduleFollowRef.current();
-  };
 
   // reactKey of the reply streamed in this session until its text reveal has
   // settled (ChatMessage's onRevealSettled). The reveal runs on after the
@@ -639,17 +254,7 @@ export function ChatInterface({
   // "response complete" announcement — waits for it.
   const [revealingKey, setRevealingKey] = useState<string | null>(null);
 
-  // Whether a reply is still arriving or revealing — the only time content
-  // growth should drive the follow (see the follow effect). Read from a ref by
-  // the ResizeObserver; the grace covers growth that lands just after.
-  const followLiveRef = useRef({ live: false, graceUntil: 0 });
-  useEffect(() => {
-    const live = isStreaming || revealingKey !== null;
-    if (followLiveRef.current.live && !live) {
-      followLiveRef.current.graceUntil = performance.now() + FOLLOW_GRACE_MS;
-    }
-    followLiveRef.current.live = live;
-  }, [isStreaming, revealingKey]);
+  const followLiveRef = useFollowLive(isStreaming, revealingKey);
 
   // Every turn (send, initial send, edit, regenerate) is sent with the
   // composer's current settings, read at send time — see buildTurnOptions.
@@ -658,6 +263,7 @@ export function ChatInterface({
     reasoningEffort,
     algorithm,
     personaId:              selectedPersonaId,
+    projectId,
     systemPrompt:           selectedPersonaSystemPrompt,
     temperature:            selectedPersonaTemperature,
     toneId:                 selectedStyleId,
@@ -694,250 +300,67 @@ export function ChatInterface({
     ));
   };
 
-  // Auto-send initial prompt on mount (for new chats triggered from landing page)
-  const initialPromptSentRef = useRef(false);
-  const sendInitialPrompt = useRef<((prompt: string) => void) | null>(null);
-
-  // Store the send function in a ref so it's always current (closes over latest
-  // props). Assigned in an effect (no deps — reassigns every render, same as
-  // the old during-render assignment did) rather than during render itself,
-  // since mutating a ref's `.current` while rendering is unsafe under Strict
-  // Mode / concurrent rendering. Safe to defer to an effect here specifically
-  // because every caller (see below) only ever invokes `sendInitialPrompt.current`
-  // from inside another effect or an event handler, never synchronously during
-  // this same render pass — so it's always assigned by the time anything reads it.
-  useEffect(() => {
-    sendInitialPrompt.current = async (prompt: string) => {
-    const content = prompt.trim();
-    if (content && !chatId) {
-      // Use initialFiles if provided, otherwise fall back to addMenuFiles.
-      // The landing page passes files via addMenuFiles (not initialFiles), so
-      // we must check both to avoid sending the message without attachments.
-      const files = (initialFiles && initialFiles.length > 0)
-        ? [...initialFiles]
-        : (addMenuFiles && addMenuFiles.length > 0)
-          ? [...addMenuFiles]
-          : [];
-      const initialMentionedPinObjects = PINS_ENABLED ? (initialMentionedPins ?? []) : [];
-      const userMsgId = addOptimisticUserMessage(
-        content,
-        files.length > 0 ? files : undefined,
-        initialMentionedPinObjects.length > 0 ? initialMentionedPinObjects : undefined,
-      );
-      const loadingId = addLoadingAssistantMessage();
-      setRevealingKey(loadingId);
-      stickAndFollow();
-      setAttachments([]);
-      onClearInitialFiles?.();
-      onClearAddMenuFiles?.();
-      const key = queueKey;
-      beginTurn();
-      fetchAiResponse(content, null, loadingId, selectedModelId, turnOptions({
-        files,
-        userMessageId: userMsgId,
-        mentionedPinIds: initialMentionedPinObjects.map(p => p.id),
-        onUploadProgress: trackUploadProgress(userMsgId),
-      }))
-        .then((outcome) => settleTurn(key, outcome), () => settleTurn(key, "error"))
-        .finally(endTurn);
-    }
-    }
-  })
-
-  useEffect(() => {
-    // Same race as handleSend's personaConfigLoading check — this is the
-    // path that actually fires for "Use this Agent" and any agent selected
-    // on the blank new-chat screen: the prompt is already staged and this
-    // effect auto-sends it the instant ChatInterface mounts, which is before
-    // the persona's version fetch has had any real time to resolve. Wait for
-    // it instead of sending with systemPrompt missing.
-    if (personaConfigLoading) return;
-    if (initialPrompt && !initialPromptSentRef.current) {
-      initialPromptSentRef.current = true;
-      sendInitialPrompt.current?.(initialPrompt);
-    }
-  }, [initialPrompt, personaConfigLoading]);
-
-  // Scroll to bottom instantly when a chat finishes loading (opening an existing chat).
-  // We track the previous loading state so we fire exactly once on the
-  // false→true transition, not on every subsequent message change.
-  const prevIsLoadingRef = useRef(false);
-  const scrolledToMessageRef = useRef<string | null>(null);
-  useEffect(() => {
-    const wasLoading = prevIsLoadingRef.current;
-    prevIsLoadingRef.current = isLoadingMessages;
-    if (wasLoading && !isLoadingMessages && messages.length > 0) {
-      // Enter settling: keep spinner up while the virtualizer renders and
-      // measures all initial items. The effect below clears it.
-      setIsSettling(true);
-
-      // Scroll to target position while content is still hidden so the
-      // virtualizer places items at correct offsets before reveal.
-      if (scrollToMessageId && scrolledToMessageRef.current !== scrollToMessageId) {
-        const idx = messages.findIndex((m) => m.id === scrollToMessageId);
-        if (idx !== -1) {
-          scrolledToMessageRef.current = scrollToMessageId;
-          stickToBottom.unstick();
-          setAtBottom(false);
-          msgVirtualizer.scrollToIndex(idx, { align: 'start', behavior: 'auto' });
-        }
-      } else {
-        stickToBottom.stick();
-        setAtBottom(true);
-        msgVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'auto' });
-      }
-    }
-  }, [isLoadingMessages, messages, scrollToMessageId, msgVirtualizer, stickToBottom]);
-
-  // Leave settling two frames later, so the browser finishes its layout pass and
-  // the first visible frame is already at settled positions. Keyed on isSettling
-  // alone: while this lived in the effect above, any `messages` identity change
-  // in the same commit ran that effect's cleanup and cancelled the pending
-  // frame, and its `wasLoading` guard meant the re-run could never reschedule —
-  // stranding the list mounted, measured, and permanently `visibility: hidden`.
-  useEffect(() => {
-    if (!isSettling) return;
-    let inner = 0;
-    const outer = requestAnimationFrame(() => {
-      inner = requestAnimationFrame(() => setIsSettling(false));
-    });
-    return () => {
-      cancelAnimationFrame(outer);
-      if (inner) cancelAnimationFrame(inner);
-    };
-  }, [isSettling]);
-
-  // Follow the bottom while stuck. Driven by the list's size rather than by
-  // `messages`, so it also tracks growth that happens after a chunk lands or
-  // after the stream ends — the text reveal's tail, lazily highlighted code,
-  // charts — and the scroller itself resizing. Growth never unsticks the view;
-  // only the user's own gestures, recorded here, can (see stick-to-bottom.ts).
-  useEffect(() => {
-    const scroller = messagesContainerRef.current;
-    const list = messagesListRef.current;
-    if (!scroller || !list) return;
-
-    let frame = 0;
-    let retry: ReturnType<typeof setTimeout> | undefined;
-    const follow = () => {
-      frame = 0;
-      if (!stickToBottom.stuck) return;
-      if (!stickToBottom.canFollow(performance.now())) {
-        // Held off mid-gesture; look again once the gesture window has passed.
-        clearTimeout(retry);
-        retry = setTimeout(schedule, USER_SCROLL_WINDOW_MS);
-        return;
-      }
-      scroller.scrollTop = scroller.scrollHeight - scroller.clientHeight;
-    };
-    const schedule = () => {
-      if (!frame) frame = requestAnimationFrame(follow);
-    };
-    scheduleFollowRef.current = schedule;
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      if (!stickToBottom.stuck) return;
-      // The scroller resizing (window, composer height) always keeps the bottom
-      // pinned. The list growing only follows while a reply is arriving or
-      // revealing (plus a short grace for late code highlighting and charts):
-      // growth when nothing is arriving is the user's own doing, e.g.
-      // expanding a Thinking panel, and must not scroll it out from under them.
-      const scrollerResized = entries.some((entry) => entry.target === scroller);
-      const { live, graceUntil } = followLiveRef.current;
-      if (scrollerResized || live || performance.now() < graceUntil) schedule();
-    });
-    resizeObserver.observe(list);
-    resizeObserver.observe(scroller);
-
-    const onWheel = (e: WheelEvent) => {
-      if (e.deltaY !== 0) stickToBottom.userIntent(e.deltaY < 0 ? "up" : "down", performance.now());
-    };
-    let touchY: number | null = null;
-    const onTouchStart = (e: TouchEvent) => {
-      touchY = e.touches[0]?.clientY ?? null;
-    };
-    const onTouchMove = (e: TouchEvent) => {
-      const y = e.touches[0]?.clientY;
-      if (y === undefined) return;
-      // A finger moving down drags the content down, toward history.
-      stickToBottom.userIntent(touchY !== null && y > touchY ? "up" : "down", performance.now());
-      touchY = y;
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      // Keys typed into a field (e.g. editing a message) don't scroll the chat.
-      if (target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? "")) return;
-      const direction = scrollIntentForKey(e.key, e.shiftKey);
-      if (direction) stickToBottom.userIntent(direction, performance.now());
-    };
-    // A press on the scroller itself rather than on a message is a scrollbar drag.
-    const onPointerDown = (e: PointerEvent) => {
-      if (e.target === scroller) stickToBottom.pointerDown();
-    };
-    const onPointerUp = () => {
-      if (stickToBottom.pointerUp(performance.now()) && stickToBottom.stuck) schedule();
-    };
-
-    scroller.addEventListener("wheel", onWheel, { passive: true });
-    scroller.addEventListener("touchstart", onTouchStart, { passive: true });
-    scroller.addEventListener("touchmove", onTouchMove, { passive: true });
-    scroller.addEventListener("keydown", onKeyDown);
-    scroller.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("pointerup", onPointerUp);
-    window.addEventListener("pointercancel", onPointerUp);
-    return () => {
-      cancelAnimationFrame(frame);
-      clearTimeout(retry);
-      resizeObserver.disconnect();
-      scheduleFollowRef.current = () => {};
-      scroller.removeEventListener("wheel", onWheel);
-      scroller.removeEventListener("touchstart", onTouchStart);
-      scroller.removeEventListener("touchmove", onTouchMove);
-      scroller.removeEventListener("keydown", onKeyDown);
-      scroller.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("pointerup", onPointerUp);
-      window.removeEventListener("pointercancel", onPointerUp);
-    };
-  }, [stickToBottom]);
-
-  // Scroll-to-top for pagination + stick/unstick from the scroll position.
-  // setAtBottom only re-renders when the value actually flips.
-  const handleScroll = () => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
-    if (container.scrollTop === 0 && hasMoreMessages) {
-      loadMoreMessages();
-    }
-    setAtBottom(stickToBottom.onScroll(container, performance.now()));
+  const turnKit: TurnKit = {
+    chatId, queueKey, selectedModelId, fetchAiResponse, turnOptions, trackUploadProgress,
+    setMessages, addOptimisticUserMessage, addLoadingAssistantMessage, rollbackLast,
+    setRevealingKey, stickAndFollow, beginTurn, endTurn,
   };
 
-  const scrollToBottom = useCallback(() => {
-    if (messages.length === 0) return;
-    stickToBottom.stick();
-    setAtBottom(true);
-    msgVirtualizer.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'smooth' });
-  }, [messages.length, msgVirtualizer, stickToBottom]);
-
-  // File drop (drag-and-drop into the chat area). Open while a reply streams
-  // too: the next message can be queued, files and all.
-  const { isDragging } = useFileDrop({
-    onFiles: (files) => {
-      setAttachments((prev) => processFiles(files, prev));
-    },
+  // Auto-send initial prompt on mount (for new chats triggered from landing page)
+  useInitialPrompt(turnKit, {
+    initialPrompt, personaConfigLoading, initialFiles, addMenuFiles, initialMentionedPins,
+    setAttachments, onClearInitialFiles, onClearAddMenuFiles, setComposerFocusRequest,
   });
 
-  // Absorb add-menu files into local attachments so AttachmentManager shows them.
-  // onClearAddMenuFiles is intentionally NOT called here — it's called in handleSend
-  // so the files stay in addMenuFiles until the user actually sends.
-  // Skip only while initialPrompt is still pending: sendInitialPrompt consumes those
-  // files directly, so absorbing here would duplicate them. Once initialPrompt is
-  // cleared (in handleChatCreated on the page) this guard is lifted and subsequent
-  // uploads in the same chat session are absorbed normally.
-  useEffect(() => {
-    if (!addMenuFiles || addMenuFiles.length === 0) return;
-    if (initialPrompt) return;
-    setAttachments((prev) => processFiles(addMenuFiles, prev));
-  }, [addMenuFiles, initialPrompt]);
+  const { handleScroll, scrollToBottom } = useChatScroll({
+    messages,
+    isLoadingMessages,
+    hasMoreMessages,
+    loadMoreMessages,
+    scrollToMessageId,
+    listRef,
+    scrollerRef: messagesContainerRef,
+    listElementRef: messagesListRef,
+    stickToBottom,
+    setAtBottom,
+    isSettling,
+    setIsSettling,
+    scheduleFollowRef,
+    followLiveRef,
+  });
+
+  const { isDragging, fileInputRef, handleAdd, handleFileSelect } = useAttachmentIntake({
+    setAttachments, processFiles, addMenuFiles, initialPrompt,
+  });
+
+  // The reply the queue was waiting on failed or was stopped (see the hook).
+  const queueHeldBy = chatQueue?.heldBy;
+  const {
+    queueAnnouncement,
+    queuedRowExit,
+    setQueuedRowExit,
+    editedQueueSlotRef,
+    queueFromComposer,
+    handleEditQueued,
+    handleRecallQueued,
+    handleRemoveQueued,
+  } = useComposerQueue({
+    queueKey,
+    queuedMessages,
+    queueHeldBy,
+    replyInFlight,
+    attachments,
+    mentionedPins,
+    setInputValue,
+    setAttachments,
+    clearMentions,
+    restoreMentions,
+    onClearAddMenuFiles,
+    askSave,
+    queueContext,
+    maxFiles: FILE_CONSTRAINTS.maxFiles,
+    setComposerFocusRequest,
+  });
 
   // Send message - uses local attachments (which include add-menu files after absorption)
   const handleSend = async (text: string) => {
@@ -968,7 +391,7 @@ export function ChatInterface({
     // A reply is still running (or messages are already waiting): this one is
     // queued to follow, in order. The isSendingRef check also catches a
     // second send in the same tick, before `isStreaming` lands.
-    if (replyInFlight || isSendingRef.current || getChatQueue(queueKey)) {
+    if (replyInFlight || isSendingRef.current || askingSaveRef.current > 0 || getChatQueue(queueKey)) {
       queueFromComposer(text);
       return;
     }
@@ -981,7 +404,7 @@ export function ChatInterface({
     setAttachments([]);
     clearMentions();
     onClearAddMenuFiles?.();
-    await decideSave(capturedAttachments.map((a) => a.file));
+    await askSave(capturedAttachments.map((a) => a.file));
 
     await sendTurn({
       content: text.trim(),
@@ -992,143 +415,9 @@ export function ChatInterface({
   };
 
   // Sends one turn — the composer's message or a queued one going out.
-  const sendTurn = async ({ content, attachments: turnAttachments, mentionedPins: turnPins, fromQueue }: {
-    content: string;
-    attachments: PendingAttachment[];
-    mentionedPins: Array<{ id: string; label: string }>;
-    fromQueue: boolean;
-  }) => {
-    const key = queueKey;
-    const files = turnAttachments.map((a) => a.file);
-    const pinsForTurn = PINS_ENABLED ? turnPins : [];
-    beginTurn();
-    const userMsgId = addOptimisticUserMessage(
-      content,
-      files.length > 0 ? files : undefined,
-      pinsForTurn.length > 0 ? pinsForTurn : undefined,
-    );
-    const loadingId = addLoadingAssistantMessage();
-    setRevealingKey(loadingId);
-    stickAndFollow();
-
-    const options = turnOptions({
-      files,
-      userMessageId: userMsgId,
-      mentionedPinIds: pinsForTurn.map(m => m.id),
-      onUploadProgress: trackUploadProgress(userMsgId),
-    });
-
-    // Analytics: baseline activity + trust in auto-routing (cost story). Metadata only.
-    trackBrowserEvent("chat_message_sent", {
-      has_agent: !!selectedPersonaId,
-      model_pick: "manual",
-      model_id: selectedModelId != null ? String(selectedModelId) : undefined,
-      web_search: webSearchEnabled,
-      reasoning: enableReasoning,
-      attachment_count: files.length,
-      pin_count: options.pinIds?.length ?? 0,
-      queued: fromQueue,
-    });
-
-    try {
-      settleTurn(key, await fetchAiResponse(content, chatId ?? null, loadingId, selectedModelId, options));
-    } catch {
-      rollbackLast(2);
-      toast.error("Failed to send message. Please try again.");
-      holdQueue(key, "error");
-    } finally {
-      endTurn();
-    }
-  };
-
-  // ── Queue actions ────────────────────────────────────────────────────────
-
-  // Screen-reader-only status for queue changes (the tray itself is silent).
-  const [queueAnnouncement, setQueueAnnouncement] = useState("");
-  // How the next row to leave the tray goes — see QueuedRowExit.
-  const [queuedRowExit, setQueuedRowExit] = useState<QueuedRowExit>("dismissed");
-  // Bumped to focus the composer with the caret at the end (see ChatInput).
-  const [composerFocusRequest, setComposerFocusRequest] = useState(0);
-  // Where a message taken out to edit stood, so re-queuing it puts it back
-  // in its place rather than at the end. Cleared by a direct send or a switch.
-  const editedQueueSlotRef = useRef<{ key: string; index: number } | null>(null);
-  useEffect(() => {
-    editedQueueSlotRef.current = null;
-  }, [queueKey]);
-
-  // The composer's message joins the end of the queue (or an edited one
-  // goes back to its place) as a message of its own.
-  const queueFromComposer = (text: string) => {
-    const slot = editedQueueSlotRef.current?.key === queueKey ? editedQueueSlotRef.current.index : undefined;
-    editedQueueSlotRef.current = null;
-    queueMessage(
-      queueKey,
-      { content: text, attachments, mentionedPins: PINS_ENABLED ? mentionedPins : [] },
-      queueContext(),
-      slot,
-    );
-    setInputValue("");
-    setAttachments([]);
-    clearMentions();
-    onClearAddMenuFiles?.();
-    const count = getChatQueue(queueKey)?.messages.length ?? 1;
-    setQueueAnnouncement(count > 1
-      ? `Message queued. ${count} messages will be sent in order as each reply finishes.`
-      : "Message queued. It will be sent when the current reply finishes.");
-  };
-
-  // Queued messages back into the composer, ahead of anything typed since.
-  // Updaters, not this render's values: on a chat switch the composer is
-  // emptied in the same commit, and the old chat's draft must not carry over.
-  const putBackInComposer = (part: QueuedMessagePart, focus: boolean) => {
-    const max = FILE_CONSTRAINTS.maxFiles;
-    setQueuedRowExit("dismissed");
-    setInputValue((draft) => joinMessageText(part.content, draft));
-    setAttachments((current) => mergeAttachments(part.attachments, current, max).attachments.slice(0, max));
-    if (mergeAttachments(part.attachments, attachments, max).overflow) {
-      toast.error("File limit reached", {
-        description: `A message can carry up to ${max} files, so the newest ones were left out.`,
-      });
-    }
-    restoreMentions(PINS_ENABLED ? part.mentionedPins : []);
-    if (focus) setComposerFocusRequest((n) => n + 1);
-  };
-
-  // Edit: take one queued message back into the composer to change it.
-  const handleEditQueued = (id: string): boolean => {
-    setQueuedRowExit("dismissed");
-    const taken = takeQueuedMessage(queueKey, id);
-    if (!taken) return false;
-    const slot = editedQueueSlotRef.current;
-    editedQueueSlotRef.current = {
-      key: queueKey,
-      index: slot?.key === queueKey ? Math.min(slot.index, taken.index) : taken.index,
-    };
-    putBackInComposer(taken.message, true);
-    setQueueAnnouncement("Queued message moved back to the message box.");
-    return true;
-  };
-
-  // ArrowUp in an empty box: the most recently queued message, like
-  // recalling the last command in a terminal.
-  const handleRecallQueued = (): boolean => {
-    const last = queuedMessages[queuedMessages.length - 1];
-    return last ? handleEditQueued(last.id) : false;
-  };
-
-  const handleRemoveQueued = (id: string) => {
-    const key = queueKey;
-    setQueuedRowExit("dismissed");
-    const taken = takeQueuedMessage(key, id);
-    if (!taken) return;
-    // The Remove button leaves with its row; keep keyboard focus nearby.
-    if (!prefersNoAutoFocus()) setComposerFocusRequest((n) => n + 1);
-    setQueueAnnouncement("Queued message removed.");
-    toast("Queued message removed", {
-      id: `queued-removed-${taken.message.id}`,
-      action: { label: "Undo", onClick: () => restoreQueuedMessage(key, taken.message, taken.index) },
-    });
-  };
+  const sendTurn = (turn: Parameters<typeof sendTurnWith>[1]) => sendTurnWith(turnKit, turn, {
+    hasAgent: !!selectedPersonaId, webSearch: webSearchEnabled, reasoning: enableReasoning,
+  });
 
   // Stop: this view's own reply, or this chat's reply still running from
   // before the user switched away and back (or a queued message sent in the
@@ -1138,284 +427,54 @@ export function ChatInterface({
     else if (chatId) stopStream(chatId);
   };
 
-  // The reply the queue was waiting on failed or was stopped: the queued
-  // messages go back into the composer, in order, instead of out — nothing
-  // is sent unasked.
-  const queueHeldBy = chatQueue?.heldBy;
-  useEffect(() => {
-    if (!queueHeldBy || replyInFlight) return;
-    const held = takeAllQueuedMessages(queueKey);
-    if (!held || held.messages.length === 0) return;
-    editedQueueSlotRef.current = null;
-    putBackInComposer(combineQueuedMessages(held.messages), !prefersNoAutoFocus());
-    const plural = held.messages.length > 1;
-    if (queueHeldBy === "error") {
-      toast(plural ? "Your queued messages weren't sent" : "Your queued message wasn't sent", {
-        description: `The reply before ${plural ? "them" : "it"} didn't finish, so ${plural ? "they're" : "it's"} back in the message box.`,
-      });
-    }
-    setQueueAnnouncement(`${queueHeldBy === "error" ? "The reply didn't finish." : "The reply was stopped."} ${
-      plural ? "Your queued messages are" : "Your queued message is"} back in the message box.`);
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when a hold lands or the reply ends
-  }, [queueHeldBy, replyInFlight, queueKey]);
-
   // Hidden tab: the reply's text reveal doesn't run there, so a queued
   // message doesn't wait for it.
-  const [pageHidden, setPageHidden] = useState(false);
-  useEffect(() => {
-    const update = () => setPageHidden(document.visibilityState === "hidden");
-    update();
-    document.addEventListener("visibilitychange", update);
-    return () => document.removeEventListener("visibilitychange", update);
-  }, []);
+  const pageHidden = usePageHidden();
 
   // Why a queued message can't go out yet beyond waiting its turn.
-  const queuePausedReason = creditStatus.blocked
-    ? "paused, out of credits"
-    : plan?.poolStatus === "paused"
-      ? "paused, workspace out of credits"
-      : personaConfigLoading
-        ? "waiting for the agent to load"
-        : null;
-
-  // The send itself, read from a ref so the timer below always uses the
-  // composer's latest settings.
-  const sendTurnRef = useRef(sendTurn);
-  useEffect(() => {
-    sendTurnRef.current = sendTurn;
+  const queuePausedReason = getQueuePausedReason({
+    creditsBlocked: !!creditStatus.blocked,
+    poolPaused: plan?.poolStatus === "paused",
+    personaConfigLoading,
   });
 
-  // Regenerate the last reply (also the error state's Retry). Replaces the
-  // turn in the backend's history, like an edit, and re-sends with the
-  // composer's current settings — minus files: a turn whose message had
-  // uploaded files is appended instead (see getRegenerateTarget).
-  //
-  // Same stable-ref pattern as handleEditMessage below: ChatMessageMemo only
-  // compares onRegenerate's null-ness, so a plain function would be frozen at
-  // whatever settings and messages it closed over when the button appeared.
-  const _handleRegenerateImpl = useRef<() => void>(() => {});
-  // Update the ref synchronously during render (safe: only read in event handlers)
-  _handleRegenerateImpl.current = () => {
-    if (isStreaming || isSendingRef.current) return;
-    if (personaConfigLoading) return;  // same race as handleSend — see its comment
+  // The send itself, through a stable wrapper so the queue's timer always uses
+  // the composer's latest settings.
+  const sendTurnLatest = useLatestCallback(sendTurn);
 
-    const target = getRegenerateTarget(messages);
-    if (!target) return;
+  // Regenerate, edit, and prompt-card answers (see useMessageActions).
+  const { handleRegenerate, handlePromptDecided, handlePromptResume, handleEditMessage } = useMessageActions(turnKit, {
+    isStreaming, isSendingRef, personaConfigLoading, messages, enableReasoning,
+  });
 
-    beginTurn();
-
-    setMessages((prev) => {
-      const userIdx = prev.findLastIndex((m) => m.role === "user");
-      const replyIdx = prev.findLastIndex((m) => m.role === "assistant");
-      return replyIdx > userIdx ? prev.filter((_, i) => i !== replyIdx) : prev;
-    });
-
-    const loadingId = addLoadingAssistantMessage();
-    setRevealingKey(loadingId);
-    stickAndFollow();
-    // Analytics: part of the override rate (earliest answer-quality warning).
-    trackFeature("regenerate", {
-      model_pick: "manual",
-      model_id: selectedModelId != null ? String(selectedModelId) : undefined,
-      reasoning: enableReasoning,
-    });
-    fetchAiResponse(
-      target.userMessage.content,
-      chatId ?? null,
-      loadingId,
-      selectedModelId,
-      turnOptions({
-        mentionedPinIds: target.userMessage.mentionedPins?.map((p) => p.id),
-        replaceMessageId: target.replaceMessageId,
-      }),
-    ).finally(endTurn);
-  };
-  const handleRegenerate = useCallback(() => _handleRegenerateImpl.current(), []);
-
-  // Permission-prompt answers live on the message, not in card-local state —
-  // otherwise the message_saved id swap remounts the row and resurrects
-  // already-answered cards.
-  const handlePromptDecided = useCallback((messageId: string, requestId: string, decision: string) => {
-    setMessages((prev) => prev.map((msg) =>
-      msg.id === messageId
-        ? {
-            ...msg,
-            connectorPermissionPrompts: msg.connectorPermissionPrompts?.map((p) =>
-              p.request_id === requestId ? { ...p, decision } : p,
-            ),
-            chatPrompts: msg.chatPrompts?.map((p) =>
-              p.request_id === requestId ? { ...p, decision } : p,
-            ),
-          }
-        : msg,
-    ));
-  }, [setMessages]);
-
-  // A prompt answered at `/chats/{id}/resume` continues the turn as a new
-  // stream: it renders into a fresh assistant message below the card.
-  const resumeTurn = async (respondUrl: string, promptId: string, response: unknown) => {
-    const key = queueKey;
-    beginTurn();
-    const loadingId = addLoadingAssistantMessage();
-    setRevealingKey(loadingId);
-    stickAndFollow();
-    try {
-      settleTurn(key, await fetchAiResponse("", chatId ?? null, loadingId, selectedModelId, {
-        resume: { url: respondUrl, promptId, response },
-      }));
-    } catch {
-      toast.error("Failed to continue the reply. Please try again.");
-      holdQueue(key, "error");
-    } finally {
-      endTurn();
-    }
-  };
-  const resumeTurnRef = useRef(resumeTurn);
-  useEffect(() => { resumeTurnRef.current = resumeTurn; });
-  const handlePromptResume = useCallback((respondUrl: string, promptId: string, response: unknown) => {
-    void resumeTurnRef.current(respondUrl, promptId, response);
-  }, []);
-
-  // Edit user message — replaces the message content, removes all subsequent
-  // messages, then re-streams an assistant response using the backend's
-  // replace_message_id edit API.
-  //
-  // Stable-ref pattern: the useCallback wrapper always has the same identity so
-  // ChatMessageMemo never gets a stale onEdit=undefined due to memoization.
-  // The real impl is stored in a ref and refreshed every render, so it always
-  // closes over the latest isStreaming, chatId, model settings, etc.
-  const _handleEditMessageImpl = useRef<(messageId: string, newContent: string) => void>(() => {})
-  // Update the ref synchronously during render (safe: only read in event handlers)
-  _handleEditMessageImpl.current = (messageId: string, newContent: string) => {
-    if (isStreaming) return  // never edit while a stream is in-flight
-    if (personaConfigLoading) return  // same race as handleSend — see its comment
-
-    // History ids carry a "-prompt" suffix the backend doesn't know, unsaved ones
-    // have no backend id at all, and an already-edited message carries a stale one —
-    // see resolveEditReplaceId.
-    const replaceMessageId = resolveEditReplaceId(messages, messageId)
-    const mentionedPinIds = messages.find((m) => m.id === messageId)?.mentionedPins?.map((p) => p.id)
-
-    // findIndex runs inside the functional updater so it always sees the current
-    // messages array — not a stale snapshot from the render closure.
-    setMessages((prev) => {
-      const idx = prev.findIndex((m) => m.id === messageId)
-      if (idx === -1) return prev
-      return prev
-        .map((m, i) => (i === idx ? { ...m, content: newContent } : m))
-        .slice(0, idx + 1)
-    })
-    const loadingId = addLoadingAssistantMessage()
-    setRevealingKey(loadingId)
-    stickAndFollow()
-
-    beginTurn()
-    fetchAiResponse(newContent, chatId ?? null, loadingId, selectedModelId, turnOptions({
-      mentionedPinIds,
-      replaceMessageId,
-    })).finally(endTurn)
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional stable wrapper; impl updates via ref
-  const handleEditMessage = useCallback(
-    (messageId: string, newContent: string) => _handleEditMessageImpl.current(messageId, newContent),
-    [],
-  )
-
-  // The streamed reply whose text is still being revealed, if any. Errors and
-  // stopped replies don't wait: they're announced, and can be retried, at once.
-  const revealingMessage = revealingKey === null
-    ? undefined
-    : messages.findLast((m) => (m.reactKey ?? m.id) === revealingKey);
-  const isRevealing = !!revealingMessage && !revealingMessage.isError && !revealingMessage.stoppedByUser;
-
-  // Bound to the key, so a late call from an earlier reply's row can't end a
-  // newer reply's wait.
-  const handleRevealSettled = useMemo(
-    () => revealingKey === null
-      ? undefined
-      : () => setRevealingKey((key) => (key === revealingKey ? null : key)),
-    [revealingKey],
-  );
-
-  // Backstop for a settle that never arrives (e.g. the row was virtualized
-  // away mid-reveal and unmounted). Once the stream has ended, stop waiting
-  // shortly if the row isn't rendered, or after a hard cap if it is.
-  const messagesRef = useRef(messages);
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
-  useEffect(() => {
-    if (revealingKey === null || isStreaming) return;
-    const startedAt = Date.now();
-    let timer: ReturnType<typeof setTimeout>;
-    const check = () => {
-      const index = messagesRef.current.findLastIndex((m) => (m.reactKey ?? m.id) === revealingKey);
-      const rendered = index !== -1 && msgVirtualizer.getVirtualItems().some((row) => row.index === index);
-      if (rendered && Date.now() - startedAt < REVEAL_SETTLE_MAX_MS) {
-        timer = setTimeout(check, REVEAL_SETTLE_FALLBACK_MS);
-        return;
-      }
-      setRevealingKey((key) => (key === revealingKey ? null : key));
-    };
-    timer = setTimeout(check, REVEAL_SETTLE_FALLBACK_MS);
-    return () => clearTimeout(timer);
-  }, [revealingKey, isStreaming, msgVirtualizer]);
+  const { revealingMessage, isRevealing, handleRevealSettled } = useRevealSettle({
+    revealingKey, setRevealingKey, isStreaming, messages, listRef,
+  });
 
   // The next queued message goes out once the reply before it has finished —
   // streamed and revealed (unless the tab is hidden) — and the thread is
-  // settled. A short beat first lets the finished reply register. Each one
-  // then waits for its own reply, so they go out in order, one per turn.
+  // settled (see useQueuedSend).
   const queueReady =
     queuedMessages.length > 0 && !queueHeldBy &&
-    !replyInFlight && !hookBusy &&
+    !replyInFlight && !hookBusy && !askingSave &&
     (!isRevealing || pageHidden) &&
     !isLoadingMessages && !isSettling &&
     !queuePausedReason && !readOnly && !archived;
-  useEffect(() => {
-    if (!queueReady) return;
-    let cancelled = false;
-    const send = () => {
-      // A send that started this very tick has the floor (see isSendingRef).
-      if (cancelled || isSendingRef.current) return;
-      setQueuedRowExit("sent");
-      const message = takeNextQueuedMessage(queueKey);
-      if (message) void sendTurnRef.current({ ...message, fromQueue: true });
-    };
-    // Hidden tab: no beat (nobody is watching) and no timer — background
-    // tabs throttle timers, up to a minute apart.
-    if (pageHidden) {
-      queueMicrotask(send);
-      return () => { cancelled = true; };
-    }
-    const timer = setTimeout(send, QUEUE_SEND_DELAY_MS);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [queueReady, queueKey, pageHidden]);
+  useQueuedSend({
+    queueReady, queueKey, pageHidden, isSendingRef, askingSaveRef, setQueuedRowExit, sendTurn: sendTurnLatest,
+  });
 
   // What the queue is waiting for, after "Queued ·" in the tray.
   const queueWaitingOnReply = replyInFlight || isRevealing;
-  const queueStatus = queuePausedReason
-    ?? (queueWaitingOnReply
-      ? queuedMessages.length > 1 ? "sent in order as each reply finishes" : "sends when this reply finishes"
-      : hookBusy
-        ? "waiting for your reply in another chat"
-        : "sending next…");
+  const queueStatus = getQueueStatus({
+    pausedReason: queuePausedReason,
+    waitingOnReply: queueWaitingOnReply,
+    queuedCount: queuedMessages.length,
+    askingSave,
+    hookBusy,
+  });
   // While a send would be queued rather than go straight out.
   const sendQueues = replyInFlight || hookBusy || queuedMessages.length > 0;
-
-  // Attachment via hidden file input (triggered by onAdd on the ChatInput)
-  const handleAdd = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setAttachments((prev) => processFiles(e.target.files!, prev));
-      e.target.value = "";
-    }
-  };
 
   return (
     <div
@@ -1430,464 +489,123 @@ export function ChatInterface({
       {saveDialog}
       <ChatSources chatId={chatId && !chatId.startsWith("temp-") ? chatId : undefined} messages={messages} />
       <ChatFilePanelSlot chatId={chatId} />
-      {/* Drag overlay */}
-      {isDragging && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 40,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: "rgba(var(--surface-rgb), 0.9)",
-            border: "2px dashed var(--blue-400)",
-            borderRadius: "16px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: "8px",
-              color: "var(--blue-600)",
-            }}
-          >
-            <Upload size={32} />
-            <span
-              style={{
-                fontFamily: "var(--font-body)",
-                fontSize: "var(--font-size-body-md)",
-                fontWeight: "var(--font-weight-medium)",
-              }}
-            >
-              Drop files here
-            </span>
-          </div>
-        </div>
-      )}
+      <FileDropOverlay visible={isDragging} />
 
-      {/* Messages area + scroll-to-bottom button, wrapped so the button can be absolutely positioned at the bottom of the scroll area */}
-      <div
-        style={{
-          position: 'relative',
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: 0,
-        }}
+      <ChatMessagesPane
+        responding={isStreaming || isRevealing}
+        queueAnnouncement={queueAnnouncement}
+        scrollerRef={messagesContainerRef}
+        messagesEndRef={messagesEndRef}
+        onScroll={handleScroll}
+        isLoadingMessages={isLoadingMessages}
+        isStreaming={isStreaming}
+        isSettling={isSettling}
+        isEmpty={messages.length === 0}
+        messagesLoadError={messagesLoadError}
+        onRetry={() => void refreshMessages()}
+        emptyState={emptyState}
+        atBottom={atBottom}
+        onScrollToBottom={scrollToBottom}
       >
-        <div
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-          style={{
-            position: 'absolute',
-            width: 1,
-            height: 1,
-            padding: 0,
-            margin: -1,
-            overflow: 'hidden',
-            clip: 'rect(0, 0, 0, 0)',
-            whiteSpace: 'nowrap',
-            border: 0,
-          }}
-        >
-          {isStreaming || isRevealing ? "Assistant is responding." : "Assistant response complete."}
-        </div>
-        <div
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-          style={{
-            position: 'absolute',
-            width: 1,
-            height: 1,
-            padding: 0,
-            margin: -1,
-            overflow: 'hidden',
-            clip: 'rect(0, 0, 0, 0)',
-            whiteSpace: 'nowrap',
-            border: 0,
-          }}
-        >
-          {queueAnnouncement}
-        </div>
-        <div
-          ref={messagesContainerRef}
-          className="kaya-scrollbar"
-          // role="log" is a polite live region; aria-busy holds announcements
-          // while tokens stream, so the finished answer is read once, not per token.
-          role="log"
-          aria-label="Conversation"
-          aria-relevant="additions"
-          aria-busy={isLoadingMessages || isStreaming ? true : undefined}
-          onScroll={handleScroll}
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            paddingTop: "24px",
-            paddingBottom: "24px",
-            paddingRight: "2px",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            // Bottom-following is owned by the stick-to-bottom logic; browser
-            // scroll anchoring would fight it (and the virtualizer's own
-            // compensation) as rows resize.
-            overflowAnchor: "none",
-          }}
-        >
-          {/* 2px right padding on the scrolling element above sits the scrollbar
-              exactly 2px from the layout's edge (same convention as
-              PersonaChatInterface.tsx). Reading-comfort padding lives on the
-              inner wrapper below, not on the scrolling element. */}
-          <div style={{ width: "100%", maxWidth: "720px", padding: "0 16px", boxSizing: "border-box" }}>
-          {/* Loading skeleton — shown while fetching AND while the virtualizer
-              settles its initial measurements so the first visible frame is jitter-free */}
-          {(isLoadingMessages || isSettling) && <ChatMessagesSkeleton />}
-
-          {/* Failed-to-load banner — shown instead of the empty state when the
-              initial history fetch failed, so a transient backend error reads
-              as "couldn't load this conversation, retry" rather than as an
-              empty/deleted chat (messages is legitimately [] in both cases,
-              so messagesLoadError is what tells them apart). */}
-          {!isLoadingMessages && !isSettling && messages.length === 0 && messagesLoadError && (
-            <div
-              role="alert"
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 12,
-                padding: "32px 16px",
-                textAlign: "center",
-                fontFamily: "var(--font-body)",
-              }}
-            >
-              <p style={{ margin: 0, fontSize: 14, color: "var(--neutral-500)" }}>
-                Couldn&apos;t load this conversation. {messagesLoadError}
-              </p>
-              <button
-                type="button"
-                onClick={() => void refreshMessages()}
-                style={{
-                  fontFamily: "var(--font-body)",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: "var(--static-white)",
-                  background: "var(--neutral-900)",
-                  border: "none",
-                  borderRadius: 999,
-                  padding: "7px 16px",
-                  cursor: "pointer",
-                }}
-              >
-                Retry
-              </button>
-            </div>
-          )}
-
-          {/* Empty state — shown when no messages and not loading */}
-          {!isLoadingMessages && !isSettling && messages.length === 0 && !messagesLoadError && emptyState}
-
-          {/* Messages — virtualised: only renders visible rows.
-              Hidden (not unmounted) during settling so the virtualizer can
-              measure items while the spinner is still shown. */}
-          <div ref={messagesListRef} style={{ position: 'relative', height: msgVirtualizer.getTotalSize(), visibility: isSettling ? 'hidden' : 'visible' }}>
-            {msgVirtualizer.getVirtualItems().map((vRow) => {
-              const message = messages[vRow.index];
-              const idx     = vRow.index;
-              return (
-                <div
-                  // Keyed by the stable reactKey, not `id` — `id` gets swapped in
-                  // place from a temp id to the real backend UUID once the
-                  // message_saved event arrives (use-streaming-chat.ts), and
-                  // keying by `id` directly made that swap look like a new row
-                  // to React, remounting it and replaying its entrance
-                  // animation on content that was already fully visible.
-                  key={message.reactKey ?? message.id}
-                  data-index={vRow.index}
-                  ref={msgVirtualizer.measureElement}
-                  style={{
-                    position:   'absolute',
-                    top:        0,
-                    left:       0,
-                    width:      '100%',
-                    transform:  `translateY(${vRow.start}px)`,
-                    // Promote only the row that is still streaming to its own
-                    // compositor layer so translateY updates don't trigger a
-                    // full-page repaint. Settled rows drop the hint: a permanent
-                    // layer rasterizes text with grayscale anti-aliasing, which
-                    // reads as a slight blur.
-                    willChange: message.isLoading ? 'transform' : undefined,
-                    // Contain layout so height changes to this row (e.g. the
-                    // last streaming message growing) don't cause ancestor
-                    // reflows that disturb the scroll position of other rows.
-                    contain:    'layout',
-                  }}
-                >
-                  {message.agentCard ? (
-                    <AgentCreatedCard
-                      agent={message.agentCard.persona}
-                      published={message.agentCard.published}
-                      inUse={!!selectedPersonaId && selectedPersonaId === message.agentCard.persona.activeVersionId}
-                      onUse={onUseAgent}
-                    />
-                  ) : (
-                  <ChatMessageMemo
-                    message={message}
-                    isLast={idx === messages.length - 1}
-                    isNewMessage={idx === messages.length - 1 && isStreaming}
-                    chatId={chatId}
-                    pinned={message.role === 'assistant' ? isPinned(message.id) : false}
-                    archived={archived}
-                    onRegenerate={
-                      idx === messages.length - 1 &&
-                      message.role === "assistant" &&
-                      !isStreaming &&
-                      !(isRevealing && message === revealingMessage)
-                        ? handleRegenerate
-                        : undefined
-                    }
-                    onRevealSettled={
-                      (message.reactKey ?? message.id) === revealingKey
-                        ? handleRevealSettled
-                        : undefined
-                    }
-                    onEdit={
-                      message.role === "user" && !message.localOnly
-                        ? handleEditMessage
-                        : undefined
-                    }
-                    onPromptDecided={handlePromptDecided}
-                    onPromptResume={handlePromptResume}
-                  />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          <div ref={messagesEndRef} />
-        </div>
-      </div>
-
-      {/* Scroll-to-bottom button */}
-      <AnimatePresence>
-        {!atBottom && (
-          <m.div
-            key="scroll-to-bottom"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-            style={{
-              position: 'absolute',
-              bottom: 16,
-              left: '50%',
-              x: '-50%',
-              zIndex: 10,
-            }}
-          >
-            <IconButton
-              variant="secondary"
-              size="sm"
-              aria-label="Scroll to bottom"
-              icon={<ArrowDownOneIcon size={16} />}
-              onClick={scrollToBottom}
-            />
-          </m.div>
-        )}
-      </AnimatePresence>
-      </div>
-
-      {/* Input area */}
-      <div
-        style={{
-          padding: "16px 16px 24px",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-        }}
-      >
-        {/* Workspace credit notice — team plan only, dismissible per status level */}
-        <AnimatePresence>
-          {creditNoticeStatus && (
-            <InlineCreditNotice
-              key={creditNoticeStatus}
-              status={creditNoticeStatus}
-              isAdmin={isOrgAdmin}
-              onAdminAction={goToPlans}
-              onDismiss={dismissCreditNotice}
-            />
-          )}
-        </AnimatePresence>
-
-        {/* Chat input wrapper */}
-        <div
-          style={{
-            width:    '100%',
-            maxWidth: '754px',
-          }}
-        >
-          {!archived && !readOnly && <TurnStatusChips messages={messages} active={isStreaming} />}
-          <ExhaustionBanner>
-          {/* Queued messages, just above the box and tucked under its top
-              edge (the box sits above it, zIndex 1). Keyed by chat so a
-              chat switch swaps the tray at once rather than animating. */}
-          {!archived && !readOnly && (
-            <QueuedMessagesTray
-              key={queueKey}
-              messages={queueHeldBy ? NO_QUEUED_MESSAGES : queuedMessages}
-              status={queueStatus}
-              waiting={!queuePausedReason && (queueWaitingOnReply || hookBusy)}
-              rowExit={queuedRowExit}
-              onEdit={handleEditQueued}
-              onRemove={handleRemoveQueued}
-            />
-          )}
-          {/* position:relative wrapper lets PinMentionDropdown use absolute positioning */}
-          <div
-            ref={inputWrapperRef}
-            style={{ width: "100%", position: "relative", zIndex: 1 }}
-          >
-          {archived ? (
-            // Archived chats can't be edited at all — a disabled composer
-            // with an explanatory placeholder still looks like a text field
-            // you could try typing into. A plain info banner says outright
-            // that this chat is read-only instead.
-            <div
-              style={{
-                display:         "flex",
-                alignItems:      "center",
-                gap:             10,
-                padding:         "12px 16px",
-                borderRadius:    "var(--toast-radius, 12px)",
-                backgroundColor: "var(--neutral-100)",
-                boxShadow:       "inset 0 0 0 1px var(--neutral-200)",
-              }}
-            >
-              <InformationCircleIcon size={16} color="var(--neutral-500)" />
-              <p
-                style={{
-                  margin:     0,
-                  fontFamily: "var(--font-body)",
-                  fontWeight: "var(--font-weight-medium)",
-                  fontSize:   "var(--font-size-body)",
-                  lineHeight: "var(--line-height-body)",
-                  color:      "var(--neutral-600)",
-                }}
-              >
-                This is an archived chat. It&apos;s read-only.
-              </p>
-            </div>
-          ) : (
-            <>
-          {!hidePinActions && (
-            <PinMentionDropdown
-              isOpen={showPinDropdown}
-              pins={filteredPins}
-              query={pinQuery}
-              highlightedIndex={highlightedPinIndex}
-              onHighlight={setHighlightedPinIndex}
-              onSelect={handlePinSelect}
-            />
-          )}
-
-          <ChatInput
-            value={inputValue}
-            onChange={setInputValue}
-            onSend={handleSend}
-            sendBlocked={uploadsBusy}
-            onStop={handleStop}
-            onAdd={handleAdd}
-            onFilePaste={(files) => setAttachments((prev) => processFiles(files, prev))}
-            hasAttachments={attachments.length > 0}
-            agentMention={agentMention}
-            onModelClick={onModelClick}
-            modelName={selectedModel ?? "Souvenir"}
-            modelIcon={selectedModelIcon}
-            addMenu={addMenu}
-            modelMenu={modelMenu}
-            disabledModelSelector={disabledModelSelector}
-            chips={chips}
-            attachmentsSlot={
-              !hidePinActions && mentionedPins.length > 0 ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                  <PinChipStrip>
-                    {mentionedPins.map((mp) => (
-                      <MentionChip
-                        key={mp.id}
-                        label={mp.label}
-                        onRemove={() => handleRemoveMention(mp.id)}
-                      />
-                    ))}
-                  </PinChipStrip>
-                  <UploadNotices {...uploadNotices} />
-                  <AttachmentManager
-                    attachments={attachmentChips}
-                    onAttachmentsChange={setAttachments}
-                    libraryValidates
-                  />
-                </div>
-              ) : (
-                <>
-                  <UploadNotices {...uploadNotices} />
-                  <AttachmentManager
-                    attachments={attachmentChips}
-                    onAttachmentsChange={setAttachments}
-                    libraryValidates
-                  />
-                </>
-              )
-            }
-            isStreaming={replyInFlight}
-            // Not disabled while streaming: the box keeps focus and can be
-            // typed in, and a send is queued to follow the reply.
-            allowQueue
-            sendQueues={sendQueues}
-            onRecallQueued={queuedMessages.length > 0 && !queueHeldBy ? handleRecallQueued : undefined}
-            focusRequest={composerFocusRequest}
-            disabled={readOnly || archived || plan?.poolStatus === 'paused' || creditStatus.blocked || personaConfigLoading}
-            placeholder={
-              readOnly
-                ? 'Create your own copy to continue this chat.'
-                : plan?.poolStatus === 'paused'
-                ? 'Workspace out of credits. Contact your admin.'
-                : creditStatus.blocked
-                  ? 'Credits exhausted. Buy a top-up to continue.'
-                  : personaConfigLoading
-                    ? 'Loading agent…'
-                    : queuedMessages.length > 0
-                      ? 'Queue another message…'
-                      : sendQueues
-                        ? 'Queue a follow-up…'
-                        : 'How can I help you today?'
-            }
-            onMentionChange={hidePinActions ? undefined : handleMentionChange}
-            isPinDropdownOpen={hidePinActions ? false : showPinDropdown}
-            onPinNavigate={hidePinActions ? undefined : handlePinNavigate}
-          />
-          <LibrarySearchOffNote />
-            </>
-          )}
-          </div>
-          </ExhaustionBanner>
-        </div>
-
-        {/* Hidden file input for drag-drop fallback via onAdd */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept={FILE_ACCEPT}
-          onChange={handleFileSelect}
-          style={{ display: "none" }}
-          aria-hidden="true"
+        <ChatMessageList
+          ref={listRef}
+          scrollerRef={messagesContainerRef}
+          listRef={messagesListRef}
+          messages={messages}
+          isSettling={isSettling}
+          chatId={chatId}
+          archived={archived}
+          isStreaming={isStreaming}
+          isRevealing={isRevealing}
+          revealingMessage={revealingMessage}
+          revealingKey={revealingKey}
+          isPinned={isPinned}
+          selectedPersonaId={selectedPersonaId}
+          onUseAgent={onUseAgent}
+          onRegenerate={handleRegenerate}
+          onRevealSettled={handleRevealSettled}
+          onEdit={handleEditMessage}
+          onPromptDecided={handlePromptDecided}
+          onPromptResume={handlePromptResume}
         />
-      </div>
+      </ChatMessagesPane>
+
+      <ChatComposerArea
+        creditNotice={{ status: creditNoticeStatus, isAdmin: isOrgAdmin, onAdminAction: goToPlans, onDismiss: dismissCreditNotice }}
+        archived={archived}
+        readOnly={readOnly}
+        messages={messages}
+        isStreaming={isStreaming}
+        queueKey={queueKey}
+        tray={{
+          messages: queueHeldBy ? NO_QUEUED_MESSAGES : queuedMessages,
+          status: queueStatus,
+          waiting: !queuePausedReason && (queueWaitingOnReply || hookBusy),
+          rowExit: queuedRowExit,
+          onEdit: handleEditQueued,
+          onRemove: handleRemoveQueued,
+        }}
+        inputWrapperRef={inputWrapperRef}
+        pinDropdown={hidePinActions ? null : {
+          isOpen: showPinDropdown,
+          pins: filteredPins,
+          query: pinQuery,
+          highlightedIndex: highlightedPinIndex,
+          onHighlight: setHighlightedPinIndex,
+          onSelect: handlePinSelect,
+        }}
+        fileInputRef={fileInputRef}
+        fileAccept={FILE_ACCEPT}
+        onFileSelect={handleFileSelect}
+      >
+        <ChatInput
+          value={inputValue}
+          onChange={setInputValue}
+          onSend={handleSend}
+          sendBlocked={uploadsBusy}
+          onStop={handleStop}
+          onAdd={handleAdd}
+          onFilePaste={(files) => setAttachments((prev) => processFiles(files, prev))}
+          hasAttachments={attachments.length > 0}
+          agentMention={agentMention}
+          onModelClick={onModelClick}
+          modelName={selectedModel ?? "Souvenir"}
+          modelIcon={selectedModelIcon}
+          addMenu={addMenu}
+          modelMenu={modelMenu}
+          disabledModelSelector={disabledModelSelector}
+          chips={chips}
+          attachmentsSlot={
+            <ComposerAttachmentsSlot
+              showPins={!hidePinActions}
+              mentionedPins={mentionedPins}
+              onRemoveMention={handleRemoveMention}
+              uploadNotices={uploadNotices}
+              attachments={attachmentChips}
+              onAttachmentsChange={setAttachments}
+            />
+          }
+          isStreaming={replyInFlight}
+          // Not disabled while streaming: the box keeps focus and can be
+          // typed in, and a send is queued to follow the reply.
+          allowQueue
+          sendQueues={sendQueues}
+          onRecallQueued={queuedMessages.length > 0 && !queueHeldBy ? handleRecallQueued : undefined}
+          focusRequest={composerFocusRequest}
+          disabled={readOnly || archived || plan?.poolStatus === 'paused' || creditStatus.blocked || personaConfigLoading}
+          placeholder={getComposerPlaceholder({
+            readOnly,
+            poolPaused: plan?.poolStatus === 'paused',
+            creditsBlocked: !!creditStatus.blocked,
+            personaConfigLoading,
+            queuedCount: queuedMessages.length,
+            sendQueues,
+          })}
+          onMentionChange={hidePinActions ? undefined : handleMentionChange}
+          isPinDropdownOpen={hidePinActions ? false : showPinDropdown}
+          onPinNavigate={hidePinActions ? undefined : handlePinNavigate}
+        />
+      </ChatComposerArea>
     </div>
   );
 }

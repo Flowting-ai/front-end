@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import * as PopoverPrimitive from '@radix-ui/react-popover'
 import { cn } from '@/lib/utils'
 
 // ── Width presets ─────────────────────────────────────────────────────────────
@@ -218,8 +219,9 @@ function ScrollArea({ maxHeight, children }: ScrollAreaProps) {
 /**
  * Floating surface shell for dropdown menus, command palettes, and context
  * menus. Provides the white rounded card with shadow - no positioning or
- * open/close logic. Wire to `@radix-ui/react-popover` or
- * `@radix-ui/react-dropdown-menu` Content for full behaviour.
+ * open/close logic on its own. For a real popover use `PopoverRoot` +
+ * `PopoverTrigger` + `PopoverContent` below (Radix Popover rendering this
+ * surface); menus use `@radix-ui/react-dropdown-menu` via `<Dropdown>`.
  */
 export function Popover(
   { size, variant = 'modal', maxHeight = POPOVER_DEFAULT_MAX_HEIGHT, header, children, className, style, ref, ...props }: PopoverProps & { ref?: React.Ref<HTMLDivElement> },
@@ -252,5 +254,55 @@ export function Popover(
 }
 
 Popover.displayName = 'Popover'
+
+// ── Radix wiring ──────────────────────────────────────────────────────────────
+// Real popover behaviour (positioning, outside-click / Escape dismissal, focus
+// management, aria-expanded/aria-controls on the trigger):
+//   <PopoverRoot>
+//     <PopoverTrigger asChild><Button>…</Button></PopoverTrigger>
+//     <PopoverContent size="md" variant="dropdown">…</PopoverContent>
+//   </PopoverRoot>
+// PopoverContent takes the surface props of <Popover> plus Radix Content
+// positioning props (side, align, sideOffset, collisionPadding, …).
+
+export const PopoverRoot    = PopoverPrimitive.Root
+export const PopoverTrigger = PopoverPrimitive.Trigger
+export const PopoverAnchor  = PopoverPrimitive.Anchor
+export const PopoverClose   = PopoverPrimitive.Close
+
+type RadixContentProps = React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
+
+export interface PopoverContentProps
+  extends Omit<RadixContentProps, 'asChild' | 'children'>,
+    Pick<PopoverProps, 'size' | 'variant' | 'maxHeight' | 'header' | 'children'> {
+  /** Render into a portal on document.body (default true). */
+  portal?: boolean
+}
+
+export function PopoverContent(
+  {
+    size, variant, maxHeight, header, children, style,
+    portal = true, sideOffset = 4, align = 'start', collisionPadding = 16, ref, ...contentProps
+  }: PopoverContentProps & { ref?: React.Ref<HTMLDivElement> },
+) {
+  const content = (
+    <PopoverPrimitive.Content
+      ref={ref}
+      sideOffset={sideOffset}
+      align={align}
+      collisionPadding={collisionPadding}
+      asChild
+      style={{ zIndex: 50, outline: 'none', ...style }}
+      {...contentProps}
+    >
+      <Popover size={size} variant={variant} maxHeight={maxHeight} header={header}>
+        {children}
+      </Popover>
+    </PopoverPrimitive.Content>
+  )
+  return portal ? <PopoverPrimitive.Portal>{content}</PopoverPrimitive.Portal> : content
+}
+
+PopoverContent.displayName = 'PopoverContent'
 
 export default Popover

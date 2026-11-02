@@ -12,8 +12,16 @@ describe("keepAcceptedFields", () => {
     fd.append("files", new File(["x"], "a.txt"))
     fd.append("files", new File(["y"], "b.txt"))
     keepAcceptedFields(fd, CHAT_CREATE_FIELDS)
-    expect([...new Set(fd.keys())]).toEqual(["input", "libraryFileIds", "files"])
+    expect([...new Set(fd.keys())]).toEqual(["input", "librarySourcesOff", "libraryFileIds", "files"])
     expect(fd.getAll("files")).toHaveLength(2)
+  })
+
+  it("keeps librarySourcesOff for chats but not for agent chats", () => {
+    const fd = new FormData()
+    fd.append("input", "hi")
+    fd.append("librarySourcesOff", "[]")
+    expect(keepAcceptedFields(fd, CHAT_STREAM_FIELDS).has("librarySourcesOff")).toBe(true)
+    expect(keepAcceptedFields(fd, PERSONA_STREAM_FIELDS).has("librarySourcesOff")).toBe(false)
   })
 
   it("keeps the reply fields only on an existing chat", () => {

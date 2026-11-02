@@ -11,6 +11,8 @@ export interface TurnSettings {
   reasoningEffort?:        string | null
   algorithm?:              'base' | 'pro' | null
   personaId?:              string | null
+  /** The project a new chat is created in, so its first turn already has the project context. */
+  projectId?:              string | null
   systemPrompt?:           string | null
   temperature?:            number | null
   toneId?:                 string | null
@@ -40,6 +42,7 @@ export interface TurnRequestOptions {
   userMessageId?:          string
   pinIds?:                 string[]
   personaId?:              string
+  projectId?:              string
   systemPrompt?:           string
   temperature?:            number
   toneId?:                 string
@@ -63,6 +66,7 @@ export function buildTurnOptions(settings: TurnSettings, turn: TurnInput = {}): 
     userMessageId:          turn.userMessageId,
     pinIds:                 pinIds.length > 0 ? pinIds : undefined,
     personaId:              settings.personaId ?? undefined,
+    projectId:              settings.projectId ?? undefined,
     systemPrompt:           settings.systemPrompt ?? undefined,
     temperature:            settings.temperature ?? undefined,
     toneId:                 settings.toneId ?? undefined,

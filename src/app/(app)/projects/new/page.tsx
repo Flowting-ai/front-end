@@ -50,9 +50,14 @@ function NewProjectPageInner() {
 
   async function handleCreate() {
     if (!name.trim()) return
+    // A tag typed but not yet confirmed with Enter is still meant: add it rather than drop it.
+    const pending = tagInput.trim()
+    const finalTags = pending && tags.length < MAX_TAGS && !tags.some(t => t.label.toLowerCase() === pending.toLowerCase())
+      ? [...tags, { id: pending, label: pending, color: TAG_COLORS[tags.length % TAG_COLORS.length] }]
+      : tags
     setLoading(true)
     try {
-      const project = await createProject(name.trim(), description.trim(), undefined, visibility, tags)
+      const project = await createProject(name.trim(), description.trim(), undefined, visibility, finalTags)
       push(PROJECT_ROUTE(project.id))
     } catch (err) {
       toast.error('Failed to create project', { description: err instanceof Error ? err.message : undefined })

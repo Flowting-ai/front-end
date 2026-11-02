@@ -1,38 +1,20 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { PersonaRepoCollection, fetchPersonaRepos } from '@/lib/api/persona-repo'
-import { onPersonasInvalidated } from '@/lib/api/persona-cache'
+import { useQuery } from '@tanstack/react-query'
+import { PersonaRepoCollection, personaReposQuery } from '@/lib/api/persona-repo'
 
 const EMPTY = new PersonaRepoCollection([])
 
-/** The shared agent collection. Refetches whenever any mutation busts the
- *  persona cache, so every consumer sees the same set. */
+/** The shared agent collection (React Query, PERSONA_REPOS_QUERY_KEY). Every
+ *  mutation calls bustPersonasCache(), which invalidates the ["personas"]
+ *  prefix, so every consumer refetches and sees the same set. */
 export function usePersonaRepos() {
-  const [state, setState] = useState<{
-    repos: PersonaRepoCollection
-    isLoading: boolean
-    error: unknown
-  }>({ repos: EMPTY, isLoading: true, error: null })
-
-  useEffect(() => {
-    let cancelled = false
-
-    function load() {
-      fetchPersonaRepos()
-        .then(repos => { if (!cancelled) setState({ repos, isLoading: false, error: null }) })
-        .catch(error => { if (!cancelled) setState({ repos: EMPTY, isLoading: false, error }) })
-    }
-
-    load()
-    const unsubscribe = onPersonasInvalidated(load)
-    return () => {
-      cancelled = true
-      unsubscribe()
-    }
-  }, [])
-
-  return state
+  const query = useQuery(personaReposQuery())
+  return {
+    repos: query.data ?? EMPTY,
+    isLoading: query.isPending,
+    error: query.error ?? null,
+  }
 }
 
 /** One agent by id, from the shared collection. */

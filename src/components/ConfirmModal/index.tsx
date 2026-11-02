@@ -1,18 +1,13 @@
 'use client'
 
-import React, { useEffect, useId, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { useMounted } from '@/hooks/use-mounted'
-import { useFocusTrap } from '@/hooks/use-focus-trap'
+import React, { useState } from 'react'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 
-// Mirrors the hand-rolled `showCancelDialog` pattern in
-// settings/(shell)/plans-and-billing/page.tsx — this codebase has no shared
-// Modal/Dialog primitive, every confirm dialog is its own overlay. Pulled out
-// as a real shared component here since multiple new "leave" flows need the
-// exact same simple confirm/cancel shape.
-const SHADOW_MODAL = '0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px rgba(130,122,116,0.1)'
+// Shared confirm/cancel prompt on the Radix dialog shell (focus trap, Escape,
+// focus return, portal to body). Announced as an alertdialog since most callers
+// are destructive/leave flows.
 
 export interface ConfirmModalProps {
   title: string
@@ -36,25 +31,6 @@ export function ConfirmModal({
   onClose,
 }: ConfirmModalProps) {
   const [submitting, setSubmitting] = useState(false)
-  const mounted = useMounted()
-  const dialogRef = useRef<HTMLDivElement>(null)
-  const titleId = useId()
-  const descriptionId = useId()
-  // Focus moves in (to Cancel, the first control), Tab stays inside, and it
-  // returns to the opener on close. Escape is handled below.
-  useFocusTrap(dialogRef, mounted)
-
-  // Escape closes like any other dismissible overlay in the app — added when
-  // this component absorbed CancelCreationModal (agents wizard), which had
-  // its own identical Escape handler; every other ConfirmModal caller gets
-  // this for free too, none previously had it wired up at all.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && !submitting) onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, submitting])
 
   const handleConfirm = async () => {
     setSubmitting(true)
@@ -67,42 +43,22 @@ export function ConfirmModal({
     }
   }
 
-  if (!mounted) return null
-
-  // Portaled to document.body — a caller nested inside an animated
-  // (transformed) ancestor would otherwise have this `position: fixed`
-  // overlay clipped/mispositioned relative to that ancestor instead of the
-  // viewport.
-  return createPortal(
-    // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
-    <div
-      onClick={() => { if (!submitting) onClose() }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 9998, background: 'var(--overlay-bg)',
-        backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-      }}
-    >
-      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
-      <div
-        ref={dialogRef}
+  return (
+    <Dialog open onOpenChange={(next) => { if (!next && !submitting) onClose() }}>
+      <DialogContent
+        size="sm"
+        hideClose
         role="alertdialog"
         aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={descriptionId}
-        tabIndex={-1}
-        onClick={e => e.stopPropagation()}
-        style={{
-          background: 'var(--neutral-white)', borderRadius: 16, padding: 24, width: 400, maxWidth: 'calc(100vw - 32px)',
-          boxShadow: SHADOW_MODAL, display: 'flex', flexDirection: 'column', gap: 20,
-        }}
+        onEscapeKeyDown={(e) => { if (submitting) e.preventDefault() }}
+        onInteractOutside={(e) => { if (submitting) e.preventDefault() }}
+        style={{ padding: 24, gap: 20 }}
       >
         <div>
-          <p id={titleId} style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
-            {title}
-          </p>
-          <p id={descriptionId} style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '8px 0 0' }}>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '8px 0 0' }}>
             {description}
-          </p>
+          </DialogDescription>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <Button variant="secondary" disabled={submitting} onClick={onClose}>
@@ -112,9 +68,8 @@ export function ConfirmModal({
             {confirmLabel}
           </Button>
         </div>
-      </div>
-    </div>,
-    document.body
+      </DialogContent>
+    </Dialog>
   )
 }
 

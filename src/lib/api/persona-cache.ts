@@ -29,6 +29,14 @@ export function bustPersonasCache(): void {
   // snapshot to the next fetchPersonas() caller.
   const client = getQueryClient()
   client.removeQueries({ queryKey: PERSONAS_QUERY_KEY, type: 'inactive' })
-  void client.invalidateQueries({ queryKey: PERSONAS_QUERY_KEY, type: 'active' })
+  // The raw collection first: the list query is derived from it (loadPersonas → fetchPersonaRepos),
+  // so refetching both at once would start a second GET /persona that then cancels the first.
+  // Started first, the collection's fresh request is the one the list's refetch joins.
+  void client.invalidateQueries({ queryKey: PERSONA_REPOS_QUERY_KEY, exact: true, type: 'active' })
+  void client.invalidateQueries({
+    queryKey: PERSONAS_QUERY_KEY,
+    type: 'active',
+    predicate: query => query.queryKey[1] !== PERSONA_REPOS_QUERY_KEY[1],
+  })
   for (const listener of invalidationListeners) listener()
 }

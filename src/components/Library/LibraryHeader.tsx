@@ -11,7 +11,7 @@ import { Tooltip } from '@/components/Tooltip'
 import { storageLabel } from '@/lib/library/format'
 import { MESSAGES } from '@/lib/library/messages'
 import { MIN_SEARCH_LENGTH, effectiveListTab, tabPatch, type LibraryQuery, type LibraryTab, type SearchScope } from '@/lib/library/query-params'
-import { useHasShared, useLibraryPrefs, useStorage } from '@/lib/library/queries'
+import { useHasShared, useLibraryPrefs, useLibrarySummary } from '@/lib/library/queries'
 import { readSeen, shouldShowSettingsNotice, unseenChanges, writeSeen } from '@/lib/library/settings-notice'
 import type { SetLibraryQuery } from '@/lib/library/use-library-query'
 import { useLibraryViewer } from '@/lib/library/viewer'
@@ -30,15 +30,16 @@ import styles from './LibraryHeader.module.css'
  * refetch fails (React Query keeps `data`). Only a first load that fails shows nothing.
  */
 export function StorageLabel() {
-  const storage = useStorage()
-  if (storage.data) {
+  const summary = useLibrarySummary()
+  const storage = summary.data?.storage
+  if (storage) {
     return (
       <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, lineHeight: '20px', color: 'var(--neutral-500)', whiteSpace: 'nowrap' }}>
-        {storageLabel(storage.data.usedBytes, storage.data.limitBytes)}
+        {storageLabel(storage.usedBytes, storage.limitBytes)}
       </span>
     )
   }
-  if (storage.isError) return null
+  if (summary.isError) return null
   return <Skeleton width={84} height={14} radius={6} />
 }
 
@@ -122,7 +123,8 @@ export function LibraryHeader({ query, setQuery }: LibraryHeaderProps) {
   const searching = query.q.length >= MIN_SEARCH_LENGTH
   const showListTools = !searching && query.tab !== 'suggested'
   return (
-    <header style={{ display: 'flex', flexDirection: 'column', padding: '28px 40px 13px', flexShrink: 0 }}>
+    // Side padding eases off on phones so the tab row (Shared) fits.
+    <header style={{ display: 'flex', flexDirection: 'column', padding: '28px clamp(8px, 4vw, 40px) 13px', flexShrink: 0 }}>
       {/* In a narrow window the tools wrap under the title, right-aligned, instead of pushing the page sideways. */}
       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 16, rowGap: 8, minHeight: 36, padding: '0 8px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flex: 'none' }}>

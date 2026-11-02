@@ -16,7 +16,7 @@ import {
   Badge,
   SectionCard,
 } from './billing-primitives'
-import { PersonalPlansSkeleton } from './billing-skeletons'
+import { BillingLoadError, PersonalPlansSkeleton } from './billing-skeletons'
 import { CancelSubscriptionDialog, PersonalUsageRow, InvoiceTable } from './billing-widgets'
 
 import { usePersonalBillingView } from './use-personal-billing-view'
@@ -26,8 +26,9 @@ import { usePersonalBillingView } from './use-personal-billing-view'
 // isEnterprise is always false. Shares SectionCard/Badge/InvoiceTable/ModalShell
 // with the org view so both account types read as one visual language.
 export function PersonalBillingView() {
-  const { router, billing, usage, billingLoaded, showCancelDialog, setShowCancelDialog, isCanceling, isResuming, isClaimingTrial, openingPortal, confirmState, showSkeleton, creditsTotal, creditsRemaining, creditsUsed, isTrialUser, planName, planPrice, planFeatures, hasActiveSub, hasPlan, chatCredits, slackCredits, automationCredits, nextBilling, periodEnd, cancelAtPeriodEnd, pm, cardBrand, invoices, hasDownloadableInvoice, billingPending, resetDate, handleStripePortal, handleExportAllInvoices, handleCancelSubscription, handleResumeSubscription, handleClaimTrial } = usePersonalBillingView()
+  const { loadError, retrying, retryLoad, router, billing, usage, billingLoaded, showCancelDialog, setShowCancelDialog, isCanceling, isResuming, isClaimingTrial, openingPortal, confirmState, showSkeleton, creditsTotal, creditsRemaining, creditsUsed, isTrialUser, planName, planPrice, planFeatures, hasActiveSub, hasPlan, chatCredits, slackCredits, automationCredits, nextBilling, periodEnd, cancelAtPeriodEnd, pm, cardBrand, invoices, hasDownloadableInvoice, billingPending, resetDate, handleStripePortal, handleExportAllInvoices, handleCancelSubscription, handleResumeSubscription, handleClaimTrial } = usePersonalBillingView()
 
+  if (showSkeleton && loadError) return <BillingLoadError onRetry={retryLoad} retrying={retrying} />
   if (showSkeleton) {
     return (
       <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>

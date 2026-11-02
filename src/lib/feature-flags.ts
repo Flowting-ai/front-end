@@ -56,8 +56,26 @@ export const SETTINGS_PREVIEW_ENABLED = process.env.NEXT_PUBLIC_ENABLE_SETTINGS_
 export const LIBRARY_SETTINGS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_LIBRARY_SETTINGS === 'true'
 
 /**
- * "Request access" on the locked file page and panel. Built, but the backend has no
- * `POST /library/files/{id}/access-requests` yet (LIBRARY_CHECKPOINT_BACKEND_TICKET.md, D), so OFF by
- * default: the locked state shows no button. Turn on with NEXT_PUBLIC_ENABLE_LIBRARY_REQUEST_ACCESS=true.
+ * "Request access" on the locked file page and panel. The backend has
+ * `POST /library/files/{id}/access-requests` since 25 Oct (back-end c03695a0), so ON by default.
+ * NEXT_PUBLIC_ENABLE_LIBRARY_REQUEST_ACCESS=false turns it off.
  */
-export const LIBRARY_REQUEST_ACCESS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_LIBRARY_REQUEST_ACCESS === 'true'
+/**
+ * Chatting with an agent: the @agent mention and "Add agent" in the composer, `persona_id` on a chat
+ * send, and the /agents/[id]/chat page. Back-end 9079f6e3 (22 Oct) dropped `persona_id` from
+ * /chats/create and /chats/{id}/stream and deleted /persona/{id}/chats/*, so a send with an agent
+ * answers 400 (docs v2/tickets/2026-10-26/BACKEND_REGRESSIONS_TICKET.md R1). OFF by default; creating, editing and
+ * sharing agents is unaffected. Turn on with NEXT_PUBLIC_ENABLE_AGENT_CHAT=true once the backend is back.
+ */
+export const AGENT_CHAT_ENABLED = process.env.NEXT_PUBLIC_ENABLE_AGENT_CHAT === 'true'
+
+/**
+ * The composer's Web search switch and Use style menu. The backend no longer reads `web_search` (removed in
+ * aa934dfe, 2 Oct; the model decides when to search) or `tone_id`, and the chat proxy strips both, so the
+ * controls changed nothing. OFF by default; turn on with NEXT_PUBLIC_ENABLE_COMPOSER_WEB_SEARCH=true or
+ * NEXT_PUBLIC_ENABLE_COMPOSER_STYLE=true once the backend reads the field again.
+ */
+export const COMPOSER_WEB_SEARCH_ENABLED = process.env.NEXT_PUBLIC_ENABLE_COMPOSER_WEB_SEARCH === 'true'
+export const COMPOSER_STYLE_ENABLED = process.env.NEXT_PUBLIC_ENABLE_COMPOSER_STYLE === 'true'
+
+export const LIBRARY_REQUEST_ACCESS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_LIBRARY_REQUEST_ACCESS !== 'false'

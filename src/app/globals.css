@@ -946,3 +946,10 @@ button:not(:disabled),
 :root[data-theme="dark"] .kaya-model-btn {
   --field-surface: var(--chat-input-bg);
 }
+
+/* A search field that draws its own clear (×) button: hide the browser's native one so there aren't two. */
+.kaya-search-own-clear::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}

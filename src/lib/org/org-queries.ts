@@ -15,10 +15,13 @@ export type OrgInfo = Awaited<ReturnType<typeof getOrg>>
 
 /** Last org id resolved for this user, so a reload doesn't wait on GET /organizations. */
 export function readCachedOrgId(userId: string): string | null {
+  // No user id yet: never read (or write) a key shared by every account.
+  if (!userId) return null
   try { return localStorage.getItem(orgIdCacheKey(userId)) } catch { return null }
 }
 
 function writeCachedOrgId(userId: string, id: string | null) {
+  if (!userId) return
   try {
     if (id) localStorage.setItem(orgIdCacheKey(userId), id)
     else localStorage.removeItem(orgIdCacheKey(userId))

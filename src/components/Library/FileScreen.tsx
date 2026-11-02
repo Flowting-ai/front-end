@@ -5,6 +5,7 @@ import { AnimatePresence, m, useReducedMotion } from 'framer-motion'
 import dynamic from 'next/dynamic'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
+import { useIsMutating } from '@tanstack/react-query'
 import { ArrowDownOneIcon, ArrowLeftOneIcon, CancelOneIcon, DownloadOneIcon, InformationCircleIcon, ShareOneIcon, SidebarRightIcon } from '@strange-huge/icons'
 import { Button, IconButton } from '@/components/ui/button'
 import { Skeleton } from '@/components/Skeleton'
@@ -15,10 +16,11 @@ import { useAskAbout } from './useAskAbout'
 import { ONLY_OWNER_TIP } from '@/lib/library/access'
 import { trackLibrary } from '@/lib/library/analytics'
 import { parseCite } from '@/lib/library/cite'
-import { isGoneError, isLockedError } from '@/lib/library/errors'
+import { isAccessRequested, isGoneError, isLockedError } from '@/lib/library/errors'
 import { fileDocumentTitle, formatLabel } from '@/lib/library/format'
 import { FILE_MESSAGES, MESSAGES } from '@/lib/library/messages'
 import { useMarkOpened } from '@/lib/library/mutations'
+import { libraryKeys } from '@/lib/library/keys'
 import { useLibraryFile } from '@/lib/library/queries'
 import { libraryReturnUrl } from '@/lib/library/return-to'
 import { useLibraryViewer } from '@/lib/library/viewer'
@@ -26,7 +28,7 @@ import { warmFile } from '@/lib/library/warm'
 import { EmptyState } from './EmptyState'
 import { FileDialogs, useFileActions } from './FileDialogs'
 import { FileInfoCard } from './FileInfoCard'
-import { GhostLines, GoneState, LockedState, LibraryProcessingBanner, ProcessingBanner, TrashedBanner } from './FileStates'
+import { GhostLines, GoneState, LockedState, LibraryProcessingBanner, ProcessingBanner, TrashedBanner, UploadRefusedBanner } from './FileStates'
 import { LibraryShell } from './LibraryShell'
 import { LinkButton } from './LinkButton'
 import { RowMenu } from './FileTable/RowMenu'
@@ -50,7 +52,7 @@ export function FileScreen({ id }: { id: string }) {
   const cite = parseCite(params.get('cite'), params.get('passage'))
   // Close and a delete go back to the Library list the person came from (tab, search, filters).
   const backHref = libraryReturnUrl(params.get('from'))
-  const { viewerId } = useLibraryViewer()
+  const { viewerId, orgKey } = useLibraryViewer()
   // Ask for the details and the first preview now, side by side: the queries below wait for the
   // workspace to load and then pick these up, instead of starting one after the other. A row cite
   // opens a sheet at another window, so that preview is left to the viewer.
@@ -78,8 +80,17 @@ export function FileScreen({ id }: { id: string }) {
   // A deleted file is "No longer available" for every link (a chat chip, a citation, a shared URL), even for
   // its owner. Only a row in Trash opens it (`?from=trash`), to show how many days are left and Restore.
   const fromTrash = params.get('from') === 'trash'
-  const deletedLink = detail.data?.life === 'trashed' && !fromTrash
-  const file = deletedLink ? undefined : detail.data
+  // Deleting from this page marks the cached file trashed at once (optimistic). Until the server answers,
+  // keep showing it as it was: on success the dialog takes the user back to the list, on failure nothing changed.
+  const trashingHere = useIsMutating({
+    mutationKey: [...libraryKeys.all(orgKey), 'trash-file'],
+    predicate: (mutation) => (mutation.state.variables as { id?: string } | undefined)?.id === id,
+  }) > 0
+  const [lastActive, setLastActive] = useState(detail.data)
+  if (detail.data?.life === 'active' && detail.data !== lastActive) setLastActive(detail.data)
+  const shown = trashingHere && detail.data?.life === 'trashed' && lastActive?.id === id ? lastActive : detail.data
+  const deletedLink = shown?.life === 'trashed' && !fromTrash
+  const file = deletedLink ? undefined : shown
 
   // Tab title: the sanitised file name, never the raw one.
   useEffect(() => {
@@ -125,7 +136,7 @@ export function FileScreen({ id }: { id: string }) {
     return (
       <LibraryShell>
         {isLockedError(detail.error) ? (
-          <LockedState fileId={id} />
+          <LockedState fileId={id} requested={isAccessRequested(detail.error)} />
         ) : isGoneError(detail.error) || deletedLink ? (
           <GoneState backHref={backHref} />
         ) : (
@@ -143,10 +154,12 @@ export function FileScreen({ id }: { id: string }) {
   const trashed = file.life === 'trashed'
   // Download and Ask need the file itself: neither is offered when the viewer cannot open it, or while it is still uploading.
   const uploading = file.phase === 'uploading'
-  const download = caps.open && !uploading ? () => handle('download', file) : undefined
+  // A refused upload stays readable with its reason (since 25 Oct) but has no bytes to preview, download or ask about.
+  const refused = file.phase === 'failed' && file.failureReason ? file.failureReason : null
+  const download = caps.open && !uploading && !refused ? () => handle('download', file) : undefined
   const askAbout = (text: string) => { void ask(file, text) }
   // Library processing (processingPhase) never blocks chat use of the original; an upload still in flight does.
-  const canAsk = !trashed && caps.open && !uploading
+  const canAsk = !trashed && caps.open && !uploading && !refused
   // The info card rises in place: opacity and scale only, from the corner its button sits in, so the
   // compositor does all the work. The page re-centres with a FLIP (transform) rather than a width tween.
   const ease = [0.16, 1, 0.3, 1] as const
@@ -167,12 +180,13 @@ export function FileScreen({ id }: { id: string }) {
           <m.div className={styles.main} layout="position" transition={glide}>
             {trashed && <TrashedBanner fileId={file.id} title={name} daysLeft={file.daysLeft} canRestore={caps.restore} />}
             {!trashed && uploading && <ProcessingBanner phase="uploading" />}
-            {!trashed && !uploading && <LibraryProcessingBanner file={file} />}
+            {!trashed && refused && <UploadRefusedBanner reason={refused} />}
+            {!trashed && !uploading && !refused && <LibraryProcessingBanner file={file} />}
             <div className={styles.page}>
               <h1 className={styles.pageTitle}>{name}</h1>
               <p className={styles.pageSub}>{formatLabel(file.format)}{file.extension ? ` · .${file.extension}` : ''}</p>
               {/* No bytes to preview until the upload lands. */}
-              {uploading ? <GhostLines /> : <FilePreview file={file} cite={cite} onDownload={download} />}
+              {uploading || refused ? <GhostLines /> : <FilePreview file={file} cite={cite} onDownload={download} />}
             </div>
           </m.div>
           <div className={infoOpen ? styles.spacer : `${styles.spacer} ${styles.spacerClosed}`} aria-hidden="true" />

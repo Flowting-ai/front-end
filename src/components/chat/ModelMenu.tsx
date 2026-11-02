@@ -91,7 +91,16 @@ function EffortSlider({ options, value, onChange }: {
       </SliderPrimitive.Root>
       <div className={styles.labels}>
         {steps.map((s, i) => (
-          <span key={s ?? 'off'} className={styles.label} data-active={i === index}>{effortLabel(s)}</span>
+          // Clickable as a shortcut to that step; the thumb stays the keyboard control, so no tab stop.
+          <span
+            key={s ?? 'off'}
+            className={styles.label}
+            data-active={i === index}
+            style={{ cursor: 'pointer' }}
+            onClick={() => { onChange(s); trackFeature('effort_level_changed', { effort: s ?? 'off' }) }}
+          >
+            {effortLabel(s)}
+          </span>
         ))}
       </div>
     </div>

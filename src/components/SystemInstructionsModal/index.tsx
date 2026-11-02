@@ -1,12 +1,10 @@
 'use client'
 
-import React, { useEffect, useEffectEvent, useRef, useState } from 'react'
-import { useMounted } from '@/hooks/use-mounted'
-import { createPortal } from 'react-dom'
-import { AnimatePresence, m } from 'framer-motion'
+import React, { useEffect, useRef, useState } from 'react'
 import { PenOneIcon, CancelOneIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { IconButton, Button } from '@/components/ui/button'
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -35,7 +33,6 @@ export function SystemInstructionsModal({
   // clicking Clear also flip Save's label/spinner.
   const [savingAction, setSavingAction] = useState<'save' | 'clear' | null>(null)
   const saving = savingAction !== null
-  const mounted = useMounted()
   const prevOpenRef = useRef(false)
 
   useEffect(() => {
@@ -44,14 +41,6 @@ export function SystemInstructionsModal({
     }
     prevOpenRef.current = open
   }, [open, value])
-
-  const closeOnEscape = useEffectEvent(onClose)
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeOnEscape() }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open])
 
   async function handleSave() {
     setSavingAction('save')
@@ -80,229 +69,88 @@ export function SystemInstructionsModal({
     }
   }
 
-  if (!mounted) return null
+  const muted = 'm-0 font-[family-name:var(--font-body)] font-[var(--font-weight-regular)]'
 
-  return createPortal(
-    <AnimatePresence>
-      {open && (
-        <m.div
-          key="sys-instructions-backdrop"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.15 }}
-          onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-          style={{
-            position:        'fixed',
-            inset:           0,
-            zIndex:          21,
-            display:         'flex',
-            alignItems:      'center',
-            justifyContent:  'center',
-            backgroundColor: 'color-mix(in srgb, var(--yellow-950) 40%, transparent)',
-            backdropFilter:  'blur(2px)',
-          }}
-        >
-          <m.div
-            key="sys-instructions-modal"
-            initial={{ opacity: 0, scale: 0.96, y: 8 }}
-            animate={{ opacity: 1, scale: 1,    y: 0 }}
-            exit={{    opacity: 0, scale: 0.96, y: 8 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 32, mass: 0.8 }}
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background:    'var(--neutral-white)',
-              borderRadius:  '20px',
-              boxShadow:     '0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)',
-              width:         '560px',
-              maxWidth:      'calc(100vw - 32px)',
-              minHeight:     '580px',
-              maxHeight:     'calc(100vh - 64px)',
-              display:       'flex',
-              flexDirection: 'column',
-              overflow:      'hidden',
-            }}
-          >
-            {/* ── Header ── */}
-            <div
-              style={{
-                display:     'flex',
-                alignItems:  'center',
-                gap:         '12px',
-                padding:     '20px 20px 16px',
-                flexShrink:  0,
-              }}
-            >
-              {/* Icon badge */}
-              <div
-                style={{
-                  display:        'flex',
-                  alignItems:     'center',
-                  justifyContent: 'center',
-                  width:          '36px',
-                  height:         '36px',
-                  borderRadius:   '10px',
-                  background:     'var(--neutral-50)',
-                  boxShadow:      '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
-                  flexShrink:     0,
-                }}
-              >
-                <PenOneIcon size={18} animated />
-              </div>
+  return (
+    <Dialog open={open} onOpenChange={next => { if (!next) onClose() }}>
+      <DialogContent
+        hideClose
+        // A save in flight keeps the modal up so its result lands here.
+        onEscapeKeyDown={e => { if (saving) e.preventDefault() }}
+        onInteractOutside={e => { if (saving) e.preventDefault() }}
+        style={{
+          width:        560,
+          minHeight:    580,
+          maxHeight:    'calc(100vh - 64px)',
+          borderRadius: 20,
+          boxShadow:    '0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)',
+        }}
+      >
+        {/* ── Header ── */}
+        <div className="flex shrink-0 items-center gap-3 px-5 pb-4 pt-5">
+          {/* Icon badge */}
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[var(--neutral-50)] shadow-[0px_1px_1.5px_0px_rgba(82,75,71,0.12),0px_0px_0px_1px_var(--neutral-100)]">
+            <PenOneIcon size={18} animated />
+          </div>
 
-              {/* Title + subtitle */}
-              <div style={{ flex: '1 0 0', minWidth: 0 }}>
-                <p
-                  style={{
-                    fontFamily:   'var(--font-title)',
-                    fontWeight:   'var(--font-weight-regular)',
-                    fontSize:     '24px',
-                    lineHeight:   '32px',
-                    color:        'var(--legacy-1a1714)',
-                    margin:       0,
-                    overflow:     'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace:   'nowrap',
-                  }}
-                >
-                  System Instructions
-                </p>
-                {projectName && (
-                  <p
-                    style={{
-                      fontFamily:  'var(--font-body)',
-                      fontWeight:  'var(--font-weight-regular)',
-                      fontSize:    '12px',
-                      lineHeight:  '18px',
-                      color:       'var(--neutral-400)',
-                      margin:      0,
-                      overflow:    'hidden',
-                      textOverflow:'ellipsis',
-                      whiteSpace:  'nowrap',
-                    }}
-                  >
-                    {projectName}
-                  </p>
-                )}
-              </div>
+          {/* Title + subtitle */}
+          <div className="min-w-0 flex-[1_0_0]">
+            {/* style={undefined} drops the shell's default title type so these classes apply. */}
+            <DialogTitle style={undefined} className="m-0 truncate font-[family-name:var(--font-title)] font-[var(--font-weight-regular)] text-2xl leading-8 text-[var(--legacy-1a1714)]">
+              System Instructions
+            </DialogTitle>
+            {projectName && (
+              <p className={`${muted} truncate text-xs leading-[18px] text-[var(--neutral-400)]`}>{projectName}</p>
+            )}
+          </div>
 
-              <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" onClick={onClose} />
-            </div>
+          <DialogClose asChild>
+            <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" />
+          </DialogClose>
+        </div>
 
-            {/* Divider */}
-            <div style={{ height: '1px', background: 'var(--neutral-100)', flexShrink: 0 }} />
+        {/* Divider */}
+        <div className="h-px shrink-0 bg-[var(--neutral-100)]" />
 
-            {/* ── Body ── */}
-            <div
-              className="kaya-scrollbar"
-              style={{
-                display:       'flex',
-                flexDirection: 'column',
-                flex:          '1 1 0',
-                minHeight:     0,
-                overflowY:     'auto',
-                paddingTop:    '20px',
-                paddingBottom: '20px',
-              }}
-            >
-              {/* Horizontal padding lives on this inner wrapper, not the
-                  scrolling element above — keeps the scrollbar flush with the
-                  modal's edge. Stretches to fill the scroll container so the
-                  textarea below can in turn flex to fill this. */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '0 20px', flex: '1 1 0', minHeight: 0 }}>
-              <p
-                style={{
-                  fontFamily:  'var(--font-body)',
-                  fontWeight:  'var(--font-weight-regular)',
-                  fontSize:    '13px',
-                  lineHeight:  '20px',
-                  color:       'var(--neutral-500)',
-                  margin:      0,
-                }}
-              >
-                Set context for every chat in this project.
+        {/* ── Body ── */}
+        <div className="kaya-scrollbar flex min-h-0 flex-[1_1_0] flex-col overflow-y-auto py-5">
+          {/* Horizontal padding lives on this inner wrapper, not the
+              scrolling element above — keeps the scrollbar flush with the
+              modal's edge. Stretches to fill the scroll container so the
+              textarea below can in turn flex to fill this. */}
+          <div className="flex min-h-0 flex-[1_1_0] flex-col gap-3.5 px-5">
+            <DialogDescription style={undefined} className={`${muted} text-[13px] leading-5 text-[var(--neutral-500)]`}>
+              Set context for every chat in this project.
+            </DialogDescription>
+
+            <div className="flex min-h-0 flex-[1_1_0] flex-col gap-1.5">
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value.slice(0, maxLength))}
+                maxLength={maxLength}
+                placeholder="e.g. Always respond in British English. Format all code in TypeScript. Be concise and avoid filler phrases..."
+                autoFocus
+                disabled={saving}
+                className={`kaya-scrollbar ${muted.replace('m-0 ', '')} box-border min-h-[220px] w-full flex-[1_1_0] resize-none rounded-xl border border-[var(--border-default)] bg-[var(--field-surface)] px-3.5 py-3 text-sm leading-[22px] text-[var(--legacy-1a1714)] shadow-[0px_1px_1.5px_0px_rgba(82,75,71,0.08)] outline-none focus:border-[var(--blue-400)] focus:shadow-[0px_0px_0px_3px_rgba(74,131,191,0.25),0px_1px_1.5px_0px_rgba(82,75,71,0.12)]`}
+              />
+              <p className={`${muted} text-right text-xs leading-4 text-[var(--neutral-400)]`}>
+                {draft.length} / {maxLength}
               </p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: '1 1 0', minHeight: 0 }}>
-                <textarea
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value.slice(0, maxLength))}
-                  maxLength={maxLength}
-                  placeholder="e.g. Always respond in British English. Format all code in TypeScript. Be concise and avoid filler phrases..."
-                  autoFocus
-                  disabled={saving}
-                  className="kaya-scrollbar"
-                  style={{
-                    fontFamily:   'var(--font-body)',
-                    fontWeight:   'var(--font-weight-regular)',
-                    fontSize:     '14px',
-                    lineHeight:   '22px',
-                    color:        'var(--legacy-1a1714)',
-                    background:   'var(--field-surface)',
-                    border:       '1px solid var(--border-default)',
-                    borderRadius: '12px',
-                    boxShadow:    '0px 1px 1.5px 0px rgba(82,75,71,0.08)',
-                    outline:      'none',
-                    resize:       'none',
-                    width:        '100%',
-                    minHeight:    '220px',
-                    flex:         '1 1 0',
-                    padding:      '12px 14px',
-                    boxSizing:    'border-box',
-                  }}
-                  onFocus={(e) => {
-                    Object.assign(e.currentTarget.style, {
-                      boxShadow:   '0px 0px 0px 3px rgba(74,131,191,0.25), 0px 1px 1.5px 0px rgba(82,75,71,0.12)',
-                      borderColor: 'var(--blue-400)',
-                    })
-                  }}
-                  onBlur={(e) => {
-                    Object.assign(e.currentTarget.style, {
-                      boxShadow:   '0px 1px 1.5px 0px rgba(82,75,71,0.08)',
-                      borderColor: 'var(--border-default)',
-                    })
-                  }}
-                />
-                <p
-                  style={{
-                    fontFamily:  'var(--font-body)',
-                    fontWeight:  'var(--font-weight-regular)',
-                    fontSize: '12px',
-                    lineHeight:  '16px',
-                    color:       'var(--neutral-400)',
-                    margin:      0,
-                    textAlign:   'right',
-                  }}
-                >
-                  {draft.length} / {maxLength}
-                </p>
-              </div>
-              </div>
             </div>
+          </div>
+        </div>
 
-            {/* Divider */}
-            <div style={{ height: '1px', background: 'var(--neutral-100)', flexShrink: 0 }} />
+        {/* Divider */}
+        <div className="h-px shrink-0 bg-[var(--neutral-100)]" />
 
-            {/* ── Footer ── */}
-            <div
-              style={{
-                display:        'flex',
-                justifyContent: 'flex-end',
-                alignItems:     'center',
-                gap:            '8px',
-                padding:        '16px 20px',
-                flexShrink:     0,
-              }}
-            >
-              <Button variant="ghost" onClick={onClose} disabled={saving}>Cancel</Button>
-              <Button variant="secondary" onClick={handleClear} loading={savingAction === 'clear'} disabled={!value || saving}>Clear</Button>
-              <Button variant="default" onClick={handleSave} loading={savingAction === 'save'} disabled={saving}>Save instructions</Button>
-            </div>
-          </m.div>
-        </m.div>
-      )}
-    </AnimatePresence>,
-    document.body
+        {/* ── Footer ── */}
+        <div className="flex shrink-0 items-center justify-end gap-2 px-5 py-4">
+          <Button variant="ghost" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button variant="secondary" onClick={handleClear} loading={savingAction === 'clear'} disabled={!value || saving}>Clear</Button>
+          <Button variant="default" onClick={handleSave} loading={savingAction === 'save'} disabled={saving}>Save instructions</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

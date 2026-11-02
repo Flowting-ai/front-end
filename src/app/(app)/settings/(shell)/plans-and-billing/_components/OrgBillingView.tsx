@@ -21,7 +21,7 @@ import {
   Badge,
   SectionCard,
 } from './billing-primitives'
-import { EnterprisePlansSkeleton, TeamsPlansSkeleton } from './billing-skeletons'
+import { BillingLoadError, EnterprisePlansSkeleton, TeamsPlansSkeleton } from './billing-skeletons'
 import { CancelSubscriptionDialog, InvoiceTable } from './billing-widgets'
 import dynamic from 'next/dynamic'
 import { SpendLimitCard } from './billing-spend'
@@ -32,8 +32,9 @@ const SpendCapModal = dynamic(() => import('./billing-spend').then(m => m.SpendC
 import { useOrgBillingView } from './use-org-billing-view'
 
 export function OrgBillingView() {
-  const { router, plan, isEnterprise, capModalOpen, setCapModalOpen, savingCap, showCancelDialog, setShowCancelDialog, isCanceling, isResuming, openingPortal, setOpeningPortal, isAdmin, overageCapUsd, overageUsd, overageUsedPct, totalCredits, usedCredits, hasPlan, billing, invoices, billingLoading, pm, cardBrand, hasDownloadableInvoice, handleStripePortal, handleExportAllInvoices, handleCancelSubscription, handleResumeSubscription, handleRequestPlanChange, handleRequestCapChange, handleSaveCap, nextBilling } = useOrgBillingView()
+  const { loadError, retrying, retryLoad, router, plan, isEnterprise, capModalOpen, setCapModalOpen, savingCap, showCancelDialog, setShowCancelDialog, isCanceling, isResuming, openingPortal, setOpeningPortal, isAdmin, overageCapUsd, overageUsd, overageUsedPct, totalCredits, usedCredits, hasPlan, billing, invoices, billingLoading, pm, cardBrand, hasDownloadableInvoice, handleStripePortal, handleExportAllInvoices, handleCancelSubscription, handleResumeSubscription, handleRequestPlanChange, handleRequestCapChange, handleSaveCap, nextBilling } = useOrgBillingView()
 
+  if (loadError) return <BillingLoadError onRetry={retryLoad} retrying={retrying} />
   if (billingLoading) {
     return (
       <div className="kaya-scrollbar" style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '64px 24px 48px' }}>

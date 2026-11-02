@@ -418,6 +418,11 @@ export const FlatSidebarRow = React.forwardRef<HTMLDivElement, FlatSidebarRowPro
           tabIndex={0}
           className={rootProps.className}
           style={rootProps.style}
+          // The theme's dark hover/selected text keys on these (theme.css); a
+          // link marks the current page with aria-current, not aria-pressed.
+          data-sidebar-active={rootProps['data-sidebar-active']}
+          data-sidebar-selected={rootProps['data-sidebar-selected']}
+          aria-current={!isHeader && selected ? 'page' : undefined}
           onMouseEnter={rootProps.onMouseEnter as unknown as React.MouseEventHandler<HTMLAnchorElement>}
           onMouseLeave={rootProps.onMouseLeave as unknown as React.MouseEventHandler<HTMLAnchorElement>}
           onKeyDown={rootProps.onKeyDown as unknown as React.KeyboardEventHandler<HTMLAnchorElement>}

@@ -26,9 +26,16 @@ let _onJump: (() => void) | null = null
 /** `onJump` runs before a fast-path jump (the registered scroller handles its
  *  own), so the chat can stop following the bottom — otherwise a streaming
  *  reply would pull the view straight back down. */
-export function registerChatScroller(fn: ChatScrollerFn | null, onJump?: () => void): void {
+export function registerChatScroller(fn: ChatScrollerFn, onJump?: () => void): () => void {
   _scroller = fn
-  _onJump = fn ? onJump ?? null : null
+  _onJump = onJump ?? null
+  // Unregisters only while still the owner: the old chat's cleanup can run after the new chat
+  // registered, and must not clear it.
+  return () => {
+    if (_scroller !== fn) return
+    _scroller = null
+    _onJump = null
+  }
 }
 
 /**

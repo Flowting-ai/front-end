@@ -21,7 +21,7 @@ export interface ProfileValues extends Record<string, unknown> {
 
 /** The profile form; the parsed values are what Save sends. */
 export const profileSchema = z.object({
-  firstName: z.string().trim().max(MAX_NAME_LENGTH, `Use ${MAX_NAME_LENGTH} characters or fewer`),
+  firstName: z.string().trim().min(1, 'Enter your first name').max(MAX_NAME_LENGTH, `Use ${MAX_NAME_LENGTH} characters or fewer`),
   lastName: z.string().trim().max(MAX_NAME_LENGTH, `Use ${MAX_NAME_LENGTH} characters or fewer`),
   avatar: z.string().nullable(),
 })
@@ -65,10 +65,11 @@ export function useProfileForm(base: ProfileValues) {
     try {
       const payload: Parameters<typeof saveUser>[0] = {}
       if (changes.nameChanged) {
-        payload.first_name = data.firstName || null
-        payload.last_name = data.lastName || null
+        // The backend skips null fields, so clearing goes as "" (first name is required above).
+        payload.first_name = data.firstName
+        payload.last_name = data.lastName
       }
-      if (changes.avatarChanged) payload.profile_picture = data.avatar
+      if (changes.avatarChanged) payload.profile_picture = data.avatar ?? ""
       // The PATCH returns the saved profile: seed ["me"] with it (AuthProvider follows that query)
       // instead of a second GET /users/me.
       currentUser.set(await saveUser(payload))

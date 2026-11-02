@@ -258,7 +258,7 @@ export function CompareLab() {
                     <footer style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 8, padding: "12px 18px", borderTop: "1px solid var(--neutral-100)", backgroundColor: "var(--neutral-50)" }}>
                       {[
                         ["Picked a model in", fmtMs(run.routeMs)],
-                        ["Finished in", run.done ? fmtMs(run.finishedMs) : "—"],
+                        ["Finished in", run.done && !run.error ? fmtMs(run.finishedMs) : "—"],
                         ["Cost", run.done ? fmtUsd(run.routeCost + (run.runCost ?? 0)) : "—"],
                       ].map(([label, value]) => (
                         <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>

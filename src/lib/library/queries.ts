@@ -77,28 +77,27 @@ export function useSuggested() {
   });
 }
 
-/**
- * Whether anything is shared with or by the viewer. The Shared tab only appears once it has something,
- * so this is a cheap one-row check, not the tab's list (that is a different query shape and key).
- */
-export function useHasShared(): { hasShared: boolean; hasUnread: boolean; isSettled: boolean; isSuccess: boolean } {
+/** The header's numbers in one call (`GET /library/summary`): Shared and unread counts, Trash count and storage. */
+export function useLibrarySummary() {
   const { orgKey, ready } = useLibraryViewer();
-  const result = useQuery({
-    queryKey: libraryKeys.hasShared(orgKey),
+  return useQuery({
+    queryKey: libraryKeys.summary(orgKey),
     enabled: ready,
-    queryFn: async ({ signal }) => {
-      const page = await libraryApi.listFiles(
-        // The Shared tab appears once something is shared WITH the person, which is exactly what `tab=shared` lists.
-        { tab: "shared", q: "", sources: [], types: [], sort: "shared", dir: "desc", unreadFirst: true },
-        null,
-        signal,
-      );
-      return { has: page.items.length > 0, unread: page.items.some((file) => file.unread) };
-    },
+    queryFn: async ({ signal }) => libraryApi.getSummary(signal),
     staleTime: MINUTE,
     retry: libraryRetry,
   });
-  return { hasShared: result.data?.has === true, hasUnread: result.data?.unread === true, isSettled: !result.isPending, isSuccess: result.isSuccess };
+}
+
+/** Whether anything is shared with the viewer, and whether any of it is unread. The Shared tab only appears once it has something. */
+export function useHasShared(): { hasShared: boolean; hasUnread: boolean; isSettled: boolean; isSuccess: boolean } {
+  const result = useLibrarySummary();
+  return {
+    hasShared: (result.data?.sharedWithMeCount ?? 0) > 0,
+    hasUnread: (result.data?.unreadSharedCount ?? 0) > 0,
+    isSettled: !result.isPending,
+    isSuccess: result.isSuccess,
+  };
 }
 
 /** The picker ("Add from Library"): ready, active, accessible files only, by search and type. */
@@ -193,6 +192,11 @@ export function useFilePreview(id: string, request: PreviewRequest, enabled: boo
     gcTime: 4 * MINUTE,
     placeholderData: keepPreviousData,
     retry: libraryRetry,
+    // A recording's transcript is made after upload: check again until it is there.
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      return data?.kind === "audio" && data.transcriptStatus === "pending" ? 15 * SECOND : false;
+    },
   });
 }
 

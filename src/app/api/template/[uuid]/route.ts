@@ -9,6 +9,7 @@ import {
   stateForStatus,
   TEMPLATE_FETCH_TIMEOUT_MS,
   TEMPLATE_ROUTE_ERRORS,
+  templateNoticeHtml,
   type TemplateLoadState,
 } from "@/lib/templates/template-view"
 
@@ -42,13 +43,22 @@ const SANDBOX_HEADERS = {
   "Cache-Control": "private, no-store",
 }
 
-function templateError(code: RouteErrorCode, state: TemplateLoadState): Response {
+function templateError(request: NextRequest, code: RouteErrorCode, state: TemplateLoadState): Response {
   const { status, message } = TEMPLATE_ROUTE_ERRORS[state]
+  // The template page's <iframe> shows whatever comes back: give it the notice, not raw JSON.
+  const dest = request.headers.get("sec-fetch-dest")
+  if (dest === "iframe" || dest === "document") {
+    const theme = new URL(request.url).searchParams.get("theme") === "dark" ? "dark" : "light"
+    return new Response(templateNoticeHtml(state, theme), {
+      status,
+      headers: { "Content-Type": "text/html; charset=utf-8", ...SANDBOX_HEADERS },
+    })
+  }
   return routeError(status, code, message)
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   ctx: { params: Promise<{ uuid: string }> },
 ): Promise<Response> {
   const parsed = ParamsSchema.safeParse(await ctx.params)
@@ -70,14 +80,14 @@ export async function GET(
   } catch (error) {
     const state = isTimeoutError(error) ? "timeout" : "error"
     logger.event("template_html_failed", { state, reason: "unreachable" }, "error")
-    return templateError(state === "timeout" ? "timeout" : "upstream_unreachable", state)
+    return templateError(request, state === "timeout" ? "timeout" : "upstream_unreachable", state)
   }
 
   if (!upstream.ok || !upstream.body) {
     // The backend's body stays in the server log; the browser gets a fixed message.
     const detail = await upstream.text().catch(() => "")
     logger.event("template_html_failed", { state: upstream.ok ? "error" : stateForStatus(upstream.status), status: upstream.status, detail: detail.slice(0, 500) })
-    return templateError("upstream_error", upstream.ok ? "error" : stateForStatus(upstream.status))
+    return templateError(request, "upstream_error", upstream.ok ? "error" : stateForStatus(upstream.status))
   }
 
   // Size cap: refuse a declared oversize body up front, and cut off an
@@ -85,7 +95,7 @@ export async function GET(
   if (declaredTooLarge(upstream.headers.get("content-length"))) {
     await upstream.body.cancel().catch(() => {})
     logger.event("template_html_failed", { state: "too_large", status: upstream.status })
-    return templateError("upstream_error", "too_large")
+    return templateError(request, "upstream_error", "too_large")
   }
   const body = capStream(upstream.body, undefined, () => logger.event("template_html_failed", { state: "too_large", streamed: true }))
 

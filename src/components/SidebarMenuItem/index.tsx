@@ -178,9 +178,12 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
 
     // When this item is deselected (another item was clicked), clear any stale
     // isFocused state so it doesn't remain visually active.
-    useEffect(() => {
+    // Adjusted during render when `selected` changes, not in an effect.
+    const [prevSelected, setPrevSelected] = useState(selected)
+    if (selected !== prevSelected) {
+      setPrevSelected(selected)
       if (!selected) setIsFocused(false)
-    }, [selected])
+    }
 
     // ── chat-item-edit state ───────────────────────────────────────────────────
     const [editValue, setEditValue] = useState(label)

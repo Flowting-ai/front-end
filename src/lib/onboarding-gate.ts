@@ -1,8 +1,8 @@
 import { auth0 } from "@/lib/auth0";
 import { userMeRootAllowsMainApp } from "@/lib/onboarding-access";
 import { parseUserMeGate, type UserMeGate } from "@/lib/api/user-me-schema";
-import { ONBOARDING_TEAM_WELCOME_ROUTE } from "@/lib/routes";
 import { logger } from "@/lib/logger";
+import { determineNextOnboardingPath } from "@/lib/onboarding-next-step";
 
 /**
  * The proxy's onboarding gate: reads GET /users/me with the session's token
@@ -51,9 +51,10 @@ function logGateFailure(reason: string, detail?: unknown): void {
  * each `<Link>` Next.js prefetches on hover/viewport cost a backend round-trip.
  * Hovering a sidebar full of links produced dozens of identical calls.
  *
- * Only `allowsMainApp === true` is cached, deliberately: "onboarded" is
- * monotonic (an account never un-onboards), so a hit can never wrongly let
- * someone through or wrongly bounce them. The un-onboarded state is *not*
+ * Only `allowsMainApp === true` is cached, deliberately. It is *almost* monotonic: completed onboarding
+ * never reverts, but access that came only from a paid or trial plan can lapse. A lapsed user therefore
+ * keeps getting through for up to ONBOARDED_TTL (60 s) after the change; the backend still authorizes
+ * every call, so this only delays the redirect to onboarding. The un-onboarded state is *not*
  * cached, because it changes mid-flow — a user who just submitted the import
  * step navigates immediately and must be re-read, or they would be bounced back
  * into onboarding. Un-onboarded users therefore still pay one call per request,
@@ -80,50 +81,8 @@ export function rememberOnboarded(sub: string | null): void {
   onboardedCache.set(sub, Date.now());
 }
 
-export function determineNextOnboardingPath(root: UserMeGate): string {
-  const onboarding: Record<string, unknown> = root.onboarding ?? root;
-
-  const filled = (name: string, alt?: string): boolean => {
-    const v = onboarding[name];
-    if (typeof v === "string" && v.length > 0) return true;
-    if (alt) {
-      const v2 = onboarding[alt];
-      return typeof v2 === "string" && v2.length > 0;
-    }
-    return false;
-  };
-
-  // v1.5 workspace-onboarding flow (docs v1.5/onboarding-v1.5-flow.md), case
-  // A1's 5 web-app steps:
-  //   setup (no data written)              → choice screen only
-  //   workspace (name + size)               → saves role_fit
-  //   profile (first/last name + role)      → saves first_name/last_name via
-  //                                            /users/me; user_role only if
-  //                                            the optional role field is set
-  //   invite (emails, optional)             → marks onboarding_completed
-  // There is no account-type/plans/Stripe/tone/import step in this flow —
-  // those belonged to the previous team-onboarding implementation.
-  //
-  // PENDING CONFIRMATION: `user_role` is optional at the profile step now, so
-  // it can't gate "has this person finished profile" the way it used to.
-  // first_name/last_name (top-level /users/me fields, not the onboarding
-  // sub-object) are used instead. That's a real signal, but Auth0 can
-  // auto-populate first_name to the account's email on some signups (see
-  // auth-context.tsx's mapProfileToUser) — this function can't tell a real
-  // name from that placeholder, so a user whose Auth0 profile happens to look
-  // "filled" could be skipped past /onboarding/profile without ever seeing
-  // it. Flagged, not silently assumed correct.
-  //
-  // Someone with no org and an invite waiting (signed up from Slack's Connect
-  // link, never finished) accepts it first: the workspace step would otherwise
-  // create them an org of their own, and then the invite can never be taken.
-  if (typeof root.pending_invite_id === "string") return ONBOARDING_TEAM_WELCOME_ROUTE(root.pending_invite_id);
-  if (!filled("role_fit", "roleFit")) return "/onboarding/setup";
-  const firstName = root.first_name ?? "";
-  const lastName = root.last_name ?? "";
-  if (!(firstName.trim().length > 0 && lastName.trim().length > 0)) return "/onboarding/profile";
-  return "/onboarding/invite";
-}
+// Shared with the client guard (components/shared/OnboardingGuard.tsx) so both pick the same step.
+export { determineNextOnboardingPath } from "@/lib/onboarding-next-step";
 
 export async function fetchOnboardingState(): Promise<OnboardingStateResult> {
   try {

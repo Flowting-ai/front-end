@@ -146,6 +146,10 @@
   .profile {
     flex-wrap: wrap;
   }
+  /* Give the name/email room before the actions wrap below it. */
+  .identity {
+    min-width: 140px;
+  }
 }
 
 /* Choice tiles: a radio group drawn as cards. Selected uses the design system's checkbox blue. */

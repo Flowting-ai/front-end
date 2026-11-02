@@ -10,6 +10,7 @@ import { toSelectedPersona, toSelectedPersonaFromCopy, type SelectedPersonaInfo 
 import { emitSidebarNewChat } from '@/hooks/use-sidebar-events'
 import { PENDING_PERSONA_KEY } from '@/lib/storage-keys'
 import { AGENT_EDIT_ROUTE, CHAT_ROUTE } from '@/lib/routes'
+import { agentChatBlocked } from '@/lib/agent-chat-gate'
 
 interface Inputs {
   personas: Persona[]
@@ -37,6 +38,7 @@ export function useAgentActions({ personas, onDeleted }: Inputs) {
    * "New chat" button uses.
    */
   function openInChat(selected: SelectedPersonaInfo) {
+    if (agentChatBlocked()) return
     sessionStorage.setItem(PENDING_PERSONA_KEY, JSON.stringify(selected))
     emitSidebarNewChat()
     push(CHAT_ROUTE)
@@ -79,6 +81,8 @@ export function useAgentActions({ personas, onDeleted }: Inputs) {
   // member's own account first, same as handleCopyAndEdit, then hand the
   // clone off to a fresh /chat.
   async function handleUseTeamSharedInChat(persona: Persona) {
+    // Before the copy, so a blocked use leaves no stray private copy behind.
+    if (agentChatBlocked()) return
     const toastId = toast.loading(`Opening "${persona.name}"…`)
     try {
       const copy = await copyPersonaRepoDeduped(persona.id, persona.activeVersionId)
@@ -100,6 +104,8 @@ export function useAgentActions({ personas, onDeleted }: Inputs) {
   // account first via copyPersonaRepoDeduped (seeded from the share's frozen
   // version id), then chip the resulting owned copy onto a fresh /chat.
   async function handleUseReceivedShareInChat(share: ReceivedShareResponse) {
+    // Before the copy, same as the team-shared path: a blocked use leaves no stray private copy.
+    if (agentChatBlocked()) return
     const toastId = toast.loading(`Opening "${share.name}"…`)
     try {
       const copy = await copyPersonaRepoDeduped(share.persona_repo_id, share.persona_id)

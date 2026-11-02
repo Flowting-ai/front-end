@@ -6,7 +6,13 @@ import type { ResponseBlock, WebCitation } from "@/types/chat";
 import { TextBlockContent } from "./TextBlockContent";
 import { BlockErrorBoundary } from "./BlockErrorBoundary";
 import { AnimatedTable } from "./AnimatedTable";
-import { AnimatedBarChart } from "./AnimatedBarChart";
+import dynamic from "next/dynamic";
+
+// Bar charts appear only in some replies; fetch on demand behind a same-height placeholder.
+const AnimatedBarChart = dynamic(() => import("./AnimatedBarChart").then((m) => m.AnimatedBarChart), {
+  ssr: false,
+  loading: () => <div aria-hidden style={{ minHeight: 220 }} />,
+});
 import { AnimatedSteps } from "./AnimatedSteps";
 import { AnimatedCodeBlock } from "./AnimatedCodeBlock";
 import { AnimatedCallout } from "./AnimatedCallout";

@@ -10,6 +10,8 @@ export type SliderVariant = 'default' | 'pips' | 'scrubber'
 
 export interface SliderProps
   extends Omit<React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>, 'onValueChange' | 'defaultValue' | 'value'> {
+  /** Accessible name for the thumb; required - there is no meaningful default. */
+  'aria-label':   string
   value?:         number[]
   defaultValue?:  number[]
   onValueChange?: (value: number[]) => void
@@ -181,7 +183,7 @@ export function Slider({
         {current.map((_, i) => (
           // eslint-disable-next-line react/no-array-index-as-key -- slider thumbs are positionally stable by definition
           <SliderPrimitive.Thumb key={i}
-            aria-label={props['aria-label'] ?? 'Value'}
+            aria-label={props['aria-label']}
             className="kds-slider-thumb"
             style={{
               display:         'block',

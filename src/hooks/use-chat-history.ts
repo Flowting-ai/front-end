@@ -18,6 +18,7 @@ import {
   patchChat,
   prependChat,
   removeChats,
+  restoreChat,
   type ChatPages,
 } from "@/lib/chat/chat-history-cache";
 import { queryKeys } from "@/lib/query-keys";
@@ -118,7 +119,7 @@ export function useChatHistory(): UseChatHistoryResult {
       await deleteChat(chatId);
       return true;
     } catch {
-      qc.setQueryData(LIST_KEY, snapshot);
+      write((data) => restoreChat(data, snapshot, chatId));
       toast.error("Failed to delete chat");
       return false;
     }

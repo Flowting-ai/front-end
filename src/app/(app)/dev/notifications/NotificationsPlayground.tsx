@@ -16,7 +16,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useMounted } from '@/hooks/use-mounted'
+import { useIsClient } from '@/hooks/use-is-client'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/Badge'
 import { Switch } from '@/components/Switch'
@@ -122,7 +122,7 @@ function PanelPreview({ label, notifications, loading = false }: { label: string
 // which the server render can't see — rendering it there would mismatch on
 // hydration (switch states, counts).
 export function NotificationsPlayground() {
-  const mounted = useMounted()
+  const mounted = useIsClient()
   return mounted ? <PlaygroundContent /> : null
 }
 

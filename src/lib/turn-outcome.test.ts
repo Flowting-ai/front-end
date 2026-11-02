@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { EMPTY_TURN_MESSAGE } from '@/lib/model-error'
 import {
+  CUT_OFF_MESSAGE,
   INCOMPLETE_ANSWER_MESSAGE,
   INTERRUPTED_MESSAGE,
   placeErrorNotice,
@@ -47,11 +48,11 @@ describe('resolveTurnOutcome', () => {
       .toMatchObject({ content: '', isError: false, errorNotice: undefined })
   })
 
-  it('treats a stream that closed early as complete when it showed something', () => {
+  it('keeps what a stream that closed early showed, with a cut-off notice under it', () => {
     expect(resolveTurnOutcome({ end: 'ended', rawContent: 'All of it.', hasOtherOutput: false }))
-      .toMatchObject({ content: 'All of it.', isError: false, errorNotice: undefined })
+      .toMatchObject({ content: 'All of it.', isError: false, errorNotice: CUT_OFF_MESSAGE })
     expect(resolveTurnOutcome({ end: 'ended', rawContent: '', hasOtherOutput: true }))
-      .toMatchObject({ content: '', isError: false })
+      .toMatchObject({ content: '', isError: false, errorNotice: CUT_OFF_MESSAGE })
     expect(resolveTurnOutcome({ end: 'ended', rawContent: '', reasoningText: 'thinking', hasOtherOutput: false }))
       .toMatchObject({ content: INTERRUPTED_MESSAGE, isError: true, thinking: 'thinking' })
   })

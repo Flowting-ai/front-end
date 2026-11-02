@@ -1,10 +1,11 @@
 'use client'
 
-import React, { useRef, useState } from 'react'
+import React, { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { TickTwoIcon, ArrowDownOneIcon } from '@strange-huge/icons'
 import { ROLE_LABEL } from '@/components/RoleBadge'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Spinner } from '@/components/Spinner'
 import { Dropdown, DropdownFloat } from '@/components/Dropdown'
 import { DropdownMenuItem } from '@/components/DropdownMenuItem'
@@ -273,55 +274,28 @@ function ConfirmModal({
   onCancel:     () => void
   onConfirm:    () => void
 }) {
-  // Same mousedown+click double-check as ManageRoleModal's own backdrop — a
-  // layout shift between press and release shouldn't be able to misfire this.
-  const backdropMouseDown = useRef(false)
-
+  // Radix Dialog: focus trap, Escape / overlay click cancel, focus returns to the role picker.
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-      style={{
-        position:        'fixed',
-        inset:           0,
-        zIndex:          400,
-        display:         'flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        backgroundColor: 'color-mix(in srgb, var(--static-black) 35%, transparent)',
-      }}
-      onMouseDown={(e) => { backdropMouseDown.current = e.target === e.currentTarget }}
-      onClick={(e) => {
-        if (backdropMouseDown.current && e.target === e.currentTarget) onCancel()
-        backdropMouseDown.current = false
-      }}
-    >
-      <div
-        style={{
-          width:           400,
-          maxWidth:        'calc(100vw - 32px)',
-          borderRadius:    20,
-          backgroundColor: 'var(--modal-bg)',
-          border:          '1px solid var(--border-default)',
-          boxShadow:       '0px 8px 32px color-mix(in srgb, var(--static-black) 12%, transparent)',
-          overflow:        'hidden',
-        }}
-        onClick={(e) => e.stopPropagation()}
+    <Dialog open onOpenChange={(next) => { if (!next) onCancel() }}>
+      <DialogContent
+        size="sm"
+        hideClose
+        role="alertdialog"
+        style={{ borderRadius: 20, backgroundColor: 'var(--modal-bg)', border: '1px solid var(--border-default)', boxShadow: '0px 8px 32px color-mix(in srgb, var(--static-black) 12%, transparent)' }}
       >
         <div style={{ padding: '24px 24px 16px' }}>
-          <h2 style={{ fontFamily: 'var(--font-title)', fontWeight: 500, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-900)', margin: 0 }}>
+          <DialogTitle style={{ fontFamily: 'var(--font-title)', fontWeight: 500, fontSize: 20, lineHeight: '28px', color: 'var(--neutral-900)', margin: 0 }}>
             {title}
-          </h2>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '4px 0 0' }}>
+          </DialogTitle>
+          <DialogDescription style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '4px 0 0' }}>
             {description}
-          </p>
+          </DialogDescription>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '20px 24px 24px' }}>
           <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
           <Button variant="danger" size="sm" onClick={onConfirm}>{confirmLabel}</Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

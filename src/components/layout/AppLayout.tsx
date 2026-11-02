@@ -20,6 +20,7 @@ import { featuredAppsQuery } from "@/lib/connectors/connector-queries";
 import { getQueryClient } from "@/lib/query-client";
 import { useHighlight } from "@/context/highlight-context";
 import { useProjectPanel } from "@/context/project-panel-context";
+import { useMobile } from "@/hooks/use-mobile";
 import { PINS_ENABLED, HIGHLIGHTS_ENABLED } from "@/lib/feature-flags";
 import {
   PROJECT_BASE_ROUTE,
@@ -126,6 +127,10 @@ export function AppLayout({
   // isConnectorsOrSlackPage below: give them the tight 3px card padding too, so
   // their scrollbar sits close to the rounded border instead of 12px inset.
   const isChatPage = pathname === CHAT_ROUTE || (isAnyProjectPage && pathname.includes('/chat/'))
+  // On phones the chat's floating tool column (FloatingPanel) would sit on top of
+  // the messages, so the chat main keeps a right gutter for it.
+  const isMobile = useMobile()
+  const reserveChatToolsGutter = isMobile && isChatPage
   const isChatSharesPage = pathname.startsWith('/chat-shares')
   // A file page fills the card edge to edge and owns its scrolling, like /agents.
   const isLibraryFilePage = pathname.startsWith('/library/files/')
@@ -174,17 +179,20 @@ export function AppLayout({
           backgroundColor: 'var(--neutral-white)',
         }}
       >
-        <Suspense fallback={null}>
-          <LeftSidebar
-            activeChatId={activeChatId}
-            onSelectChat={onSelectChat}
-            onNewChat={onNewChat}
-            defaultCollapsed={defaultSidebarCollapsed}
-          />
-        </Suspense>
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <ErrorBoundary variant="region" label="Sidebar">
+          <Suspense fallback={null}>
+            <LeftSidebar
+              activeChatId={activeChatId}
+              onSelectChat={onSelectChat}
+              onNewChat={onNewChat}
+              defaultCollapsed={defaultSidebarCollapsed}
+              />
+          </Suspense>
+        </ErrorBoundary>
+        {/* The page's landmark — every other branch wraps the page in a <main> too. */}
+        <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           <ErrorBoundary>{children}</ErrorBoundary>
-        </div>
+        </main>
         <AppDialogs />
       </div>
     )
@@ -201,14 +209,16 @@ export function AppLayout({
       }}
     >
       {/* ── Left sidebar ── */}
-      <Suspense fallback={null}>
-        <LeftSidebar
-          activeChatId={activeChatId}
-          onSelectChat={onSelectChat}
-          onNewChat={onNewChat}
-          defaultCollapsed={defaultSidebarCollapsed}
-        />
-      </Suspense>
+      <ErrorBoundary variant="region" label="Sidebar">
+        <Suspense fallback={null}>
+          <LeftSidebar
+            activeChatId={activeChatId}
+            onSelectChat={onSelectChat}
+            onNewChat={onNewChat}
+            defaultCollapsed={defaultSidebarCollapsed}
+            />
+        </Suspense>
+      </ErrorBoundary>
 
       {/* ── Center column - neutral-50 bg, flex-column so credit banner sits above content ── */}
       <div
@@ -299,6 +309,8 @@ export function AppLayout({
                 overscrollBehaviorY: (isPersonaChatPage || usesTightCard) ? undefined : "contain",
                 display:             "flex",
                 flexDirection:       "column",
+                paddingRight:        reserveChatToolsGutter ? 40 : undefined,
+                boxSizing:           "border-box",
               }}
             >
               <ErrorBoundary>{children}</ErrorBoundary>
@@ -322,9 +334,11 @@ export function AppLayout({
 
       {/* ── Right sidebar (Pinboard) ── */}
       {PINS_ENABLED && (
-        <Suspense fallback={null}>
-          <RightSidebar />
-        </Suspense>
+        <ErrorBoundary variant="region" label="Pinboard">
+          <Suspense fallback={null}>
+            <RightSidebar />
+          </Suspense>
+        </ErrorBoundary>
       )}
 
       {/* ── Highlight sidebar ── */}

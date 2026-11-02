@@ -7,7 +7,7 @@ import { ArrowUpRightOneIcon, CancelOneIcon } from '@strange-huge/icons'
 import { IconButton } from '@/components/ui/button'
 import { Tooltip } from '@/components/Tooltip'
 import { Skeleton } from '@/components/Skeleton'
-import { isLockedError } from '@/lib/library/errors'
+import { isAccessRequested, isLockedError } from '@/lib/library/errors'
 import { CHAT_MESSAGES, MESSAGES } from '@/lib/library/messages'
 import { downloadFile } from '@/lib/library/mutations'
 import { useLibraryFile } from '@/lib/library/queries'
@@ -62,7 +62,7 @@ export function ChatFilePanel({ fileId, cite = null, onClose }: ChatFilePanelPro
         {file.isPending ? (
           <Skeleton height={240} radius={12} />
         ) : locked ? (
-          <LockedState fileId={fileId} />
+          <LockedState fileId={fileId} requested={isAccessRequested(file.error)} />
         ) : gone || !open ? (
           <GoneState />
         ) : (

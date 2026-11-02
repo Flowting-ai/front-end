@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 import { type CardBrand } from '@/components/CardBrandLogo'
 import { useAuth, useAuthReady } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
-import { useMounted } from '@/hooks/use-mounted'
+import { useIsClient } from '@/hooks/use-is-client'
 import {
   Usage,
   TeamsTier,
@@ -36,7 +36,7 @@ import {
 export function usePersonalBillingView() {
   const router = useRouter()
   const { user, refreshUser, isHydrated, jwtToken } = useAuth()
-  const portalMounted = useMounted()
+  const portalMounted = useIsClient()
 
   // Lazy-init from the cached snapshot (runs once; SSR-safe) so returning from
   // Stripe paints instantly instead of flashing an empty "No Plan" state.
@@ -99,6 +99,15 @@ export function usePersonalBillingView() {
       window.removeEventListener('focus', onVisible)
     }
   }, [refreshUser])
+
+  // Without a cached snapshot the page can only render from usage + billing, so
+  // a failed fetch must surface as an error with Retry, not an endless skeleton.
+  const loadError = (usageQ.isError && !usage) || (billingQ.isError && !billingQ.data)
+  const [retrying, setRetrying] = useState(false)
+  const retryLoad = useCallback(() => {
+    setRetrying(true)
+    void Promise.allSettled([usageQ.refetch(), billingQ.refetch()]).finally(() => setRetrying(false))
+  }, [usageQ, billingQ])
 
   const liveReady = isHydrated && !!user && billingLoaded && usage !== null
   const nextBillingRaw = billing?.upcomingInvoice?.nextPaymentDate ?? user?.nextBillingDate ?? billing?.plan?.cycleEnd?.toISOString() ?? null
@@ -225,5 +234,5 @@ export function usePersonalBillingView() {
   }
 
 
-  return { router, billing, usage, billingLoaded, showCancelDialog, setShowCancelDialog, isCanceling, isResuming, isClaimingTrial, openingPortal, confirmState, showSkeleton, creditsTotal, creditsRemaining, creditsUsed, isTrialUser, planName, planPrice, planFeatures, hasActiveSub, hasPlan, chatCredits, slackCredits, automationCredits, nextBilling, periodEnd, cancelAtPeriodEnd, pm, cardBrand, invoices, hasDownloadableInvoice, billingPending, resetDate, handleStripePortal, handleExportAllInvoices, handleCancelSubscription, handleResumeSubscription, handleClaimTrial }
+  return { loadError, retrying, retryLoad, router, billing, usage, billingLoaded, showCancelDialog, setShowCancelDialog, isCanceling, isResuming, isClaimingTrial, openingPortal, confirmState, showSkeleton, creditsTotal, creditsRemaining, creditsUsed, isTrialUser, planName, planPrice, planFeatures, hasActiveSub, hasPlan, chatCredits, slackCredits, automationCredits, nextBilling, periodEnd, cancelAtPeriodEnd, pm, cardBrand, invoices, hasDownloadableInvoice, billingPending, resetDate, handleStripePortal, handleExportAllInvoices, handleCancelSubscription, handleResumeSubscription, handleClaimTrial }
 }

@@ -71,3 +71,41 @@ describe("template html route", () => {
     expect((await get()).status).toBe(502)
   })
 })
+
+// TP-1: the template page's <iframe> loads this route itself, so an error must be a readable notice.
+describe("template html route, loaded by the page's frame", () => {
+  const getFromFrame = () =>
+    GET(new Request(`http://localhost/api/template/${UUID}`, { headers: { "sec-fetch-dest": "iframe" } }) as NextRequest, {
+      params: Promise.resolve({ uuid: UUID }),
+    })
+
+  it.each([
+    ["a timeout", () => Promise.reject(Object.assign(new Error("t"), { name: "TimeoutError" })), 504, "This is taking too long"],
+    ["a backend failure", () => Promise.resolve(new Response("secret stack trace", { status: 500 })), 502, "Something went wrong"],
+    ["an oversize page", () => Promise.resolve(new Response("x", { headers: { "content-length": String(50 * 1024 * 1024) } })), 502, "This page is too large to show"],
+  ])("answers %s with the notice as sandboxed html", async (_name, upstream, status, heading) => {
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(upstream))
+    const response = await getFromFrame()
+    expect(response.status).toBe(status)
+    expect(response.headers.get("Content-Type")).toBe("text/html; charset=utf-8")
+    expect(response.headers.get("Content-Security-Policy")).toContain("sandbox")
+    const html = await response.text()
+    expect(html).toContain(`<h1>${heading}</h1>`)
+    expect(html).not.toContain("secret")
+    expect(html).not.toContain('"error"')
+  })
+})
+
+describe("template frame notice theme", () => {
+  it("follows the app's theme passed by the frame, not the OS", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("x", { status: 500 })))
+    const ask = (query: string) =>
+      GET(new Request(`http://localhost/api/template/${UUID}${query}`, { headers: { "sec-fetch-dest": "iframe" } }) as NextRequest, {
+        params: Promise.resolve({ uuid: UUID }),
+      }).then((r) => r.text())
+    expect(await ask("?theme=dark")).toContain("color-scheme:dark")
+    expect(await ask("?theme=light")).toContain("color-scheme:light")
+    expect(await ask("?theme=<script>")).toContain("color-scheme:light")
+    expect(await ask("?theme=dark")).not.toContain("prefers-color-scheme")
+  })
+})

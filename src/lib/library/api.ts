@@ -25,6 +25,8 @@ import {
   previewSchema,
   storageSchema,
   suggestedSchema,
+  summarySchema,
+  accessRequestSchema,
   trashPageSchema,
   uploadInitSchema,
   uploadStatusSchema,
@@ -44,6 +46,11 @@ const enc = encodeURIComponent;
 const fileUrl = (id: string) => `${BASE}/files/${enc(id)}`;
 const trashUrl = (id: string) => `${BASE}/trash/${enc(id)}`;
 const uploadUrl = (id: string) => `${BASE}/uploads/${enc(id)}`;
+
+/** A fresh key per action: the server answers a retried POST with the first answer instead of doing it twice. */
+function once(): RequestInit {
+  return { headers: { "Idempotency-Key": crypto.randomUUID() } };
+}
 
 function jsonBody(value: unknown): RequestInit {
   return { body: JSON.stringify(value) };
@@ -121,12 +128,14 @@ export const libraryApi = {
     parse(fileRowSchema, await apiFetchJson<unknown>(fileUrl(id), { method: "PATCH", ...jsonBody(renameSchemaFor(extension ?? undefined).parse({ title })) }), "renameFile"),
   trashFile: async (id: string) =>
     parse(z.object({ daysLeft: z.number().int().nonnegative() }), await apiFetchJson<unknown>(fileUrl(id), { method: "DELETE" }), "trashFile"),
-  requestAccess: (id: string) => apiFetchVoid(`${fileUrl(id)}/access-requests`, { method: "POST" }),
+  requestAccess: (id: string) => apiFetchVoid(`${fileUrl(id)}/access-requests`, { method: "POST", ...once() }),
+  /** Requests from teammates to open the caller's files. */
+  listAccessRequests: (signal?: AbortSignal) => get(z.array(accessRequestSchema), `${BASE}/access-requests`, "listAccessRequests", signal),
   restoreFile: (id: string) => apiFetchVoid(`${trashUrl(id)}/restore`, { method: "POST" }),
   deleteForever: (id: string) => apiFetchVoid(trashUrl(id), { method: "DELETE" }),
   emptyTrash: () => apiFetchVoid(`${BASE}/trash`, { method: "DELETE" }),
   addGrant: async (id: string, target: GrantTarget) =>
-    parse(accessListSchema, await apiFetchJson<unknown>(`${fileUrl(id)}/grants`, { method: "POST", ...grantBody(target) }), "addGrant"),
+    parse(accessListSchema, await apiFetchJson<unknown>(`${fileUrl(id)}/grants`, { method: "POST", ...once(), ...grantBody(target) }), "addGrant"),
   revokeGrant: async (id: string, grantId: string) =>
     parse(accessListSchema, await apiFetchJson<unknown>(`${fileUrl(id)}/grants/${enc(grantId)}`, { method: "DELETE" }), "revokeGrant"),
 
@@ -143,6 +152,7 @@ export const libraryApi = {
   },
 
   // Summaries
+  getSummary: (signal?: AbortSignal) => get(summarySchema, `${BASE}/summary`, "getSummary", signal),
   getStorage: (signal?: AbortSignal) => get(storageSchema, `${BASE}/storage`, "getStorage", signal),
   getLimits: (signal?: AbortSignal) => get(limitsSchema, `${BASE}/limits`, "getLimits", signal),
 
@@ -173,7 +183,7 @@ export const libraryApi = {
         "createUpload",
       ),
     ),
-  completeUpload: (id: string, parts: UploadPartEtag[]) => apiFetchVoid(`${uploadUrl(id)}/complete`, { method: "POST", ...jsonBody({ parts }) }),
+  completeUpload: (id: string, parts: UploadPartEtag[]) => apiFetchVoid(`${uploadUrl(id)}/complete`, { method: "POST", ...once(), ...jsonBody({ parts }) }),
   cancelUpload: (id: string) => apiFetchVoid(uploadUrl(id), { method: "DELETE" }),
   getUploadStatuses: (ids: string[], signal?: AbortSignal) =>
     get(z.array(uploadStatusSchema), `${BASE}/uploads?ids=${ids.map(enc).join(",")}`, "getUploadStatuses", signal),

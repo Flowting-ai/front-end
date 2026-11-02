@@ -25,7 +25,8 @@ export type PreviewFailure =
 
 export function previewFailure(err: unknown): PreviewFailure {
   const status = statusOf(err)
-  if (status === 404) return { state: "not_found" }
+  // 422: the id in the link is not even well-formed, so there is no such link either.
+  if (status === 404 || status === 422) return { state: "not_found" }
   if (status === 410) return { state: "expired" }
   return { state: "error", message: (status !== null && messageOf(err)) || "Something went wrong. Please try again." }
 }

@@ -2,12 +2,14 @@
 
 import React, { useId, useState } from 'react'
 import { toast } from 'sonner'
+import { z } from 'zod'
 import { CancelOneIcon, LinkSixIcon, UserAddOneIcon } from '@strange-huge/icons'
 import { Button, IconButton } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/Skeleton'
 import { Tooltip } from '@/components/Tooltip'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
+import { useZodForm } from '@/hooks/use-zod-form'
 import { personName } from '@/lib/library/access'
 import type { GrantTarget } from '@/lib/library/api'
 import { FILE_MESSAGES, MESSAGES } from '@/lib/library/messages'
@@ -26,6 +28,14 @@ const cx = (...names: (string | undefined | false)[]) => names.filter(Boolean).j
 
 /** Someone staged in the dialog, not shared with yet. */
 type Staged = { key: string; target: GrantTarget; label: string; toastLabel: string; person?: Person }
+
+/** The form: the search text and who is staged. Sharing needs at least one person or the workspace. */
+const shareFormSchema = z.object({
+  query: z.string(),
+  staged: z.array(z.custom<Staged>()).min(1, 'Add someone to share with'),
+})
+type ShareFormValues = { query: string; staged: Staged[] }
+const EMPTY_FORM: ShareFormValues = { query: '', staged: [] }
 
 const WORKSPACE: Staged = { key: 'workspace', target: { kind: 'workspace' }, label: FILE_MESSAGES.wholeWorkspace, toastLabel: 'everyone' }
 
@@ -98,10 +108,13 @@ export function ShareDialog({ file, onClose, onLostAccess }: { file: LibraryFile
   const inputId = useId()
   const listId = useId()
   const focusField = () => document.getElementById(inputId)?.focus()
-  const [query, setQuery] = useState('')
+  // Form state (search text + staged chips) runs through the shared Zod form helper.
+  const form = useZodForm<ShareFormValues>(shareFormSchema, EMPTY_FORM)
+  const { query, staged } = form.values
+  const setQuery = (value: string) => form.setField('query', value)
+  const setStaged = (next: Staged[]) => form.setField('staged', next)
   const [listOpen, setListOpen] = useState(false)
   const [active, setActive] = useState(0)
-  const [staged, setStaged] = useState<Staged[]>([])
   const [removing, setRemoving] = useState<AccessEntry | null>(null)
   const debounced = useDebouncedValue(query.trim(), 250)
   const access = useFileAccess(file.id)
@@ -117,47 +130,52 @@ export function ShareDialog({ file, onClose, onLostAccess }: { file: LibraryFile
   // Results lag the field (debounced, and the previous search shows while the next loads): until they
   // catch up, narrow them by the current text and don't let Enter pick from them.
   const stale = query.trim() !== debounced || people.isPlaceholderData
-  const options: Staged[] = [
+  // The workspace matches on its name or its subtitle, and leads the list while nothing is typed.
+  const workspaceOption: Staged[] =
+    !hasWorkspace && !isStaged(WORKSPACE.key) && access.data &&
+    [WORKSPACE.label, FILE_MESSAGES.everyoneInSouvenir].some((text) => text.toLowerCase().includes(needle))
+      ? [WORKSPACE]
+      : []
+  const personOptions: Staged[] = [
     ...(people.data ?? [])
       .filter((person) => !stale || person.name.toLowerCase().includes(needle))
       .filter((person) => person.id !== file.owner.id && !present.has(person.id) && !isStaged(person.id))
       .slice(0, 6)
       .map((person) => ({ key: person.id, target: { kind: 'user' as const, personId: person.id }, label: personName(person, viewerId), toastLabel: personName(person, viewerId), person })),
-    ...(!hasWorkspace && !isStaged(WORKSPACE.key) && access.data && WORKSPACE.label.toLowerCase().includes(needle) ? [WORKSPACE] : []),
   ]
+  const options: Staged[] = needle ? [...personOptions, ...workspaceOption] : [...workspaceOption, ...personOptions]
 
   if (removing) {
     return <RevokeConfirm file={file} entry={removing} entries={entries} viewerId={viewerId} onBack={() => setRemoving(null)} onLostAccess={() => { onClose(); onLostAccess?.() }} />
   }
 
   const stage = (option: Staged) => {
-    setStaged((items) => [...items, option])
-    setQuery('')
+    form.reset({ query: '', staged: [...staged, option] })
     setActive(0)
     // Keep typing: focus stays in the field and the list stays open for the next person.
     focusField()
   }
 
   const unstage = (key: string) => {
-    setStaged((items) => items.filter((other) => other.key !== key))
+    setStaged(staged.filter((other) => other.key !== key))
     focusField()
   }
 
-  const submit = () => {
-    if (staged.length === 0 || share.isPending) return
+  const submit = form.handleSubmit((data) => {
+    if (share.isPending) return
     share.mutate(
-      { id: file.id, targets: staged.map((item) => ({ target: item.target, label: item.toastLabel })) },
+      { id: file.id, targets: data.staged.map((item) => ({ target: item.target, label: item.toastLabel })) },
       {
-        onSuccess: () => setStaged([]),
+        onSuccess: () => form.reset(EMPTY_FORM),
         // Part way through: the ones already shared (or who already had access) leave the field, so a retry sends only the rest.
         onError: (error) => {
           if (!(error instanceof PartialShareError)) return
           const settled = new Set(settledShareKeys(error.outcome))
-          setStaged((items) => items.filter((item) => !settled.has(item.key)))
+          form.reset({ query: '', staged: data.staged.filter((item) => !settled.has(item.key)) })
         },
       },
     )
-  }
+  })
 
   const showList = listOpen
   const activeIndex = Math.min(active, Math.max(options.length - 1, 0))
@@ -176,7 +194,7 @@ export function ShareDialog({ file, onClose, onLostAccess }: { file: LibraryFile
       if (showList && options[activeIndex]) stage(options[activeIndex])
       else submit()
     } else if (event.key === 'Backspace' && query === '' && staged.length > 0) {
-      setStaged((items) => items.slice(0, -1))
+      setStaged(staged.slice(0, -1))
     }
   }
 
@@ -246,7 +264,8 @@ export function ShareDialog({ file, onClose, onLostAccess }: { file: LibraryFile
                 aria-label="People"
                 className={styles.listbox}
               >
-                {people.isPending || (stale && options.length === 0) ? (
+                {/* The workspace option needs no search, so it shows while people still load. */}
+                {(people.isPending || stale) && options.length === 0 ? (
                   <Skeleton height={36} radius={10} />
                 ) : options.length === 0 ? (
                   <p className={cx(styles.quiet, styles.noMatch)}>

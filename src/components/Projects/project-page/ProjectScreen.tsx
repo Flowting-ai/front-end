@@ -2,13 +2,14 @@
 
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { ArrowLeftOneIcon } from '@strange-huge/icons'
 import { ProjectNotFound } from '@/components/Projects/ProjectRouteStates'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 import { useProjects } from '@/context/projects-context'
 import { canProject } from '@/lib/projects/project-permissions'
-import { PROJECTS_ROUTE } from '@/lib/routes'
+import { PROJECT_ROUTE, PROJECTS_ROUTE } from '@/lib/routes'
 import { ProjectChatList } from './ProjectChatList'
 import { ProjectComposer } from './ProjectComposer'
 import { ProjectHeader } from './ProjectHeader'
@@ -58,11 +59,18 @@ export function ProjectScreen({ projectId }: { projectId: string }) {
 
   async function confirmDelete() {
     setDeleting(true)
+    // The context drops the project from every list optimistically, so leave its page right away
+    // instead of sitting on a "not found" screen while the delete runs. A failure puts it back,
+    // toasts from the context, and brings the user back to it.
+    const name = project?.name ?? 'Project'
+    const request = deleteProject(projectId)
+    push(PROJECTS_ROUTE)
     try {
-      await deleteProject(projectId)
-      push(PROJECTS_ROUTE)
+      await request
+      toast.success(`"${name}" deleted`)
     } catch {
       // the projects context already showed the error
+      push(PROJECT_ROUTE(projectId))
     } finally {
       setDeleting(false)
     }

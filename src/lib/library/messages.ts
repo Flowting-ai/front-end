@@ -121,6 +121,9 @@ export const FILE_MESSAGES = {
   citedPassage: "Cited passage",
   citedRow: "Cited row",
   cited: "Cited",
+  transcript: "Transcript",
+  transcriptPending: "Transcribing. The transcript shows here when it's ready.",
+  transcriptFailed: "This recording couldn't be transcribed. You can still play it.",
   uploading: "Uploading",
   processing: "Processing",
   libraryProcessing: "Preparing Library previews and search. You can already use the original file in chat or download it.",
@@ -128,7 +131,7 @@ export const FILE_MESSAGES = {
   shareQuiet: "Teammates can use shared files in their chats and routines.",
   addPeoplePlaceholder: "Add people or the whole workspace",
   wholeWorkspace: "Whole workspace",
-  everyoneInSouvenir: "Everyone in Souvenir",
+  everyoneInSouvenir: "Everyone in your workspace",
   /** Who has access, when no one but the owner can open the file. */
   privateFile: "Private",
   onlyYou: "Only you",

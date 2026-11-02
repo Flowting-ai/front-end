@@ -96,6 +96,7 @@ export function ProjectModals({ project, dialog, onClose, canEdit, canChangeVisi
         open={dialog === 'delete'}
         projectName={project.name}
         chatCount={project.chatCount}
+        restorable={project.visibility !== 'personal'}
         loading={deleting}
         onConfirm={onConfirmDelete}
         onClose={onClose}

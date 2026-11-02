@@ -3,13 +3,12 @@
 import { Tooltip } from '@/components/Tooltip'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
+import { useFocusReturn } from '@/components/ui/dialog'
 import * as VisuallyHidden from '@radix-ui/react-visually-hidden'
 import { Slot } from '@radix-ui/react-slot'
-import { AnimatePresence, m } from 'framer-motion'
 import { CancelOneIcon, ArrowDownOneIcon, InformationCircleIcon } from '@strange-huge/icons'
 import { Button } from '@/components/ui/button'
-import { Popover } from '@/components/Popover'
-import { DropdownMenuItem } from '@/components/DropdownMenuItem'
+import { Dropdown } from '@/components/Dropdown'
 import { cn } from '@/lib/utils'
 import type { WorkspaceRole } from '@/types/teams'
 
@@ -135,64 +134,32 @@ function EmailChipPill({ chip, onRemove }: { chip: EmailChip; onRemove: () => vo
 
 function RoleSelector({ value, onChange }: { value: WorkspaceRole; onChange: (r: WorkspaceRole) => void }) {
   const [open, setOpen] = useState(false)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const panelRef   = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const h = (e: MouseEvent) => {
-      if (panelRef.current?.contains(e.target as Node) || triggerRef.current?.contains(e.target as Node)) return
-      setOpen(false)
-    }
-    document.addEventListener('mousedown', h, { capture: true })
-    return () => document.removeEventListener('mousedown', h, { capture: true })
-  }, [open])
-
+  // Radix DropdownMenu (via Dropdown.Float): roving focus, and Escape closes only this menu,
+  // not the invite dialog around it.
   return (
     <div style={{ position: 'relative', flexShrink: 0 }}>
-      <Button
-        ref={triggerRef}
-        type="button"
-        variant="secondary"
-        size="sm"
-        rightIcon={<ArrowDownOneIcon size={11} />}
-        onClick={() => setOpen(o => !o)}
-        aria-haspopup="menu"
-        aria-expanded={open}
+      <Dropdown.Float
+        open={open}
+        onOpenChange={setOpen}
+        placement="bottom-end"
+        trigger={
+          <Button type="button" variant="secondary" size="sm" rightIcon={<ArrowDownOneIcon size={11} />}>
+            {ROLE_LABELS[value]}
+          </Button>
+        }
       >
-        {ROLE_LABELS[value]}
-      </Button>
-
-      <AnimatePresence>
-        {open && (
-          <m.div
-            key="role-panel"
-            initial={{ opacity: 0, scaleY: 0.8, transformOrigin: 'top center' }}
-            animate={{ opacity: 1, scaleY: 1, transition: { duration: 0.15, ease: [0.16, 1, 0.3, 1] } }}
-            exit={{ opacity: 0, scaleY: 0.85, transition: { duration: 0.08 } }}
-            style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 100, minWidth: 220 }}
-          >
-            <Popover
-              ref={panelRef}
-              variant="dropdown"
-              maxHeight={false}
-              role="menu"
-              aria-label="Select role"
-              style={{ padding: 4 }}
-            >
-              {ROLE_OPTIONS.map(role => (
-                <DropdownMenuItem
-                  key={role}
-                  fluid
-                  label={ROLE_LABELS[role]}
-                  selected={value === role}
-                  onClick={() => { onChange(role); setOpen(false) }}
-                />
-              ))}
-            </Popover>
-          </m.div>
-        )}
-      </AnimatePresence>
+        <Dropdown maxHeight={false} aria-label="Select role" style={{ padding: 4, minWidth: 220 }}>
+          {ROLE_OPTIONS.map(role => (
+            <Dropdown.Item
+              key={role}
+              fluid
+              label={ROLE_LABELS[role]}
+              selected={value === role}
+              onClick={() => { onChange(role); setOpen(false) }}
+            />
+          ))}
+        </Dropdown>
+      </Dropdown.Float>
     </div>
   )
 }
@@ -304,7 +271,9 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
     }, [])
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key === 'Escape') { onClose?.(); return }
+      // A Radix layer (the role menu, or the wrapping Dialog) that already handled this Escape
+      // marks it defaultPrevented; only close when nothing else did.
+      if (e.key === 'Escape') { if (!e.defaultPrevented) onClose?.(); return }
       if (e.key !== 'Tab') return
       const modal = e.currentTarget
       const els = Array.from(
@@ -534,6 +503,8 @@ export function AppInviteModal({
   existingEmails,
   allowedDomains,
 }: AppInviteModalProps) {
+  // Opened from a button without a Dialog.Trigger: hand focus back to it on close.
+  const { capture, handleCloseAutoFocus } = useFocusReturn()
   return (
     <Dialog.Root open={isOpen} onOpenChange={open => { if (!open) onClose() }}>
       <Dialog.Portal>
@@ -555,7 +526,9 @@ export function AppInviteModal({
             zIndex:    101,
             outline:   'none',
           }}
+          onCloseAutoFocus={handleCloseAutoFocus}
         >
+          {capture}
           <VisuallyHidden.Root asChild>
             <Dialog.Title>{workspaceName ? `Invite to ${workspaceName}` : 'Invite member'}</Dialog.Title>
           </VisuallyHidden.Root>

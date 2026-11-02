@@ -1,7 +1,8 @@
 // Library files switched off in a chat's Sources panel, per chat. Every message of that chat sends the
-// list (`librarySourcesOff`) so the backend leaves those files out of the answer. The backend is meant
-// to keep the list itself (LIBRARY_FLOW_A_BACKEND_TICKET.md Part 3 A10); until it does, this copy lives in
-// sessionStorage so a reload in the same tab keeps it.
+// list (`librarySourcesOff`, an empty list too once the chat has one) and the backend stores it on the chat
+// and leaves those files out of the answer (since 25 Oct). `GET /chats/{id}` returns the stored list, which
+// seeds this copy when the chat opens. A switch flipped since the last send lives only here until the next
+// message, so it is kept in sessionStorage and a reload in the same tab keeps it.
 
 const STORAGE_KEY = "library:v1:sources-off";
 const EMPTY: readonly string[] = Object.freeze([]);
@@ -21,6 +22,17 @@ function load(): Record<string, readonly string[]> {
 
 export function getSourcesOff(chatId: string): readonly string[] {
   return byChat[chatId] ?? EMPTY;
+}
+
+/** Whether the chat has a list at all (an empty one included), so a send can clear the server's copy. */
+export function hasSourcesOff(chatId: string): boolean {
+  return chatId in byChat;
+}
+
+/** The server's stored list, used unless this tab already holds a newer one. */
+export function seedSourcesOff(chatId: string, ids: readonly string[]): void {
+  if (!chatId || hasSourcesOff(chatId) || ids.length === 0) return;
+  setSourcesOff(chatId, ids);
 }
 
 export function setSourcesOff(chatId: string, ids: readonly string[]): void {

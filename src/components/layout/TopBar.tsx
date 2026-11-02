@@ -78,10 +78,13 @@ function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: 
       window.removeEventListener('project:chat-title-updated',  titleHandler);
     };
   }, []);
-  useEffect(() => {
+  // Reset on real Next.js navigation — adjusted during render, not in an effect.
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
     setActualPathname(pathname);
-    setDynamicChatTitle(null); // reset on real Next.js navigation
-  }, [pathname]);
+    setDynamicChatTitle(null);
+  }
 
   // Detect page type from pathname
   const projectChatMatch    = actualPathname.match(/^\/project\/([^/]+)\/chat\/([^/]+)$/);
@@ -168,7 +171,9 @@ function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: 
         justifyContent: "space-between",
         paddingTop:     "12px",
         paddingLeft:    "12px",
-        paddingRight:   "12px",
+        // On an open chat the Share button (ChatShareOverlay) sits absolutely at the top right; the
+        // title chip stops short of it instead of running underneath, which narrow screens hit first.
+        paddingRight:   isProjectChatPage || activeChatIdFromUrl ? "108px" : "12px",
         zIndex:         1,
       }}
     >

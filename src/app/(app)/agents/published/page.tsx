@@ -14,6 +14,7 @@ import { AGENTS_ROUTE, CHAT_ROUTE } from '@/lib/routes'
 import { emitSidebarNewChat } from '@/hooks/use-sidebar-events'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'
 import { PENDING_PERSONA_KEY } from '@/lib/storage-keys'
+import { agentChatBlocked } from '@/lib/agent-chat-gate'
 
 const AgentShareModal = dynamic(() => import('@/components/AgentShareModal').then(m => m.AgentShareModal), { ssr: false })
 
@@ -28,14 +29,19 @@ function toHandle(name: string): string {
 // ── Page content ──────────────────────────────────────────────────────────────
 
 function PersonaPublishedContent() {
-  const { push } = useRouter()
+  const { push, replace } = useRouter()
   const searchParams = useSearchParams()
   const nameParam     = searchParams.get('name') || ''
   const repoId        = searchParams.get('repoId')     ?? ''
+
+  // Only reached right after publishing, which passes the agent. Opened bare (a reload of a
+  // trimmed URL, a bookmark), there is nothing to celebrate: go to the agents list.
+  const noAgent = !repoId && !nameParam
+  useEffect(() => { if (noAgent) replace(AGENTS_ROUTE) }, [noAgent, replace])
   const isRepublished = searchParams.get('republished') === 'true'
 
 
-  const [personaName,    setPersonaName]    = useState(nameParam || 'Your Agent')
+  const [personaName,    setPersonaName]    = useState(nameParam)
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [personaImageUrl, setPersonaImageUrl] = useState<string | null>(null)
   // Kept in full (not just name/imageUrl) so "Use this Agent" can build a
@@ -68,7 +74,7 @@ function PersonaPublishedContent() {
   // own pending-persona key) rather than the AGENT_SELECT_EVENT used when the
   // Agents floating panel is opened from a page that's already mounted.
   function handleUseAgent() {
-    if (!personaRepo) return
+    if (!personaRepo || agentChatBlocked()) return
     const v = personaRepo.currentVersion
     const info: SelectedPersonaInfo = {
       id:              personaRepo.id,
@@ -96,6 +102,8 @@ function PersonaPublishedContent() {
     emitSidebarNewChat()
     push(CHAT_ROUTE)
   }
+
+  if (noAgent) return null
 
   return (
     <div
@@ -199,7 +207,7 @@ function PersonaPublishedContent() {
               >
                 <Image
                   src={personaImageUrl ?? '/icons/persona-image.svg'}
-                  alt={personaName}
+                  alt={personaName || 'Agent'}
                   fill
                   sizes="152px"
                   unoptimized
@@ -220,7 +228,7 @@ function PersonaPublishedContent() {
                     textAlign: 'center',
                   }}
                 >
-                  {personaName}
+                  {personaName || 'Your agent'}
                 </p>
                 <p
                   style={{
@@ -234,9 +242,8 @@ function PersonaPublishedContent() {
                     width: 392,
                   }}
                 >
-                  {isRepublished
-                    ? `“${personaName}” is now live with your latest changes.`
-                    : `“${personaName}” is now live. Add it from the Add button in any conversation.`}
+                  {/* No `?name=` and the repo not loaded (yet): neutral copy, not a placeholder in quotes. */}
+                  {`${personaName ? `“${personaName}”` : 'Your agent'} is now live${isRepublished ? ' with your latest changes.' : '. Add it from the Add button in any conversation.'}`}
                 </p>
               </div>
             </div>
@@ -290,7 +297,7 @@ function PersonaPublishedContent() {
                 </div>
               </div>
 
-              {/* Back to Library | Use this Agent | Configure Sharing — side by
+              {/* Back to Agents | Use this Agent | Configure Sharing — side by
                   side, all three sharing the same secondary/sm Button styling,
                   each with an inline icon sized a bit above Button's usual
                   16px default for a bit more visual weight. */}
@@ -301,7 +308,7 @@ function PersonaPublishedContent() {
                   leftIcon={<ArrowLeftOneIcon size={18} />}
                   onClick={() => push(AGENTS_ROUTE)}
                 >
-                  Back to Library
+                  Back to Agents
                 </Button>
 
                 {repoId && (
@@ -336,7 +343,7 @@ function PersonaPublishedContent() {
         <AgentShareModal
           open
           repoId={repoId}
-          agentName={personaName}
+          agentName={personaName || 'Your agent'}
           onClose={() => setShareModalOpen(false)}
         />
       )}

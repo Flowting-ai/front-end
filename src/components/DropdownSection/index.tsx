@@ -4,6 +4,7 @@ import React from 'react'
 import { cn } from '@/lib/utils'
 import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { Divider } from '@/components/Divider'
+import { useMenuMode, DropdownMenuGroup } from '@/components/ui/dropdown-menu'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -30,8 +31,12 @@ export interface DropdownSectionProps extends React.HTMLAttributes<HTMLDivElemen
 export function DropdownSection(
   { label, divider = false, fluid = false, children, className, style, ref, ...props }: DropdownSectionProps & { ref?: React.Ref<HTMLDivElement> },
 ) {
+    // Inside a Radix menu the section is a Radix Group (role="group"); its
+    // header row renders as a Radix Label via DropdownMenuItem.
+    const inMenu = useMenuMode() === 'menu'
+    const Comp = inMenu ? DropdownMenuGroup : 'div'
     return (
-      <div
+      <Comp
         ref={ref}
         className={cn(className)}
         style={{
@@ -51,7 +56,7 @@ export function DropdownSection(
             {children}
           </div>
         </div>
-      </div>
+      </Comp>
     )
 }
 

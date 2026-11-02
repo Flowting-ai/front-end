@@ -11,7 +11,9 @@ How to use this document:
 - Severity: **High** = data loss, security/permission hole or a core flow broken. **Medium** = a feature misbehaves, with a workaround. **Low** = polish, copy, consistency. **A11y** = accessibility.
 - "Side": **FE** = fix in front end, **BE** = needs backend, **FE/BE** = unclear or both.
 
-Out of scope (hidden behind flags that are off, or dead code), so not tested: Pins, Highlights, Settings preview pages (Preferences, Notifications, Security, Files), Library settings / Audit log / Inventory / Workspace library, Library request access, notification bell, `/dev/*`, `/browser-verify`, `/reasoning-verify`, `/compare` (unlinked model-comparison page).
+**25 Oct 2026 update:** Library was re-checked against backend `c03695a0`, which is deployed to devapi. See the "25 Oct update" part of [section 6](#6-library) and the new prototype-based case list `../2026-10-25/LIBRARY_QA_TEST_CASES.md` (223 cases, Admin and Member).
+
+Out of scope (hidden behind flags that are off, or dead code), so not tested: Pins, Highlights, Settings preview pages (Preferences, Notifications, Security, Files), Library settings / Audit log / Inventory / Workspace library, notification bell, `/dev/*`, `/browser-verify`, `/reasoning-verify`, `/compare` (unlinked model-comparison page).
 
 ---
 
@@ -43,7 +45,7 @@ Out of scope (hidden behind flags that are off, or dead code), so not tested: Pi
 | Projects | 28 | 3 / 2 / 2 / 2 |
 | Agents and Super Links | 34 | 1 / 4 / 3 / 0 |
 | Schedules | 30 | 0 / 3 / 5 / 4 |
-| Library | 34 | 1 / 2 / 3 / 2 |
+| Library | 34 + 12 (25 Oct) | 1 / 2 / 7 / 2 |
 | Connectors | 14 | 0 / 0 / 3 / 1 |
 | Souvenir in Slack | 6 | 0 / 0 / 0 / 0 |
 | Settings | 40 | 1 / 4 / 3 / 1 |
@@ -334,6 +336,37 @@ Seen once on the dev server and not reproduced: Radix "Slot failed to slot onto 
 
 Seen once: a nonsense search briefly showed "50 results, best matches first" (stale default list) before settling on "No files match".
 
+### 25 Oct update (backend `c03695a0`)
+
+**How it was tested:** Playwright as admin and member, plus direct devapi calls with each account's token. Test files were uploaded through the API: `thumb-test-1025.png`, a spoken `supplier-call-1025.wav` made with Windows text-to-speech, a corrupt `broken-1025.pdf`, and `return-policy-1025` sent in the chat "Policy Summary".
+
+**Checklist (new):**
+- [ ] Header storage label and the Shared tab's unread dot come from one `GET /library/summary` call.
+- [ ] A newly uploaded image shows a thumbnail in the All files row once processed. Files from before 25 Oct have none.
+- [ ] A new spoken recording shows timed transcript lines (`0:00 …`, `0:06 …`). While the transcript is pending, the page reads "Transcribing. The transcript shows here when it's ready." and checks again every 15 s.
+- [ ] Searching words spoken in the recording ("review prices") finds it, with a snippet.
+- [ ] A corrupt PDF stays readable at its link as a failed file. The page reads "This file couldn't be read." and offers no preview, Download or Ask.
+- [ ] In a chat, "Share the <file> with OS8 Test01": the answer confirms it and a toast reads "Shared with OS8 Test01 · **Undo**" (as the prototype). The member can now open the file. Undo shows "Sharing undone" and the member loses access.
+- [ ] (25 Oct) Dragging files over any chat (new chat, a chat, a project chat) shows one full-window layer, "Drop files to attach · They upload to this chat. Up to 10 files per message.", above everything including an open model menu. The composer strip and the project Files panel use the same neutral dashed border.
+- [ ] Share refusals reply and share nothing: "OS8 Test01 can already open it.", "Who should I share it with? Try OS8 Test01." There's no offer to use the browser.
+- [ ] A source switched off in the Sources panel is stored on the chat. A fresh tab still shows it off, and the answer leaves that file out.
+- [ ] Delete chat lists the chat's saved files ("1 saved file stays in Library."). With **Also delete these files** ticked, the toast reads "Chat deleted. 1 file in Trash. · Undo", and Undo brings back both the chat and the file.
+- [ ] As member, a file seen in a chat and then unshared shows the locked page with **Request access**. That changes to "Request sent", and the owner's `GET /library/access-requests` lists the request.
+- [ ] As member, a file never linked to them reads "No longer available" (404), not locked.
+- [ ] Chat send, grants, access requests and upload complete each carry an `Idempotency-Key`. A repeated chat send answers `409 already_sent`.
+
+**Bugs (new):**
+
+| ID | Sev | Side | Bug | Steps | Expected | Actual |
+|---|---|---|---|---|---|---|
+| LB-9 | Low | BE | Files from before 25 Oct have no thumbnail, and older recordings sit at "pending" | Open an older image, or an older recording's File page | Thumbnail and transcript, as for new files | No `thumbnailUrl`. `transcriptStatus: pending` until the backend gets to it (ticket `2026-10-25` R4.1, R4.2) |
+| LB-10 | Low | BE | "find the return policy" in web chat doesn't use the find tool | Ask it in a new chat | "Found 1 file." with a link | Answers from the file's contents (R4.3) |
+| LB-11 | Low | BE | Share reply for someone outside the workspace doesn't say why | "share the Weekly sales report with Lena" | "Lena isn't in your workspace." | "Who should I share it with? Try OS8 Test01." (R4.4) |
+| CH-6 | Med | FE | (Fixed 25 Oct) The "Drop files here" overlay sat under the composer's model menu, and each chat page drew its own version | Open the model menu, drag a file over the chat | Drop layer on top of everything | Fixed: one shared `FileDropOverlay` rendered into `document.body` at the top z-index |
+| LB-12 | Low | FE | A row's … menu still offers Ask about this on a refused upload | Find a refused upload in a list | Ask turned off | Offered. List rows don't carry the upload `phase`, so the front end can't tell (R4.5) |
+
+Re-check LB-1 to LB-6 against `c03695a0` (upload and Trash paths changed).
+
 ---
 
 ## 7. Connectors
@@ -463,6 +496,9 @@ No bugs found.
 - [ ] `/settings/usage` shows the member's own credits only.
 - [ ] `/souvenir-slack` is blocked for members (see section 8).
 - [ ] Library, Agents, Projects and Schedules load for the member. Files shared by the admin show on the member's Shared tab.
+- [ ] (25 Oct) The Library Shared tab shows the member's unread count from `/library/summary`. Share, Rename and Delete are turned off on a shared file ("Only the owner can change this"), and the server answers `403 only_owner`.
+- [ ] (25 Oct) The locked page offers **Request access** → "Request sent". A file never linked to the member reads "No longer available".
+- [ ] (25 Oct) The member can't open an admin's run outputs (private to the routine owner).
 
 ### Bugs
 

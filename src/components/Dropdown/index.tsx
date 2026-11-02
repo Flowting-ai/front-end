@@ -17,7 +17,8 @@
  * </Dropdown>
  * ```
  *
- * Wire to a Radix trigger for positioning + open/close:
+ * For a floating menu with trigger, positioning and keyboard support use
+ * `<Dropdown.Float>` (Radix DropdownMenu underneath). Static usage:
  * ```tsx
  * <AnimatePresence>
  *   {open && (
@@ -29,12 +30,16 @@
  * ```
  */
 
-import React, { useEffectEvent } from 'react'
-import { createPortal } from 'react-dom'
+import React from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import { Popover, type PopoverProps, type PopoverSize, type PopoverVariant, POPOVER_WIDTHS } from '@/components/Popover'
 import { DropdownSection, type DropdownSectionProps } from '@/components/DropdownSection'
 import { DropdownMenuItem, type DropdownMenuItemProps } from '@/components/DropdownMenuItem'
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuPortal, DropdownMenuContent,
+  DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent,
+  MenuModeContext, useMenuMode, SlotFocusContext,
+} from '@/components/ui/dropdown-menu'
 
 // Re-export for convenience - callers importing `Dropdown` get these for free.
 export type { PopoverSize, PopoverVariant, DropdownSectionProps, DropdownMenuItemProps }
@@ -104,16 +109,17 @@ function DropdownRoot({ variant = 'dropdown', children, ref, ...props }: Dropdow
 DropdownRoot.displayName = 'Dropdown'
 
 // ── Placement system (Dropdown.Float) ─────────────────────────────────────────
-// KDS dropdowns may appear in one of six placements relative to the trigger.
+// KDS dropdowns may appear in one of ten placements relative to the trigger.
 // Spec rules (USER-DEFINED - NEVER CHANGE UNLESS TOLD):
 //   • Gap between trigger and dropdown is always 8 px.
 //   • bottom-* and top-* placements align to one **side** of the trigger
 //     (start = left edges aligned, end = right edges aligned).
-//   • left-start and right-start align the dropdown's **top** to the
-//     trigger's top.
+//   • left-* and right-* placements anchor to the PARENT dropdown panel when
+//     the trigger lives inside one (nested menus), otherwise to the trigger.
 //   • Dropdowns sit at z-index 9998 - exactly one layer below the
 //     tooltip layer (9999), per the KDS overlay-z hierarchy.
-// Use `<Dropdown.Float>` (below) to get all of this for free.
+// Positioning, dismissal, focus management and keyboard navigation are all
+// delegated to Radix DropdownMenu.
 
 export type DropdownPlacement =
   | 'top-start'    | 'top-center'    | 'top-end'
@@ -124,95 +130,69 @@ export type DropdownPlacement =
 const DROPDOWN_GAP = 8
 const DROPDOWN_Z   = 9998
 
-// Per-placement transform-origin so the open/close animation appears to
-// emanate from the trigger's edge.
-const PLACEMENT_ORIGIN: Record<DropdownPlacement, string> = {
-  'top-start':     'bottom left',
-  'top-center':    'bottom center',
-  'top-end':       'bottom right',
-  'bottom-start':  'top left',
-  'bottom-center': 'top center',
-  'bottom-end':    'top right',
-  'left-start':    'top right',
-  'left-end':      'bottom right',
-  'right-start':   'top left',
-  'right-end':     'bottom left',
+type Side  = 'top' | 'bottom' | 'left' | 'right'
+type Align = 'start' | 'center' | 'end'
+
+function splitPlacement(placement: DropdownPlacement): { side: Side; align: Align } {
+  const [side, align] = placement.split('-') as [Side, Align]
+  return { side, align }
 }
 
-// Position style is split into TWO layers so centred placements can apply
-// `translateX(-50%)` on a static wrapper without colliding with the
-// scale/opacity transform on the inner m.div.
-//
-// Viewport dimensions come from `document.documentElement.clientWidth/Height`,
-// NOT `window.innerWidth/Height`. The latter includes the scrollbar, while
-// `getBoundingClientRect` and `position: fixed` both work in drawable-area
-// coordinates that exclude it. Using `innerWidth` for the right/bottom anchor
-// shifts dropdowns by the scrollbar width (≈15 px on macOS).
-function computeFloatStyle(
-  rect: DOMRect,
-  placement: DropdownPlacement,
-  gap: number,
-): React.CSSProperties {
-  const vw = document.documentElement.clientWidth
-  const vh = document.documentElement.clientHeight
-  const cx = rect.left + rect.width / 2 // horizontal centre of trigger
+const PANEL_SELECTOR = '[data-kds-dropdown-panel]'
 
-  switch (placement) {
-    case 'bottom-start':
-      return { top: rect.bottom + gap, left: rect.left }
-    case 'bottom-center':
-      return { top: rect.bottom + gap, left: cx, transform: 'translateX(-50%)' }
-    case 'bottom-end':
-      return { top: rect.bottom + gap, right: vw - rect.right }
-    case 'top-start':
-      return { bottom: vh - rect.top + gap, left: rect.left }
-    case 'top-center':
-      return { bottom: vh - rect.top + gap, left: cx, transform: 'translateX(-50%)' }
-    case 'top-end':
-      return { bottom: vh - rect.top + gap, right: vw - rect.right }
-    case 'right-start':
-      return { top: rect.top, left: rect.right + gap }
-    case 'right-end':
-      return { bottom: vh - rect.bottom, left: rect.right + gap }
-    case 'left-start':
-      return { top: rect.top, right: vw - rect.left + gap }
-    case 'left-end':
-      return { bottom: vh - rect.bottom, right: vw - rect.left + gap }
-  }
+const MENU_ANIMATION = {
+  initial:    { opacity: 0, scaleX: 0.95, scaleY: 0.75 },
+  animate:    { opacity: 1, scaleX: 1,    scaleY: 1    },
+  exit:       { opacity: 0, scaleX: 0.97, scaleY: 0.85, transition: { duration: 0.12, ease: [0.55, 0.085, 0.68, 0.53] as const } },
+  transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] as const },
+}
+
+const MENU_ORIGIN_STYLE: React.CSSProperties = {
+  transformOrigin: 'var(--radix-dropdown-menu-content-transform-origin)',
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null
+  if (!el || typeof el.closest !== 'function') return false
+  return !!el.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')
+}
+
+/**
+ * Keeps text fields inside a menu usable: Radix's typeahead / Tab trapping
+ * would otherwise swallow keystrokes typed into an `<input>` in the panel.
+ * Escape still bubbles so the menu can close.
+ */
+function EditableKeyGuard({ children }: { children: React.ReactNode }) {
+  return (    <div
+      style={{ display: 'contents' }}
+      onKeyDown={(e) => {
+        if (e.key !== 'Escape' && isEditableTarget(e.target)) e.stopPropagation()
+      }}
+    >
+      {children}
+    </div>
+  )
 }
 
 export interface DropdownFloatProps {
   /**
-   * The trigger element. Receives a merged ref + an onClick wrapper that
-   * toggles `open`. Pass any focusable interactive element (typically an
-   * `<IconButton>` or `<Button>`).
+   * The trigger element. Wrapped in a `<span>` that acts as the Radix trigger
+   * (opens/closes on pointer + keyboard). Pass any focusable interactive
+   * element (typically an `<IconButton>` or `<Button>`).
    */
   trigger: React.ReactElement
   /** Controlled open state. */
   open: boolean
   /** Open-state setter. */
   onOpenChange: (open: boolean) => void
-  /**
-   * Position of the dropdown relative to the trigger. Defaults to `bottom-end`.
-   *
-   *  - `bottom-start` / `bottom-end` - below the trigger, left- or right-aligned.
-   *  - `top-start`    / `top-end`    - above the trigger, left- or right-aligned.
-   *  - `right-start`                 - to the right of the trigger, top-aligned.
-   *  - `left-start`                  - to the left of the trigger, top-aligned.
-   */
+  /** Position of the dropdown relative to the trigger. Defaults to `bottom-end`. */
   placement?: DropdownPlacement
   /** Gap between trigger and dropdown. Defaults to 8 px (KDS standard). */
   offset?: number
   /**
-   * Opt-in vertical collision flip — measures the panel's real rendered
-   * height each time it opens and, if `placement` would overflow the
-   * viewport bottom, uses the opposite vertical anchor instead (`right-start`
-   * ↔ `right-end`, `left-start` ↔ `left-end`, `bottom-*` ↔ `top-*`) so the
-   * menu opens upward instead of running off-screen. Defaults to `false` —
-   * every existing caller keeps the exact fixed placement from the spec
-   * table above; this is for the rare case where the SAME trigger can sit
-   * anywhere in a scrollable list (e.g. a chat row near the bottom of the
-   * sidebar), where a single fixed placement can't work for every row.
+   * Opt-in collision handling - flips / shifts the panel so it stays inside
+   * the viewport (e.g. a chat row near the bottom of a scrolling sidebar).
+   * Defaults to `false`: the exact placement from the spec table is kept.
    */
   autoFlipVertical?: boolean
   /** Dropdown content - typically a `<Dropdown>` containing one or more `<Dropdown.Section>`s. */
@@ -220,38 +200,11 @@ export interface DropdownFloatProps {
 }
 
 /**
- * `Dropdown.Float` - controlled floating-menu wrapper. Handles:
- *  - Trigger ref + click-to-toggle wiring
- *  - Portal mounting to `document.body` (escapes ancestor `overflow`/`isolation`)
- *  - Placement-based positioning (`top-start`, `bottom-end`, `right-start`, …)
- *  - Click-outside + Escape close
- *  - Scroll/resize re-anchoring while open
- *  - Per-placement scale/opacity entry & exit (transform-origin = trigger edge)
+ * `Dropdown.Float` - controlled floating menu built on Radix DropdownMenu.
+ * Radix handles portal mounting, placement, outside-click / Escape
+ * dismissal, roving focus, typeahead and ARIA. This wrapper adds the KDS
+ * z-index, gap, nested-panel anchoring and the scale/opacity animation.
  */
-// Vertical-flip counterpart per placement — bidirectional, so a caller can
-// pass either a bottom-* or top-* default and have it flip to whichever side
-// actually has room. Horizontal-only anchors (left/right without a start/end
-// vertical component) don't have one.
-const VERTICAL_FLIP: Partial<Record<DropdownPlacement, DropdownPlacement>> = {
-  'right-start':   'right-end',
-  'right-end':     'right-start',
-  'left-start':    'left-end',
-  'left-end':      'left-start',
-  'bottom-start':  'top-start',
-  'bottom-center': 'top-center',
-  'bottom-end':    'top-end',
-  'top-start':     'bottom-start',
-  'top-center':    'bottom-center',
-  'top-end':       'bottom-end',
-}
-
-// Placements whose panel extends DOWNWARD from its anchor point (a "dropdown").
-// Everything else extends upward (a "dropup"). Drives which side of the
-// viewport `autoFlipVertical` checks for overflow.
-const OPENS_DOWNWARD = new Set<DropdownPlacement>([
-  'bottom-start', 'bottom-center', 'bottom-end', 'right-start', 'left-start',
-])
-
 export function DropdownFloat({
   trigger,
   open,
@@ -261,293 +214,128 @@ export function DropdownFloat({
   autoFlipVertical = false,
   children,
 }: DropdownFloatProps) {
-  // The trigger is wrapped in a static <span> so we can read a layout-box
-  // rect that's *independent of any transforms applied inside the trigger
-  // itself* (e.g. IconButton's `whileTap: { scale: 0.96 }`). Reading the
-  // trigger's own getBoundingClientRect during whileTap exit returns the
-  // scaled rect - that was anchoring `top-end` / `bottom-end` ~1 px short of
-  // the trigger's true right edge. CSS `transform` on a child doesn't affect
-  // its parent's layout box, so the wrapper's rect is always correct.
-  const triggerWrapRef = React.useRef<HTMLSpanElement | null>(null)
-  const panelRef       = React.useRef<HTMLDivElement | null>(null)
-  const wasOpenRef     = React.useRef(false)
-  const [posStyle, setPosStyle] = React.useState<React.CSSProperties>({})
-  // Only diverges from `placement` when autoFlipVertical actually flips it —
-  // drives both the position calc below and the transform-origin at render.
-  const [resolvedPlacement, setResolvedPlacement] = React.useState(placement)
+  // Static wrapper: its layout box is unaffected by transforms applied inside
+  // the trigger (e.g. IconButton's whileTap scale), so anchoring stays exact.
+  const triggerWrapRef       = React.useRef<HTMLSpanElement | null>(null)
+  const interactedOutsideRef = React.useRef(false)
+  const { side, align } = splitPlacement(placement)
+  const isSideways = side === 'left' || side === 'right'
 
-  const recompute = React.useCallback(() => {
-    const t = triggerWrapRef.current
-    if (!t) return
-    // Sideways placements + nested submenus: anchor to the parent dropdown
-    // panel, NOT the trigger row. The user expects the submenu's bottom (or
-    // top) to line up with the parent PANEL's edge - not with the row that
-    // happens to be the trigger. Section padding inside the parent means
-    // the last row's bottom sits 8 px above the panel's bottom; anchoring
-    // to the row would leave the submenu's bottom that 8 px short. For
-    // top/bottom placements we still anchor to the trigger because that's
-    // what people expect there ("dropdown drops right under this row").
-    let rect: DOMRect = t.getBoundingClientRect()
-    const isSideways =
-      placement === 'left-start'  || placement === 'left-end' ||
-      placement === 'right-start' || placement === 'right-end'
-    if (isSideways) {
-      const parentPanel = t.closest('[data-kds-dropdown-panel]') as HTMLElement | null
-      if (parentPanel) rect = parentPanel.getBoundingClientRect()
-    }
-
-    // Measures the panel's OWN already-mounted height — accurate even on the
-    // very first open, since useLayoutEffect (below) runs after the panel's
-    // content commits to the DOM but before the browser paints, so there's no
-    // visible flash at the un-flipped position first.
-    let effectivePlacement = placement
-    const flipped = VERTICAL_FLIP[placement]
-    if (autoFlipVertical && flipped) {
-      const panelHeight = panelRef.current?.offsetHeight ?? 0
-      const vh = document.documentElement.clientHeight
-      const opensDownward = OPENS_DOWNWARD.has(placement)
-      // Downward-opening placements (dropdowns) overflow when they'd run past
-      // the viewport BOTTOM; upward-opening ones (dropups) overflow when
-      // they'd run past the viewport TOP. Same rect/height, opposite edge.
-      const overflows = opensDownward
-        ? (isSideways ? rect.top + panelHeight + 8 > vh : rect.bottom + offset + panelHeight + 8 > vh)
-        : (isSideways ? rect.bottom - panelHeight - 8 < 0 : rect.top - offset - panelHeight - 8 < 0)
-      if (panelHeight > 0 && overflows) effectivePlacement = flipped
-    }
-    setResolvedPlacement(effectivePlacement)
-    setPosStyle(computeFloatStyle(rect, effectivePlacement, offset))
-  }, [placement, offset, autoFlipVertical])
-
-  // Find all keyboard-navigable menu items (excluding disabled / aria-disabled).
-  const getMenuItems = React.useCallback((): HTMLElement[] => {
-    const root = panelRef.current
-    if (!root) return []
-    return Array.from(
-      root.querySelectorAll<HTMLElement>(
-        '[role="menuitem"]:not([data-disabled]):not([aria-disabled="true"])',
-      ),
-    )
-  }, [])
-
-  // Return focus to the trigger's focusable element (button, link, etc.)
-  // when the menu closes via keyboard. Skips when the close was caused by a
-  // mouse click - re-focusing on click can pull a focus ring back onto the
-  // trigger that the user didn't ask for.
-  const focusTrigger = React.useCallback(() => {
-    const focusable =
-      triggerWrapRef.current?.querySelector<HTMLElement>(
-        'button, a[href], [role="button"], [tabindex]:not([tabindex="-1"])',
-      )
-    focusable?.focus()
-  }, [])
-
+  // Sideways placements inside another dropdown anchor to the PARENT panel's
+  // edges rather than the trigger row, so a nested menu lines up with the
+  // parent card. Radix anchors to the trigger, so convert that to offsets.
+  const [nested, setNested] = React.useState({ side: 0, align: 0 })
   React.useLayoutEffect(() => {
-    if (open) recompute()
-  }, [open, recompute])
+    if (!open || !isSideways) return
+    const t = triggerWrapRef.current
+    const panel = t?.closest(PANEL_SELECTOR) as HTMLElement | null
+    if (!t || !panel) return
+    const r = t.getBoundingClientRect()
+    const p = panel.getBoundingClientRect()
+    setNested({
+      side:  side === 'right' ? p.right - r.right : r.left - p.left,
+      align: align === 'end' ? r.bottom - p.bottom : p.top - r.top,
+    })
+  }, [open, isSideways, side, align])
 
-  // When the menu opens, move focus into it (first menu item). When it
-  // closes after having been open via keyboard, return focus to the trigger.
-  const focusFirstItem = useEffectEvent(() => { getMenuItems()[0]?.focus() })
-  const focusTriggerEvent = useEffectEvent(focusTrigger)
-  React.useEffect(() => {
-    if (open) {
-      // Defer one frame so the portal has mounted + framer-motion has
-      // applied its initial styles.
-      const id = requestAnimationFrame(() => { focusFirstItem() })
-      wasOpenRef.current = true
-      return () => cancelAnimationFrame(id)
-    }
-    if (wasOpenRef.current) {
-      // Closing - return focus to trigger only if focus is currently inside
-      // the (now-unmounting) menu. If the user clicked outside, focus has
-      // already moved elsewhere; don't yank it back.
-      const focusInsideMenu =
-        document.activeElement === document.body ||
-        panelRef.current?.contains(document.activeElement)
-      if (focusInsideMenu) focusTriggerEvent()
-      wasOpenRef.current = false
-    }
-  }, [open])
+  const focusTrigger = () => {
+    triggerWrapRef.current
+      ?.querySelector<HTMLElement>('button, a[href], [role="button"], [tabindex]:not([tabindex="-1"])')
+      ?.focus()
+  }
 
-  const closeMenu = useEffectEvent((v: boolean) => onOpenChange(v))
-  const recomputeEvent = useEffectEvent(recompute)
-  const navigateItems = useEffectEvent((key: string) => {
-    if (!panelRef.current?.contains(document.activeElement)) return
-    const items = getMenuItems()
-    if (items.length === 0) return
-    const i = items.indexOf(document.activeElement as HTMLElement)
-    switch (key) {
-      case 'ArrowDown': items[(i + 1) % items.length].focus(); break
-      case 'ArrowUp':   items[i <= 0 ? items.length - 1 : i - 1].focus(); break
-      case 'Home':      items[0].focus(); break
-      case 'End':       items[items.length - 1].focus(); break
-    }
-  })
-  React.useEffect(() => {
-    if (!open) return
-    const onPointerDown = (e: MouseEvent) => {
-      const target = e.target as Node
-      if (triggerWrapRef.current?.contains(target)) return
-      if (panelRef.current?.contains(target))       return
-      // Nested-dropdown coordination: clicks inside ANY KDS dropdown panel
-      // (including a submenu portaled to body that's logically nested under
-      // this one) should NOT close this dropdown. Each panel marks itself
-      // with `data-kds-dropdown-panel`; we walk up from the target to see
-      // if it lives inside any of them. If yes, treat as still inside.
-      const targetEl = target as Element
-      if (typeof targetEl.closest === 'function' && targetEl.closest('[data-kds-dropdown-panel]')) return
-      closeMenu(false)
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        // Only the dropdown that owns the focus closes on Escape - otherwise
-        // pressing Escape inside a nested submenu would close the parent too.
-        // Walk from `document.activeElement` to its closest panel; if that
-        // panel exists and isn't this one, ignore (the topmost dropdown's
-        // handler will fire).
-        const active = document.activeElement as Element | null
-        const ownerPanel = active?.closest?.('[data-kds-dropdown-panel]') ?? null
-        if (ownerPanel && ownerPanel !== panelRef.current) return
-        e.preventDefault()
-        closeMenu(false)
-        return
-      }
-      if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
-        e.preventDefault()
-        navigateItems(e.key)
-        return
-      }
-      if (e.key === 'Tab') {
-        // Per WAI-ARIA menu pattern, Tab dismisses the menu and lets the
-        // browser advance focus to the next page focusable. We close the
-        // menu but DON'T preventDefault - the natural Tab continues from
-        // the trigger after focus is restored.
-        closeMenu(false)
-      }
-    }
-    const onScrollOrResize = () => recomputeEvent()
-    document.addEventListener('mousedown', onPointerDown)
-    document.addEventListener('keydown',   onKey)
-    window.addEventListener('scroll', onScrollOrResize, true)
-    window.addEventListener('resize', onScrollOrResize)
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown)
-      document.removeEventListener('keydown',   onKey)
-      window.removeEventListener('scroll', onScrollOrResize, true)
-      window.removeEventListener('resize', onScrollOrResize)
-    }
-  }, [open])
-
-  // ARIA attributes on the trigger itself (focusable element); click handler
-  // lives on the wrapper-span and bubbles up from any descendant click.
   const wiredTrigger = React.cloneElement(trigger, {
     'aria-haspopup': 'menu',
     'aria-expanded': open,
   } as React.HTMLAttributes<HTMLElement>)
 
   return (
-    <>
-      {/* eslint-disable-next-line click-events-have-key-events, no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
-      <span
-        ref={triggerWrapRef}
-        style={{ display: 'inline-flex' }}
-        onClick={(e) => {
-          e.stopPropagation()
-          onOpenChange(!open)
-        }}
-      >
-        {wiredTrigger}
-      </span>
-      {typeof window !== 'undefined' && createPortal(
+    <DropdownMenu
+      modal={false}
+      open={open}
+      onOpenChange={(next) => {
+        if (next) interactedOutsideRef.current = false
+        onOpenChange(next)
+      }}
+    >
+      <DropdownMenuTrigger asChild>
+        <span
+          ref={triggerWrapRef}
+          style={{ display: 'inline-flex' }}
+          // Clicks on the trigger never reach ancestor rows (e.g. a chat row
+          // that navigates on click). Keyboard-synthesised clicks (`detail`
+          // 0 - e.g. Enter on a nested menu item used as trigger) toggle here,
+          // since Radix itself only listens for pointerdown / its own keydown.
+          onClick={(e) => {
+            e.stopPropagation()
+            if (e.detail === 0) onOpenChange(!open)
+          }}
+        >
+          {wiredTrigger}
+        </span>
+      </DropdownMenuTrigger>
+      <DropdownMenuPortal forceMount>
         <AnimatePresence initial={false}>
           {open && (
-            // Outer wrapper carries the fixed positioning + (for centred
-            // placements only) a `translateX(-50%)`. Keeping the centring
-            // transform off the m.div is essential - framer-motion's
-            // `scale` transform would otherwise collide with translate, and
-            // we'd lose the centre alignment as soon as the menu animates.
-            <div
-              ref={panelRef}
-              role="menu"
-              data-kds-dropdown-panel
-              style={{
-                position:      'fixed',
-                ...posStyle,
-                zIndex:        DROPDOWN_Z,
-                pointerEvents: 'none',
+            <DropdownMenuContent
+              forceMount
+              asChild
+              side={side}
+              align={align}
+              sideOffset={offset + nested.side}
+              alignOffset={nested.align}
+              avoidCollisions={autoFlipVertical}
+              collisionPadding={8}
+              data-kds-dropdown-panel=""
+              style={{ zIndex: DROPDOWN_Z, outline: 'none' }}
+              onCloseAutoFocus={(e) => {
+                e.preventDefault()
+                if (!interactedOutsideRef.current) focusTrigger()
+              }}
+              onInteractOutside={(e) => {
+                // Clicks / focus inside ANY KDS dropdown panel (e.g. a nested
+                // menu portaled to body) don't close this one.
+                const target = e.target as Element | null
+                if (target && typeof target.closest === 'function' && target.closest(PANEL_SELECTOR)) {
+                  e.preventDefault()
+                  return
+                }
+                interactedOutsideRef.current = true
+              }}
+              onKeyDown={(e) => {
+                // WAI-ARIA menu pattern: Tab dismisses the menu.
+                if (e.key === 'Tab') onOpenChange(false)
               }}
             >
-              <m.div
-                initial={{ opacity: 0, scaleX: 0.95, scaleY: 0.75 }}
-                animate={{ opacity: 1, scaleX: 1,    scaleY: 1    }}
-                exit={{    opacity: 0, scaleX: 0.97, scaleY: 0.85, transition: { duration: 0.12, ease: [0.55, 0.085, 0.68, 0.53] } }}
-                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                style={{ transformOrigin: PLACEMENT_ORIGIN[resolvedPlacement], pointerEvents: 'auto' }}
-              >
-                {children}
+              <m.div {...MENU_ANIMATION} style={MENU_ORIGIN_STYLE}>
+                <MenuModeContext.Provider value="menu">
+                  <EditableKeyGuard>{children}</EditableKeyGuard>
+                </MenuModeContext.Provider>
               </m.div>
-            </div>
+            </DropdownMenuContent>
           )}
-        </AnimatePresence>,
-        document.body,
-      )}
-    </>
+        </AnimatePresence>
+      </DropdownMenuPortal>
+    </DropdownMenu>
   )
 }
 
 DropdownFloat.displayName = 'Dropdown.Float'
 
 // ── Dropdown.Submenu ──────────────────────────────────────────────────────────
-// Hover-triggered nested dropdown. Differs from `Dropdown.Float` in three
-// key ways, all driven by submenu UX conventions:
+// Hover-triggered nested menu built on Radix `DropdownMenu.Sub`. Radix owns
+// hover intent, the pointer-grace "safe triangle", ArrowRight / ArrowLeft /
+// Escape handling and viewport collision flipping. The submenu sits 8 px
+// outside the PARENT panel's edge and top-aligns with the trigger row.
 //
-//   1. Opens on hover/focus (80 ms intent delay) and closes on leave
-//      (220 ms grace period). Keyboard also opens.
-//   2. Anchors VERTICALLY to the trigger row, HORIZONTALLY to the parent
-//      dropdown panel - the submenu sits 8 px to the right of the parent
-//      card's edge so the visible gap is consistent.
-//   3. Vertically auto-flips: defaults to top-aligned with the trigger row.
-//      If the submenu would overflow the viewport bottom, the bottom-edge
-//      aligns with the trigger row instead.
-//
-// Safe triangle (frozen-vertex variant). Two facts make this hard:
-//   • Travelling diagonally from the trigger to the submenu inevitably
-//     crosses sibling rows; their `onMouseEnter` would steal hover.
-//   • A "live cursor" triangle (re-computed every frame from the current
-//     cursor) shrinks to nothing as the cursor moves and provides almost
-//     no protection. The vertex must be FROZEN at the moment the user
-//     starts moving rightward.
-//
-// Algorithm:
-//   • While the submenu is open, listen for `pointermove`. The first
-//     rightward sample (deltaX > 1 device-pixel) FREEZES the triangle
-//     vertex at the cursor's current position. Any leftward sample past
-//     the frozen vertex unfreezes it (user changed their mind).
-//   • A `requestAnimationFrame` loop checks each frame whether the cursor
-//     is inside the submenu rect, inside the grace triangle (frozen vertex
-//     → submenu top-left −10 px → submenu bottom-left +10 px), or outside.
-//   • While inside the safe triangle: clear any pending close timer AND
-//     suppress `pointer-events` on the parent dropdown panel so sibling
-//     rows can't fire their `onMouseEnter` and steal hover. When the
-//     cursor exits the triangle, schedule an 80 ms close.
-//   • Touch / pen pointers bypass the safe triangle entirely (only mouse
-//     gets the grace zone).
-//
-// Reference: specs/components/dropdown.md § Submenus.
+// Meant to be rendered inside a `Dropdown.Float`. Outside any Radix menu it
+// falls back to a hover-opened standalone floating menu.
 
 const SUBMENU_OPEN_DELAY  = 80
 const SUBMENU_CLOSE_DELAY = 220
-const SUBMENU_EXIT_CLOSE  = 80     // close after exiting safe triangle
-const SUBMENU_LEAVE_CLOSE = 120    // close after leaving submenu panel
-const SUBMENU_GAP         = DROPDOWN_GAP
-const SAFE_TRIANGLE_PAD   = 10     // px extension beyond submenu top/bottom
 
 export interface DropdownSubmenuProps {
-  /**
-   * The trigger row - typically a `<Dropdown.Item rightIcon={<ArrowRightOneIcon />}>`.
-   * Receives a wrapping `<span>` ref + hover/focus/keyboard handlers via
-   * the wrapper, so the trigger element itself is unmodified.
-   */
+  /** The trigger row - typically a `<Dropdown.Item rightIcon={<ArrowRightOneIcon />}>`. */
   trigger: React.ReactElement
   /** Submenu contents - typically a `<Dropdown size="md">` with one or more sections. */
   children: React.ReactNode
@@ -557,382 +345,114 @@ export interface DropdownSubmenuProps {
   onOpenChange?: (open: boolean) => void
 }
 
-type Point = { x: number; y: number }
-
-// Even-odd ray-casting point-in-polygon test. Works for any simple polygon
-// (including the 3-vertex grace triangle), not just convex shapes.
-function isPointInPolygon(point: Point, polygon: Point[]): boolean {
-  let inside = false
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i].x, yi = polygon[i].y
-    const xj = polygon[j].x, yj = polygon[j].y
-    const intersect =
-      yi > point.y !== yj > point.y &&
-      point.x < ((xj - xi) * (point.y - yi)) / (yj - yi) + xi
-    if (intersect) inside = !inside
-  }
-  return inside
-}
-
-function buildGraceTriangle(vertex: Point, submenuRect: DOMRect, padding = SAFE_TRIANGLE_PAD): Point[] {
-  return [
-    vertex,
-    { x: submenuRect.left, y: submenuRect.top    - padding },
-    { x: submenuRect.left, y: submenuRect.bottom + padding },
-  ]
-}
-
-export function DropdownSubmenu({ trigger, children, open: controlledOpen, onOpenChange }: DropdownSubmenuProps) {
+function useControllableOpen(controlledOpen: boolean | undefined, onOpenChange?: (open: boolean) => void) {
   const isControlled = controlledOpen !== undefined
   const [internalOpen, setInternalOpen] = React.useState(false)
   const open = isControlled ? !!controlledOpen : internalOpen
-  const setOpen = React.useCallback(
-    (next: boolean) => {
-      if (!isControlled) setInternalOpen(next)
-      onOpenChange?.(next)
-    },
-    [isControlled, onOpenChange],
-  )
-
-  const triggerWrapRef    = React.useRef<HTMLSpanElement | null>(null)
-  const panelRef          = React.useRef<HTMLDivElement  | null>(null)
-  const parentPanelRef    = React.useRef<HTMLElement     | null>(null)
-  const openTimerRef      = React.useRef<number | null>(null)
-  const closeTimerRef     = React.useRef<number | null>(null)
-  const cursorRef         = React.useRef<Point>({ x: 0, y: 0 })
-  // NaN, not a real coordinate — signals "not yet calibrated" so the
-  // pointermove tracker's first sample after each (re)attachment can skip
-  // computing a delta against a stale leftover position (see the tracker
-  // effect below).
-  const prevCursorXRef    = React.useRef<number>(NaN)
-  const frozenVertexRef   = React.useRef<Point | null>(null)
-  const inSafeZoneRef     = React.useRef<boolean>(false)
-  const rafIdRef          = React.useRef<number>(0)
-  const [posStyle, setPosStyle]               = React.useState<React.CSSProperties>({})
-  const [openOriginAxis, setOpenOriginAxis]   = React.useState<'top' | 'bottom'>('top')
-  // Horizontal axis: 'left' = submenu opens to the right of the parent panel
-  // (default), 'right' = submenu opens to the LEFT of the parent panel
-  // (auto-flipped when the right side would overflow the viewport).
-  const [openOriginXAxis, setOpenOriginXAxis] = React.useState<'left' | 'right'>('left')
-
-  const clearOpenTimer  = React.useCallback(() => {
-    if (openTimerRef.current  != null) { clearTimeout(openTimerRef.current);  openTimerRef.current  = null }
-  }, [])
-  const clearCloseTimer = React.useCallback(() => {
-    if (closeTimerRef.current != null) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null }
-  }, [])
-
-  const scheduleOpen = React.useCallback(() => {
-    clearCloseTimer()
-    if (open || openTimerRef.current != null) return
-    openTimerRef.current = window.setTimeout(() => {
-      openTimerRef.current = null
-      setOpen(true)
-    }, SUBMENU_OPEN_DELAY)
-  }, [open, setOpen, clearCloseTimer])
-
-  const scheduleClose = React.useCallback((ms: number = SUBMENU_CLOSE_DELAY) => {
-    clearOpenTimer()
-    if (closeTimerRef.current != null) clearTimeout(closeTimerRef.current)
-    closeTimerRef.current = window.setTimeout(() => {
-      closeTimerRef.current = null
-      setOpen(false)
-      inSafeZoneRef.current   = false
-      frozenVertexRef.current = null
-      // Restore pointer-events on the parent dropdown panel in case we
-      // suppressed them during the safe-zone phase.
-      if (parentPanelRef.current) parentPanelRef.current.style.pointerEvents = ''
-    }, ms)
-  }, [setOpen, clearOpenTimer])
-
-  React.useEffect(() => () => { clearOpenTimer(); clearCloseTimer() }, [clearOpenTimer, clearCloseTimer])
-
-  // Compute placement once the panel mounts. Default: top-aligned with the
-  // trigger row, 8 px to the right of the PARENT panel's edge. Flip
-  // vertically when the submenu would overflow the bottom of the viewport.
-  // We measure the panel's actual height (capped by Popover.maxHeight) so
-  // the flip decision is exact.
-  const recompute = React.useCallback(() => {
-    const t = triggerWrapRef.current
-    const p = panelRef.current
-    if (!t || !p) return
-    const rect = t.getBoundingClientRect()
-    const parentPanel = t.closest('[data-kds-dropdown-panel]') as HTMLElement | null
-    parentPanelRef.current = parentPanel
-    const panelRect   = parentPanel ? parentPanel.getBoundingClientRect() : rect
-    const vw          = document.documentElement.clientWidth
-    const vh          = document.documentElement.clientHeight
-    const panelWidth  = p.offsetWidth
-    const panelHeight = p.offsetHeight
-
-    // Horizontal placement - default opens to the right of the parent panel
-    // (8 px gap, KDS standard). When that would overflow the viewport's
-    // right edge AND the LEFT side has room, flip to open on the left of
-    // the parent panel. The transform-origin follows the chosen edge so the
-    // open animation emanates from the correct side. 8 px viewport-edge
-    // safety margin on both sides.
-    const rightAnchor    = panelRect.right + SUBMENU_GAP
-    const overflowsRight = rightAnchor + panelWidth + 8 > vw
-    const leftFlipFits   = panelRect.left - SUBMENU_GAP - panelWidth >= 8
-    let leftStyle: number
-    let originX: 'left' | 'right'
-    if (overflowsRight && leftFlipFits) {
-      leftStyle = panelRect.left - SUBMENU_GAP - panelWidth
-      originX   = 'right'
-    } else {
-      leftStyle = rightAnchor
-      originX   = 'left'
-    }
-    setOpenOriginXAxis(originX)
-
-    const overflowsBelow = rect.top + panelHeight + 8 > vh
-    if (overflowsBelow) {
-      setOpenOriginAxis('bottom')
-      setPosStyle({ left: leftStyle, bottom: vh - rect.bottom })
-    } else {
-      setOpenOriginAxis('top')
-      setPosStyle({ left: leftStyle, top: rect.top })
-    }
-  }, [])
-
-  React.useLayoutEffect(() => {
-    if (open) recompute()
-  }, [open, recompute])
-
-  // Pointer-move tracker - feeds `cursorRef` and manages the frozen vertex.
-  // Only mouse pointers participate in the safe triangle; touch / pen
-  // pointers fall through to the standard close-grace flow.
-  const recomputeSubmenu = useEffectEvent(recompute)
-  React.useEffect(() => {
-    if (!open) return
-    const onMove = (e: PointerEvent) => {
-      if (e.pointerType !== 'mouse') return
-      const cx = e.clientX
-      const cy = e.clientY
-      // First sample since this listener (re)attached — `prevCursorXRef` is
-      // still whatever was left from the LAST time the submenu was open (or
-      // its initial NaN), not the cursor's actual current position. Treating
-      // that as a real previous position produced a huge spurious `deltaX`
-      // on this very first event, which read as "rightward intent" and
-      // froze the safe-triangle vertex even for a user who never moved
-      // toward the submenu — a later, still-legitimate movement anywhere
-      // else in the trigger row could then land outside that bogus triangle
-      // and close the submenu out from under a cursor that never left the
-      // trigger. Calibrate instead of computing a delta this one time.
-      if (Number.isNaN(prevCursorXRef.current)) {
-        prevCursorXRef.current = cx
-        cursorRef.current = { x: cx, y: cy }
-        return
-      }
-      const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
-      const threshold = Math.max(1, 1 / dpr)
-      const deltaX = cx - prevCursorXRef.current
-      // Rightward intent → FREEZE the triangle vertex here so the safe
-      // zone is anchored to where the user committed to the gesture.
-      if (deltaX > threshold && !frozenVertexRef.current) {
-        frozenVertexRef.current = { x: cx, y: cy }
-      } else if (frozenVertexRef.current && cx < frozenVertexRef.current.x) {
-        // Cursor moved back to the left of the vertex → user is no longer
-        // heading toward the submenu. Unfreeze and let the rAF loop fall
-        // through to the standard exit path on the next sample.
-        frozenVertexRef.current = null
-      }
-      prevCursorXRef.current = cx
-      cursorRef.current = { x: cx, y: cy }
-    }
-    const onScrollOrResize = () => recomputeSubmenu()
-    document.addEventListener('pointermove', onMove)
-    window.addEventListener('scroll', onScrollOrResize, true)
-    window.addEventListener('resize', onScrollOrResize)
-    return () => {
-      document.removeEventListener('pointermove', onMove)
-      window.removeEventListener('scroll', onScrollOrResize, true)
-      window.removeEventListener('resize', onScrollOrResize)
-      // Recalibrate on next open rather than comparing against wherever the
-      // cursor happened to be when this submenu last closed.
-      prevCursorXRef.current = NaN
-    }
-  }, [open])
-
-  // rAF loop - runs only while open. Per frame:
-  //   • If cursor is inside the submenu rect OR still inside the trigger's
-  //     own rect → clear close, restore pointer-events on the parent panel.
-  //   • Else if a vertex is frozen → check the grace triangle. Inside →
-  //     keep open, suppress parent panel pointer-events so siblings can't
-  //     steal hover. Outside (and we WERE in the zone) → schedule the
-  //     short exit close.
-  //   • Else → no special handling; the standard trigger / submenu leave
-  //     handlers manage the close.
-  // The early-return when the cursor hasn't moved keeps the loop nearly
-  // free in the steady state.
-  const scheduleCloseEvent = useEffectEvent(scheduleClose)
-  const clearCloseTimerEvent = useEffectEvent(clearCloseTimer)
-  React.useEffect(() => {
-    if (!open) return
-    let cancelled = false
-    let lastCx = NaN, lastCy = NaN
-    const loop = () => {
-      if (cancelled) return
-      const sub = panelRef.current
-      const trig = triggerWrapRef.current
-      if (!sub || !trig) { rafIdRef.current = requestAnimationFrame(loop); return }
-      const cursor = cursorRef.current
-      if (cursor.x === lastCx && cursor.y === lastCy) {
-        rafIdRef.current = requestAnimationFrame(loop)
-        return
-      }
-      lastCx = cursor.x; lastCy = cursor.y
-      const subRect = sub.getBoundingClientRect()
-      const inSubmenu =
-        cursor.x >= subRect.left && cursor.x <= subRect.right &&
-        cursor.y >= subRect.top  && cursor.y <= subRect.bottom
-      // Being back over the TRIGGER itself is unconditionally still valid
-      // interaction — the safe triangle only exists to bridge the GAP
-      // between trigger and submenu, and shouldn't relitigate whether the
-      // cursor is still on the trigger. Without this check, a frozen vertex
-      // anchored far from the submenu builds a triangle that narrows to a
-      // point near the vertex, which can be narrower than the trigger row's
-      // own height close to that point — so small, normal vertical drift
-      // while still squarely on the trigger row (never having left it, per
-      // its own native mouseenter/mouseleave) could fall outside the
-      // triangle and schedule a close out from under a cursor that's still
-      // on the button.
-      const inTrigger = (() => {
-        const r = trig.getBoundingClientRect()
-        return cursor.x >= r.left && cursor.x <= r.right && cursor.y >= r.top && cursor.y <= r.bottom
-      })()
-      if (inSubmenu || inTrigger) {
-        clearCloseTimerEvent()
-        if (parentPanelRef.current) parentPanelRef.current.style.pointerEvents = ''
-        rafIdRef.current = requestAnimationFrame(loop)
-        return
-      }
-      const frozen = frozenVertexRef.current
-      if (frozen) {
-        const polygon = buildGraceTriangle(frozen, subRect)
-        const isInZone = isPointInPolygon(cursor, polygon)
-        if (isInZone) {
-          if (!inSafeZoneRef.current) inSafeZoneRef.current = true
-          clearCloseTimerEvent()
-        } else if (inSafeZoneRef.current) {
-          inSafeZoneRef.current = false
-          scheduleCloseEvent(SUBMENU_EXIT_CLOSE)
-        }
-      } else if (inSafeZoneRef.current) {
-        inSafeZoneRef.current = false
-      }
-      // Suppress hover on the parent panel while inside the safe zone so
-      // sibling rows can't fire `onMouseEnter` and steal hover.
-      const parent = parentPanelRef.current
-      if (parent) {
-        parent.style.pointerEvents = (frozen && inSafeZoneRef.current) ? 'none' : ''
-      }
-      rafIdRef.current = requestAnimationFrame(loop)
-    }
-    rafIdRef.current = requestAnimationFrame(loop)
-    return () => {
-      cancelled = true
-      cancelAnimationFrame(rafIdRef.current)
-      // Always restore pointer-events on teardown - never leave the parent
-      // panel inert if the submenu unmounts mid-interaction.
-      if (parentPanelRef.current) parentPanelRef.current.style.pointerEvents = ''
-    }
-  }, [open])
-
-  // Trigger leave is straightforward when the rAF loop owns the safe-zone
-  // logic: just schedule the standard grace close. If the user is inside
-  // the safe triangle, the loop will clear this on the next frame.
-  const handleTriggerLeave = React.useCallback(() => {
-    scheduleClose(SUBMENU_CLOSE_DELAY)
-  }, [scheduleClose])
-
-  // Keyboard wiring on the wrapper span - applies to whatever focusable
-  // element lives inside the trigger row.
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowRight' || e.key === 'Enter' || e.key === ' ') {
-      if (!open) {
-        e.preventDefault()
-        clearOpenTimer()
-        setOpen(true)
-      }
-    } else if (e.key === 'ArrowLeft' || e.key === 'Escape') {
-      if (open) {
-        e.preventDefault()
-        clearCloseTimer()
-        setOpen(false)
-      }
-    }
+  const setOpen = (next: boolean) => {
+    if (!isControlled) setInternalOpen(next)
+    onOpenChange?.(next)
   }
+  return [open, setOpen] as const
+}
 
-  // Wire ARIA + the submenu's open state onto the trigger element so
-  // screen readers announce it correctly.
-  const wiredTrigger = React.cloneElement(trigger, {
+function wireSubTrigger(trigger: React.ReactElement, open: boolean) {
+  return React.cloneElement(trigger, {
     'aria-haspopup': 'menu',
     'aria-expanded': open,
   } as React.HTMLAttributes<HTMLElement>)
+}
 
-  // Open/close animation origin matches the placement axis: top-aligned
-  // submenus emanate from the upper-left corner; bottom-aligned from the
-  // lower-left.
-  const transformOrigin = `${openOriginAxis} ${openOriginXAxis}`
+export function DropdownSubmenu(props: DropdownSubmenuProps) {
+  const mode = useMenuMode()
+  return mode === 'menu' ? <RadixSubmenu {...props} /> : <StandaloneSubmenu {...props} />
+}
+
+function RadixSubmenu({ trigger, children, open: controlledOpen, onOpenChange }: DropdownSubmenuProps) {
+  const [open, setOpen] = useControllableOpen(controlledOpen, onOpenChange)
+  const triggerRef = React.useRef<HTMLSpanElement | null>(null)
+  // Radix focuses this wrapper span when the row is the active item; the row
+  // inside reads it (SlotFocusContext) to paint its highlight.
+  const [triggerFocused, setTriggerFocused] = React.useState(false)
+  // Distance from the trigger row's edge to the parent panel's edge, so the
+  // submenu clears the PARENT card by exactly the KDS gap.
+  const [panelInset, setPanelInset] = React.useState(0)
+  React.useLayoutEffect(() => {
+    if (!open) return
+    const t = triggerRef.current
+    const panel = t?.closest(PANEL_SELECTOR) as HTMLElement | null
+    if (!t || !panel) return
+    setPanelInset(Math.max(0, panel.getBoundingClientRect().right - t.getBoundingClientRect().right))
+  }, [open])
 
   return (
-    <>
-      {/* eslint-disable-next-line no-static-element-interactions -- interactive div; keyboard handling delegated to inner elements */}
-      <span
-        ref={triggerWrapRef}
-        style={{ display: 'block' }}
-        onMouseEnter={() => { frozenVertexRef.current = null; scheduleOpen() }}
-        onMouseLeave={handleTriggerLeave}
-        onFocus={(e) => {
-          // Only open the submenu when focus arrives via a real keyboard
-          // gesture (Tab / arrow keys / Enter on the trigger). The parent
-          // `Dropdown.Float` programmatically focuses `items[0]` one frame
-          // after open - for a mouse click that focus is NOT `:focus-visible`,
-          // and we must not auto-open the first submenu just because the
-          // dropdown was opened. (Without this gate, clicking a Filter button
-          // whose first row is a submenu trigger would immediately cascade
-          // into the first submenu - the original bug surfaced in the
-          // Pinboard Filter dropdown.)
-          const target = e.target as HTMLElement
-          if (typeof target.matches === 'function' && target.matches(':focus-visible')) {
-            scheduleOpen()
-          }
-        }}
-        onKeyDown={onKeyDown}
-      >
-        {wiredTrigger}
-      </span>
-      {typeof window !== 'undefined' && createPortal(
+    <DropdownMenuSub open={open} onOpenChange={setOpen}>
+      <DropdownMenuSubTrigger asChild>
+        <span
+          ref={triggerRef}
+          style={{ display: 'block', outline: 'none' }}
+          onFocus={() => setTriggerFocused(true)}
+          onBlur={() => setTriggerFocused(false)}
+        >
+          <MenuModeContext.Provider value="slotted">
+            <SlotFocusContext.Provider value={triggerFocused}>
+              {wireSubTrigger(trigger, open)}
+            </SlotFocusContext.Provider>
+          </MenuModeContext.Provider>
+        </span>
+      </DropdownMenuSubTrigger>
+      <DropdownMenuPortal forceMount>
         <AnimatePresence initial={false}>
           {open && (
-            <div
-              ref={panelRef}
-              role="menu"
-              data-kds-dropdown-panel
-              onMouseEnter={() => { clearCloseTimer(); inSafeZoneRef.current = false; frozenVertexRef.current = null }}
-              onMouseLeave={() => scheduleClose(SUBMENU_LEAVE_CLOSE)}
-              style={{
-                position: 'fixed',
-                ...posStyle,
-                zIndex:   DROPDOWN_Z,
-              }}
+            <DropdownMenuSubContent
+              forceMount
+              asChild
+              sideOffset={DROPDOWN_GAP + panelInset}
+              collisionPadding={8}
+              data-kds-dropdown-panel=""
+              style={{ zIndex: DROPDOWN_Z, outline: 'none' }}
             >
-              <m.div
-                initial={{ opacity: 0, scaleX: 0.95, scaleY: 0.75 }}
-                animate={{ opacity: 1, scaleX: 1,    scaleY: 1    }}
-                exit={{    opacity: 0, scaleX: 0.97, scaleY: 0.85, transition: { duration: 0.12, ease: [0.55, 0.085, 0.68, 0.53] } }}
-                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                style={{ transformOrigin }}
-              >
-                {children}
+              <m.div {...MENU_ANIMATION} style={MENU_ORIGIN_STYLE}>
+                <MenuModeContext.Provider value="menu">
+                  <EditableKeyGuard>{children}</EditableKeyGuard>
+                </MenuModeContext.Provider>
               </m.div>
-            </div>
+            </DropdownMenuSubContent>
           )}
-        </AnimatePresence>,
-        document.body,
-      )}
-    </>
+        </AnimatePresence>
+      </DropdownMenuPortal>
+    </DropdownMenuSub>
+  )
+}
+
+/** Fallback for a Submenu rendered outside any Radix menu. */
+function StandaloneSubmenu({ trigger, children, open: controlledOpen, onOpenChange }: DropdownSubmenuProps) {
+  const [open, setOpen] = useControllableOpen(controlledOpen, onOpenChange)
+  const timerRef = React.useRef<number | null>(null)
+  const clear = () => {
+    if (timerRef.current != null) { clearTimeout(timerRef.current); timerRef.current = null }
+  }
+  const schedule = (next: boolean) => {
+    clear()
+    if (next === open) return
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null
+      setOpen(next)
+    }, next ? SUBMENU_OPEN_DELAY : SUBMENU_CLOSE_DELAY)
+  }
+  React.useEffect(() => () => {
+    if (timerRef.current != null) clearTimeout(timerRef.current)
+  }, [])
+
+  return (    <div style={{ display: 'block' }} onMouseEnter={() => schedule(true)} onMouseLeave={() => schedule(false)}>
+      <DropdownFloat
+        open={open}
+        onOpenChange={(next) => { clear(); setOpen(next) }}
+        placement="right-start"
+        trigger={<span style={{ display: 'block', width: '100%' }}>{wireSubTrigger(trigger, open)}</span>}
+      >        <div onMouseEnter={clear} onMouseLeave={() => schedule(false)}>{children}</div>
+      </DropdownFloat>
+    </div>
   )
 }
 

@@ -40,7 +40,6 @@ export type ScreenName =
 // here (in the doc first), NOT designing a new event.
 export type FeatureName =
   | "model_selector_manual"
-  | "compare_models"
   | "search"
   | "search_result_opened"
   | "share_button"

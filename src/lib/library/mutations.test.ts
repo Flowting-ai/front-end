@@ -82,6 +82,18 @@ describe("rename", () => {
     expect(titles(queryClient)).toEqual(["File a", "File b"]);
     expect(toast.error).toHaveBeenCalledTimes(1);
   });
+
+  // LB-5: the dialog opened on "File a", then the name changed elsewhere before Rename was pressed.
+  it("puts back the name the file had when the rename started, not when the dialog opened", async () => {
+    const queryClient = seeded();
+    queryClient.setQueryData<PagedRows>(listKey, (data) => ({ ...data!, pages: [{ items: [row("a", { title: "Renamed in another tab" }), row("b")], nextCursor: null }] }));
+    api.renameFile.mockRejectedValue(new Error("nope"));
+    await expect(
+      new MutationObserver(queryClient, renameFileOptions(queryClient, ORG))
+        .mutate({ id: "a", title: "Policy", previousTitle: "File a", previousAi: false }),
+    ).rejects.toThrow("nope");
+    expect(titles(queryClient)).toEqual(["Renamed in another tab", "File b"]);
+  });
 });
 
 describe("trash", () => {

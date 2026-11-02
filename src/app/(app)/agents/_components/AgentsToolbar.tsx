@@ -32,8 +32,9 @@ export function AgentsToolbar({
   const [filterOpen, setFilterOpen] = useState(false)
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    // Wraps on narrow screens: the search shrinks to fit and Sort/Filter drop below it.
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 1 450px', minWidth: 0 }}>
         {/* Search */}
         <div style={{
           display: 'flex',
@@ -43,7 +44,9 @@ export function AgentsToolbar({
           borderRadius: 10,
           background: 'var(--text-field-bg)',
           boxShadow: '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--text-field-ring)',
-          width: 450,
+          width: '100%',
+          minWidth: 0,
+          boxSizing: 'border-box',
         }}>
           <SearchOneIcon size={16} style={{ color: 'var(--neutral-500)', flexShrink: 0 }} />
           <input
@@ -63,6 +66,7 @@ export function AgentsToolbar({
               lineHeight: '22px',
               color: 'var(--neutral-600)',
               padding: '0 2px',
+              minWidth: 0,
             }}
           />
           {search && (

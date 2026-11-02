@@ -368,8 +368,10 @@ function ShareAcceptContent({ initial }: { initial: InitialSharePreview | null }
           loading={isAccepting}
           disabled={isAccepting}
         >
-          Accept &amp; copy agent
+          {/* The accept POST copies the agent server-side and can take several seconds; say so. */}
+          {isAccepting ? 'Copying agent…' : 'Accept & copy agent'}
         </Button>
+        <span role="status" className="sr-only">{isAccepting ? 'Copying the agent to your account…' : ''}</span>
       </div>
     </div>
   )

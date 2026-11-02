@@ -47,6 +47,7 @@ export class LibraryFile {
   declare readonly sharedBy: FileRowWire["sharedBy"];
   declare readonly generatedFrom: FileRowWire["generatedFrom"];
   declare readonly openCount: FileRowWire["openCount"];
+  declare readonly useCount: FileRowWire["useCount"];
   declare readonly thumbnailUrl: FileRowWire["thumbnailUrl"];
   declare readonly snippet: FileRowWire["snippet"];
   declare readonly titleIsAiGenerated: FileRowWire["titleIsAiGenerated"];
@@ -64,7 +65,8 @@ export class LibraryFile {
 
   /** The name people see: "Return policy 2026.pdf". */
   get name(): string {
-    const title = sanitizeDisplayText(this.title) || "Untitled";
+    // Files the assistant saves arrive titled with their sandbox folder ("files/Report.docx"); people never see that folder.
+    const title = sanitizeDisplayText(this.title).replace(/^files\//, "") || "Untitled";
     return this.extension ? `${title}.${this.extension}` : title;
   }
 
@@ -122,6 +124,7 @@ export class LibraryFile {
 
 export class LibraryFileDetail extends LibraryFile {
   declare readonly phase: FileDetailWire["phase"];
+  declare readonly failureReason: FileDetailWire["failureReason"];
   declare readonly scope: FileDetailWire["scope"];
   declare readonly provenance: FileDetailWire["provenance"];
   declare readonly mimeType: FileDetailWire["mimeType"];

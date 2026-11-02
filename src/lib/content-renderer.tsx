@@ -18,13 +18,12 @@ import { parseContentSegments, type ContentSegment, type StructuredTag } from ".
 import { MarkdownRenderer, type HighlightSpec } from "./markdown-utils"
 import { prefetchHighlighter } from "./highlight-loader"
 import { XmlTable } from "@/components/chat/XmlTable"
-import { XmlChart } from "@/components/chat/XmlChart"
+import dynamic from "next/dynamic"
 import { XmlMetrics } from "@/components/chat/XmlMetrics"
 import { XmlEmail } from "@/components/chat/XmlEmail"
 import { XmlFunnel } from "@/components/chat/XmlFunnel"
 import { XmlKanban } from "@/components/chat/XmlKanban"
 import { XmlSchedule } from "@/components/chat/XmlSchedule"
-import { XmlWeather } from "@/components/chat/XmlWeather"
 import { XmlMap } from "@/components/chat/XmlMap"
 import { XmlSteps } from "@/components/chat/XmlSteps"
 import { XmlCallout } from "@/components/chat/XmlCallout"
@@ -32,6 +31,15 @@ import { XmlTags } from "@/components/chat/XmlTags"
 import { BlockErrorBoundary } from "@/components/chat/BlockErrorBoundary"
 import { WidgetReveal, WidgetSkeleton } from "@/components/chat/WidgetSkeleton"
 import type { WebCitation } from "@/types/chat"
+
+// Chart (SVG maths) and weather widgets are only needed when a reply contains those blocks:
+// load them on demand, holding their place with the same skeleton the stream already shows.
+const XmlChart = dynamic(() => import("@/components/chat/XmlChart").then((m) => m.XmlChart), {
+  loading: () => <WidgetSkeleton tag="chart" />,
+})
+const XmlWeather = dynamic(() => import("@/components/chat/XmlWeather").then((m) => m.XmlWeather), {
+  loading: () => <WidgetSkeleton tag="weather" />,
+})
 
 // ---------------------------------------------------------------------------
 // Incomplete block notice

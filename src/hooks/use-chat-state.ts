@@ -44,7 +44,7 @@ export interface UseChatStateResult {
  * If a stream for `chatId` was still running when this tab last saw it (see
  * stream-registry.ts — this is only true right after a reload/crash mid-
  * generation), reinterpret the freshly-loaded history so the interrupted turn
- * reads as "Generation stopped" instead of silently looking finished or, if
+ * reads as "Generation stopped" (the line under the bubble) instead of silently looking finished or, if
  * the backend hadn't persisted anything yet, disappearing outright.
  */
 function markInterruptedIfNeeded(chatId: string, msgs: UIMessage[]): UIMessage[] {
@@ -58,7 +58,9 @@ function markInterruptedIfNeeded(chatId: string, msgs: UIMessage[]): UIMessage[]
             ...m,
             isLoading: false,
             stoppedByUser: true,
-            content: m.content || "Generation stopped.",
+            content: m.content,
+            // An empty saved turn reads as stopped here, not also as "no response".
+            errorNotice: m.content ? m.errorNotice : undefined,
             activities: stopActiveActivities(m.activities),
           }
         : m,
@@ -68,7 +70,7 @@ function markInterruptedIfNeeded(chatId: string, msgs: UIMessage[]): UIMessage[]
   const placeholder: UIMessage = {
     id: `interrupted-${Date.now()}`,
     role: "assistant",
-    content: "Generation stopped.",
+    content: "",
     created_at: new Date().toISOString(),
     chat_id: chatId,
     isLoading: false,

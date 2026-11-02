@@ -40,7 +40,8 @@ export function FlatSidebarProfileRow({ name, sublabel, avatarSrc, planLabel, on
         role="button"
         tabIndex={0}
         onClick={onOpenSettingsClick}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenSettingsClick() } }}
+        // Enter / Space bubble to the AccountMenu's Radix trigger, which toggles the menu.
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onOpenSettingsClick() }}
         style={{ display: 'flex', justifyContent: 'center', width: '100%', cursor: 'pointer' }}
       >
         <div style={{ width: 32, height: 32, borderRadius: '9999px', overflow: 'hidden', flexShrink: 0, position: 'relative', boxShadow: 'var(--shadow-sidebar-item-avatar)' }}>
@@ -62,7 +63,8 @@ export function FlatSidebarProfileRow({ name, sublabel, avatarSrc, planLabel, on
       role="button"
       tabIndex={0}
       onClick={onOpenSettingsClick}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenSettingsClick() } }}
+      // Enter / Space bubble to the AccountMenu's Radix trigger, which toggles the menu.
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onOpenSettingsClick() }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       data-sidebar-active={isActive ? '' : undefined}
