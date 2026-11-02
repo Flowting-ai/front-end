@@ -16,7 +16,7 @@ import { Switch } from '@/components/Switch'
 import { Checkbox } from '@/components/Checkbox'
 import { Spinner } from '@/components/Spinner'
 import { cn } from '@/lib/utils'
-import { useMenuMode, DropdownMenuPrimitiveItem, DropdownMenuLabel } from '@/components/ui/dropdown-menu'
+import { useMenuMode, useSlotFocused, DropdownMenuPrimitiveItem, DropdownMenuLabel } from '@/components/ui/dropdown-menu'
 
 // ── Shadow tokens ──────────────────────────────────────────────────────────────
 
@@ -229,6 +229,8 @@ export function DropdownMenuItem(
     onMouseEnter: externalMouseEnter,
     onMouseLeave: externalMouseLeave,
     onKeyDown:    externalKeyDown,
+    onFocus:      externalFocus,
+    onBlur:       externalBlur,
     onClick,
     ref,
     ...props
@@ -290,7 +292,9 @@ export function DropdownMenuItem(
     }
     // Header is a label-only row; danger has only Default + Hover (per Figma -
     // no Selected or Disabled). Default supports Hover, Selected, Disabled.
-    const isActive = !isHeader && !disabled && !loading && (isHovered || (variant === 'default' && selected))
+    // A submenu trigger row is focused through its Radix wrapper, not itself.
+    const slotFocused = useSlotFocused()
+    const isActive = !isHeader && !disabled && !loading && (isHovered || slotFocused || (variant === 'default' && selected))
 
     const labelColor = isDanger
       ? 'var(--dropdown-menu-item-danger-text)'
@@ -365,6 +369,17 @@ export function DropdownMenuItem(
         onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
           setIsHovered(false)
           externalMouseLeave?.(e)
+        }}
+        // Radix moves focus to the highlighted item on hover and on arrow
+        // keys alike, so in a menu focus drives the same highlight as hover.
+        // That background is the focus indicator there (see semantic.css).
+        onFocus={(e: React.FocusEvent<HTMLDivElement>) => {
+          if (radixManaged && !disabled && !loading) setIsHovered(true)
+          externalFocus?.(e)
+        }}
+        onBlur={(e: React.FocusEvent<HTMLDivElement>) => {
+          if (radixManaged) setIsHovered(false)
+          externalBlur?.(e)
         }}
         onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
           // Radix items turn Enter/Space into a click themselves.

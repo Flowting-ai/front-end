@@ -38,7 +38,7 @@ import { DropdownMenuItem, type DropdownMenuItemProps } from '@/components/Dropd
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuPortal, DropdownMenuContent,
   DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent,
-  MenuModeContext, useMenuMode,
+  MenuModeContext, useMenuMode, SlotFocusContext,
 } from '@/components/ui/dropdown-menu'
 
 // Re-export for convenience - callers importing `Dropdown` get these for free.
@@ -371,6 +371,9 @@ export function DropdownSubmenu(props: DropdownSubmenuProps) {
 function RadixSubmenu({ trigger, children, open: controlledOpen, onOpenChange }: DropdownSubmenuProps) {
   const [open, setOpen] = useControllableOpen(controlledOpen, onOpenChange)
   const triggerRef = React.useRef<HTMLSpanElement | null>(null)
+  // Radix focuses this wrapper span when the row is the active item; the row
+  // inside reads it (SlotFocusContext) to paint its highlight.
+  const [triggerFocused, setTriggerFocused] = React.useState(false)
   // Distance from the trigger row's edge to the parent panel's edge, so the
   // submenu clears the PARENT card by exactly the KDS gap.
   const [panelInset, setPanelInset] = React.useState(0)
@@ -385,9 +388,16 @@ function RadixSubmenu({ trigger, children, open: controlledOpen, onOpenChange }:
   return (
     <DropdownMenuSub open={open} onOpenChange={setOpen}>
       <DropdownMenuSubTrigger asChild>
-        <span ref={triggerRef} style={{ display: 'block', outline: 'none' }}>
+        <span
+          ref={triggerRef}
+          style={{ display: 'block', outline: 'none' }}
+          onFocus={() => setTriggerFocused(true)}
+          onBlur={() => setTriggerFocused(false)}
+        >
           <MenuModeContext.Provider value="slotted">
-            {wireSubTrigger(trigger, open)}
+            <SlotFocusContext.Provider value={triggerFocused}>
+              {wireSubTrigger(trigger, open)}
+            </SlotFocusContext.Provider>
           </MenuModeContext.Provider>
         </span>
       </DropdownMenuSubTrigger>

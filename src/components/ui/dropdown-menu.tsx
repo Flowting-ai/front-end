@@ -26,6 +26,17 @@ export function useMenuMode(): MenuMode {
   return React.useContext(MenuModeContext)
 }
 
+/**
+ * True while the Radix part a `'slotted'` element sits in has focus. Radix
+ * focuses that wrapper (e.g. the `SubTrigger` span), not the row inside it, so
+ * the row reads this to show its highlight for the active item.
+ */
+export const SlotFocusContext = React.createContext(false)
+
+export function useSlotFocused(): boolean {
+  return React.useContext(SlotFocusContext)
+}
+
 export const DropdownMenu            = DropdownMenuPrimitive.Root
 export const DropdownMenuTrigger     = DropdownMenuPrimitive.Trigger
 export const DropdownMenuPortal      = DropdownMenuPrimitive.Portal

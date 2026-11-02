@@ -1,10 +1,12 @@
 'use client'
 
 import React, { useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
 import { MentionAvatar } from '@/components/chat/AgentMentionMenu'
 import { getConnector, resolveConnector } from '@/lib/api/connectors'
 import { usePersonas } from '@/lib/queries/personas'
+import { linkedConnectorsQuery } from '@/lib/connectors/connector-queries'
 import type { Connector } from '@/lib/connector'
 
 // The faces the Context panel puts on connectors and agents — the same ones /connectors
@@ -17,10 +19,20 @@ import type { Connector } from '@/lib/connector'
 // fails (unknown, offline) keeps its letter tile rather than being retried.
 const requested = new Set<string>()
 
-/** Catalog identity (name + logo) for each slug, filling in as lookups land. */
-export function useConnectorIdentities(slugs: string[]): Map<string, Connector> {
+/**
+ * Catalog identity (name + logo) for each slug, filling in as lookups land.
+ *
+ * `maybeSlugs` are slugs that might not be connectors at all — an agent row's handle (see
+ * connectorSpecialistSlug): a plain agent like "analyst" is shaped like one. Those resolve only
+ * when they're known connectors (one of `slugs`, or one the viewer has linked — a specialist
+ * runs on a linked app); anything else is never looked up, so it doesn't 404.
+ */
+export function useConnectorIdentities(slugs: string[], maybeSlugs: string[] = []): Map<string, Connector> {
   const [loaded, setLoaded] = useState(0)
-  const key = [...new Set(slugs)].sort().join(',')
+  const unconfirmed = maybeSlugs.filter(slug => !slugs.includes(slug))
+  const { data: linked } = useQuery({ ...linkedConnectorsQuery(), enabled: unconfirmed.length > 0 })
+  const confirmed = unconfirmed.filter(slug => linked?.some(connector => connector.slug === slug))
+  const key = [...new Set([...slugs, ...confirmed])].sort().join(',')
 
   useEffect(() => {
     let live = true

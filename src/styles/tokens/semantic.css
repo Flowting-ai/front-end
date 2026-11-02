@@ -835,6 +835,14 @@
      match `outline`'s curvature to the element's `border-radius`. */
 }
 
+/* Inside a Radix menu the focused item is the highlighted one: Radix focuses
+   it on hover as well as on arrow keys, and Chrome treats that focus as
+   :focus-visible, so the ring would follow the mouse. DropdownMenuItem paints
+   its hover background on focus there, which is the indicator instead. */
+[role="menu"] .kaya-dropdown-item[data-highlighted]:focus-visible {
+  outline: none;
+}
+
 /* Switch - focus indicator moved to Pattern 2 (state-gated outline on the
    outer motion.span wrapper) - matches `Button` / `IconButton`. The Switch's
    resting box-shadow contains a 1 px ring at the track edge that's part of
