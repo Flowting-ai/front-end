@@ -665,6 +665,16 @@ function ChatPageInner({ leftChatId }: { leftChatId?: string }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromSchedule]);
 
+  // Home's suggestions hand off a question via ?prompt= (see lib/home/chat-link). It lands in the
+  // new-chat composer for the user to review and send; the param is dropped so a refresh doesn't refill it.
+  const promptFromUrl = searchParams.get("prompt");
+  useEffect(() => {
+    if (!promptFromUrl || chatIdFromUrl) return;
+    queueMicrotask(() => setNewChatInput(promptFromUrl));
+    replace(CHAT_ROUTE, { scroll: false });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [promptFromUrl]);
+
 
   // Drag-and-drop on the new-chat landing page
   const { isDragging: isNewChatDragging } = useFileDrop({

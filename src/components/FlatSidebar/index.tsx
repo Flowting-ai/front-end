@@ -33,30 +33,38 @@ function SouvenirWordmark() {
       }}
     >
       <SouvenirLogo size={24} />
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        <span
-          style={{
-            fontFamily: "var(--font-title)",
-            fontSize: 24,
-            fontWeight: 400,
-            lineHeight: "24px",
-            color: "var(--neutral-700)",
-            whiteSpace: "nowrap",
-          }}
-        >
-          Souvenir
-        </span>
-        <span
-          style={{
-            fontSize: 9,
-            lineHeight: "11px",
-            color: "var(--neutral-500)",
-            whiteSpace: "nowrap",
-          }}
-        >
-          test
-        </span>
-      </div>
+      <span
+        style={{
+          fontFamily: "var(--font-title)",
+          fontSize: 24,
+          fontWeight: 400,
+          lineHeight: "24px",
+          color: "var(--neutral-700)",
+          whiteSpace: "nowrap",
+        }}
+      >
+        Souvenir
+      </span>
+      {/* Marks the isolated test copy. Badge's Blue tag tokens, so it follows dark mode. Only rendered
+          with the wordmark, so the 48px rail never shows it. */}
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          height: 18,
+          padding: "0 7px",
+          borderRadius: 9999,
+          backgroundColor: "var(--color-tag-Blue-bg)",
+          color: "var(--color-tag-Blue-text)",
+          fontFamily: "var(--font-body)",
+          fontSize: "var(--font-size-caption)",
+          fontWeight: "var(--font-weight-medium)",
+          lineHeight: "18px",
+          whiteSpace: "nowrap",
+        }}
+      >
+        test
+      </span>
     </div>
   )
 }

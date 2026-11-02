@@ -1,0 +1,6 @@
+export { HomeHeader, type HomeHeaderProps } from './HomeHeader'
+export { MetricCard, MetricStrip, type MetricCardProps, type MetricStripProps } from './MetricCard'
+export { ChannelIcon, CHANNEL_LABELS, type ChannelIconProps } from './ChannelIcon'
+export { BestSellerCard, type BestSellerCardProps } from './BestSellerCard'
+export { OpportunitiesList, OpportunityItem, type OpportunitiesListProps, type OpportunityItemProps } from './OpportunitiesList'
+export { AskSouvenir, type AskSouvenirProps } from './AskSouvenir'
