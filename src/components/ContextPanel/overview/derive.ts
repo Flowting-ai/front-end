@@ -1,4 +1,5 @@
 import { ACTIVITY_VERB } from '@/lib/activity'
+import { deriveCitationsFromSources } from '@/lib/citations'
 import { toConnector } from '@/lib/connector'
 import type { ActivityItem, ActivityStatus, PlanItem, UIMessage } from '@/types/chat'
 
@@ -57,7 +58,10 @@ export function downloadFile(url: string, filename: string) {
 }
 
 export interface SourceItem { key: string; url: string; title: string; domain: string }
-export interface DocumentItem { key: string; url: string; name: string; kind: 'created' | 'uploaded'; image: boolean }
+/** A file the chat produced: a generated file or image. */
+export interface OutputItem { key: string; url: string; name: string; image: boolean }
+/** A file a person attached that is not a Library file (Library ones are listed by their Library row). */
+export interface UploadItem { key: string; url?: string; name: string; image: boolean }
 
 export function stepText(activity: ActivityItem): { label: string; detail?: string } {
   const label = activity.label || ACTIVITY_VERB[activity.type] || 'Working'
@@ -81,7 +85,8 @@ export interface OverviewData {
   agents:     ActivityItem[]
   connectors: { slug: string; name: string; used: number; active: boolean; failed: boolean }[]
   sources:    SourceItem[]
-  documents:  DocumentItem[]
+  outputs:    OutputItem[]
+  uploads:    UploadItem[]
   skills:     { name: string; activity: ActivityItem }[]
 }
 
@@ -111,26 +116,32 @@ export function deriveOverview(messages: UIMessage[]): OverviewData {
       sources.set(key, { key, url, title: title?.trim() || domainOf(url) || url, domain: domainOf(url) })
     }
     for (const message of [...assistant].reverse()) {
-      for (const citation of message.webCitations ?? []) addSource(citation.url, citation.title)
+      // The same citations the answer shows: the backend's own, else the model's "Sources:" block (ChatMessage).
+      const cited = message.webCitations?.length ? message.webCitations
+        : message.isError ? [] : deriveCitationsFromSources(message.content, { streaming: Boolean(message.isLoading) }).citations
+      for (const citation of cited) addSource(citation.url, citation.title)
       for (const source of message.sources ?? []) addSource(source.url, source.title)
       for (const activity of [...(message.activities ?? [])].reverse()) {
         if (activity.type === 'web-search') for (const result of activity.results ?? []) addSource(result.url, result.title)
       }
     }
 
-    const documents: DocumentItem[] = []
+    // Outputs are what the chat made. What people attached are inputs, listed under Sources: a Library
+    // file through its Library row (useChatLibrarySources), any other upload here.
+    const outputs: OutputItem[] = []
+    const uploads: UploadItem[] = []
     for (const message of [...messages].reverse()) {
       if (message.role === 'assistant') {
         for (const file of message.generatedFiles ?? []) {
-          documents.push({ key: `g:${file.url}`, url: file.url, name: file.filename, kind: 'created', image: !!file.mimeType?.startsWith('image/') })
+          outputs.push({ key: `g:${file.url}`, url: file.url, name: file.filename, image: !!file.mimeType?.startsWith('image/') })
         }
         ;(message.images ?? []).forEach((image, index) => {
-          documents.push({ key: `i:${image.url}`, url: image.url, name: `Image ${index + 1}.png`, kind: 'created', image: true })
+          outputs.push({ key: `i:${image.url}`, url: image.url, name: `Image ${index + 1}.png`, image: true })
         })
       } else if (message.role === 'user') {
         for (const file of message.attachments ?? []) {
-          if (!file.url || file.uploading) continue
-          documents.push({ key: `u:${file.id}`, url: file.url, name: file.file_name, kind: 'uploaded', image: file.file_type.startsWith('image/') })
+          if (file.uploading || file.libraryFileId) continue
+          uploads.push({ key: `u:${file.id}`, url: file.url, name: file.file_name, image: file.file_type.startsWith('image/') })
         }
       }
     }
@@ -147,7 +158,8 @@ export function deriveOverview(messages: UIMessage[]): OverviewData {
       agents:     all.filter(activity => activity.type === 'agent'),
       connectors: [...connectorMap.values()],
       sources:    [...sources.values()],
-      documents,
+      outputs,
+      uploads,
       skills:     [...skills.entries()].map(([name, activity]) => ({ name, activity })),
     }
 }

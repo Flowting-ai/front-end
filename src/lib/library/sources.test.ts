@@ -83,6 +83,17 @@ describe("sources panel", () => {
     expect(rows[1]).toMatchObject({ status: "locked", off: false });
   });
 
+  it("shows a file still loading as loading, never deleted, until its ref arrives", () => {
+    const input = { scopeIds: ["x", "gone"], citedIds: [], attachedIds: ["x", "gone"], offIds: ["x"], refs, pendingIds: ["x"] };
+    const [loading, gone] = buildSourceRows(input);
+    expect(loading).toMatchObject({ status: "loading", name: "Loading…", detail: "Attached", off: false, canToggle: false });
+    expect(gone).toMatchObject({ status: "deleted", name: "File deleted" });
+    // A pending id that already has a ref (a cited title) uses it.
+    expect(buildSourceRows({ ...input, pendingIds: ["att"], scopeIds: ["att"], attachedIds: ["att"] })[0]).toMatchObject({ status: "attached", name: "Shipping rates" });
+    // Loaded and gone: deleted.
+    expect(buildSourceRows({ ...input, pendingIds: [] })[0]).toMatchObject({ status: "deleted", name: "File deleted" });
+  });
+
   it("tells two files with the same name apart by when they were added", () => {
     const now = Date.parse("2026-10-13T12:00:00Z");
     const rows = buildSourceRows({

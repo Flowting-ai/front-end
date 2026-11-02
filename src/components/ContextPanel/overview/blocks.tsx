@@ -117,7 +117,8 @@ export function PanelSection({
   )
 }
 
-/** One line item. A link when given `href`, a button when given `onClick`. */
+/** One line item. A link when given `href`, a button when given `onClick`. A `trailing` control
+ *  (a switch, say) sits beside the row, outside the link or button, so it stays its own target. */
 export function ItemRow({
   icon,
   label,
@@ -127,6 +128,7 @@ export function ItemRow({
   onClick,
   labelStyle,
   wrap,
+  trailing,
 }: {
   icon:        React.ReactNode
   label:       React.ReactNode
@@ -137,6 +139,7 @@ export function ItemRow({
   labelStyle?: React.CSSProperties
   /** Let the label run to two lines instead of one. */
   wrap?:       boolean
+  trailing?:   React.ReactNode
 }) {
   const body = (
     <>
@@ -164,6 +167,17 @@ export function ItemRow({
     color:          'inherit',
     transition:     'background-color 150ms ease',
   }
+  const row = rowElement(body, style, href, onClick)
+  if (!trailing) return row
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+      <span style={{ flex: '1 1 0', minWidth: 0, display: 'flex' }}>{row}</span>
+      <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', paddingRight: 6 }}>{trailing}</span>
+    </div>
+  )
+}
+
+function rowElement(body: React.ReactNode, style: React.CSSProperties, href: string | undefined, onClick: (() => void) | undefined) {
   if (href) {
     return <a href={href} target="_blank" rel="noopener noreferrer" className={`group ${ROW_CLASS}`} style={style}>{body}</a>
   }

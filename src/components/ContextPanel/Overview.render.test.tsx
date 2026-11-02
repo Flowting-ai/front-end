@@ -144,6 +144,36 @@ describe('OverviewView DOM', () => {
     expect(toggle('Agents').getAttribute('aria-expanded')).toBe('true')
   })
 
+  it('lists the chat\'s Library files above the web pages, under one count', () => {
+    const onToggle = vi.fn()
+    const library = {
+      count: 2,
+      toggle: onToggle,
+      rows: [
+        { id: 'lib1', ref: { id: 'lib1', state: 'open', title: 'Return policy', format: 'pdf' }, status: 'cited', off: false, name: 'Return policy', detail: 'Cited in answer', canToggle: true },
+        { id: 'lib2', ref: undefined, status: 'loading', off: false, name: 'Loading…', detail: 'Attached', canToggle: false },
+      ] as const,
+    }
+    act(() => root.render(<OverviewView messages={populated} timing={undefined} library={{ ...library, rows: [...library.rows] }} />))
+    const section = toggle('Sources').closest('section')!
+    // 2 Library files + 1 other upload (brief.docx) + 3 web pages (cited, untitled, found by search).
+    expect(section.querySelector('h3 + span')?.textContent).toBe('6')
+    // The upload is an input: in Sources, not in Outputs (which keeps only what the chat made).
+    expect(section.textContent).toContain('brief.docx')
+    expect(toggle('Outputs').closest('section')!.textContent).not.toContain('brief.docx')
+    const labels = [...section.querySelectorAll('[data-source-file], a')].map(el => el.textContent)
+    expect(labels[0]).toContain('Return policy')
+    expect(labels[1]).toContain('Loading…')
+    expect(labels.slice(2).length).toBeGreaterThan(0)
+    expect(section.textContent).not.toContain('File deleted')
+    // Only the loaded file has a switch, and it toggles that file.
+    const switches = section.querySelectorAll('[role="switch"]')
+    expect(switches).toHaveLength(1)
+    expect(switches[0].getAttribute('aria-label')).toBe('Use Return policy in answers')
+    act(() => (switches[0] as HTMLButtonElement).click())
+    expect(onToggle).toHaveBeenCalledWith('lib1')
+  })
+
   it('downloads a document and all created documents', () => {
     render(populated)
     const clicks: string[] = []
