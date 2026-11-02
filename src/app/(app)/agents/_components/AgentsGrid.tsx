@@ -259,9 +259,7 @@ export function AgentsGrid({
                       onLink:            isOwned ? () => onShare({ repoId: persona.id, name: persona.name }) : undefined,
                       // Same "hand off via sessionStorage, land on a fresh /chat
                       // with the agent pre-attached" pattern as agents/published's
-                      // "Use this Agent" — this used to push AGENT_CHAT_ROUTE,
-                      // landing on the agent's own dedicated chat thread instead
-                      // of attaching it to a new regular chat.
+                      // "Use this Agent". Agents have no chat page of their own.
                       onUseInChat:       () => handleUseInChat(persona, isOwned),
                       onResume:          isOwned ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined,
                       onMenuEdit:        isOwned ? () => onEdit(persona.id) : undefined,

@@ -77,7 +77,7 @@ export function routeToScreen(pathname: string): ScreenName | null {
       return segments[1] === "configure" ? "agent_configure" : null;
     case "agents":
       if (segments[1] === "new") return "agent_onboarding"; // new-agent purpose → editor flow
-      if (segments[2] === "chat") return "chat"; // /agents/[personaId]/chat
+      if (segments[2] === "chat") return "chat"; // /agents/[personaId]/chat: old links, redirects to /chat
       if (segments[2] === "edit") return "agent_configure"; // /agents/[personaId]/edit
       return "agent_library"; // /agents, /agents/templates, /agents/published
     case "library":

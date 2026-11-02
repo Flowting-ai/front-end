@@ -8,9 +8,8 @@ import { SidebarMenuItem, SidebarMenuSkeleton } from "@/components/ui";
 import { fetchPersonas, fetchAgentChatsFor } from "@/lib/api/personas";
 import { onPersonasInvalidated } from "@/lib/api/persona-cache";
 import type { PersonaChat } from "@/lib/api/personas";
-import { emitPersonaChatNav } from "@/hooks/use-sidebar-events";
-import type { PersonaChatEventDetail } from "@/hooks/use-sidebar-events";
-import { AGENT_CHAT_ROUTE } from "@/lib/routes";
+import { existingAgentChatHref } from "@/lib/agent-chat-handoff";
+import { CHAT_ROUTE } from "@/lib/routes";
 import { sectionHeightVariants, sectionStaggerVariants, sectionItemVariants } from "./section-motion";
 import { PersonaChatItem } from "./PersonaChatItem";
 
@@ -26,8 +25,8 @@ export function RecentAgentChatsSection() {
   const pathname            = usePathname()
   const personaSearchParams = useSearchParams()
 
-  const activePersonaId = pathname?.match(/^\/agents\/([^/]+)\/chat/)?.[1] ?? null
-  const activeChatId    = personaSearchParams.get("chatId")
+  // Agent chats open on the normal chat page, so the open one is /chat?id=.
+  const activeChatId    = pathname === CHAT_ROUTE ? personaSearchParams.get("id") : null
 
   const [allChats, setAllChats] = useState<AgentChat[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -60,25 +59,6 @@ export function RecentAgentChatsSection() {
   useEffect(() => {
     return onPersonasInvalidated(() => { void fetchAll() })
   }, [fetchAll])
-
-  // Incremental updates for new chats and renames
-  useEffect(() => {
-    const handleCreated = (e: Event) => {
-      const { personaId, chatId, title } = (e as CustomEvent<PersonaChatEventDetail>).detail
-      const newChat: AgentChat = { id: chatId, title, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), personaId }
-      setAllChats(prev => prev.some(c => c.id === chatId) ? prev : [newChat, ...prev])
-    }
-    const handleTitleUpdated = (e: Event) => {
-      const { chatId, title } = (e as CustomEvent<PersonaChatEventDetail>).detail
-      setAllChats(prev => prev.map(c => c.id === chatId ? { ...c, title } : c))
-    }
-    window.addEventListener("persona:chat-created",       handleCreated)
-    window.addEventListener("persona:chat-title-updated", handleTitleUpdated)
-    return () => {
-      window.removeEventListener("persona:chat-created",       handleCreated)
-      window.removeEventListener("persona:chat-title-updated", handleTitleUpdated)
-    }
-  }, [])
 
   return (
     <>
@@ -114,8 +94,8 @@ export function RecentAgentChatsSection() {
               <PersonaChatItem
                 personaId={chat.personaId}
                 chat={chat}
-                isActive={activePersonaId === chat.personaId && chat.id === activeChatId}
-                onSelect={() => { emitPersonaChatNav({ personaId: chat.personaId, chatId: chat.id }); push(`${AGENT_CHAT_ROUTE(chat.personaId)}?chatId=${chat.id}`) }}
+                isActive={chat.id === activeChatId}
+                onSelect={() => push(existingAgentChatHref(chat.id))}
                 onRename={(chatId, title) => setAllChats(prev => prev.map(c => c.id === chatId ? { ...c, title } : c))}
                 onDelete={(chatId) => setAllChats(prev => prev.filter(c => c.id !== chatId))}
               />

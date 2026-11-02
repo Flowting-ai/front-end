@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 
 vi.mock("@/lib/auth0", () => ({ auth0: {} }))
-import { MAX_INPUT_CHARS, chatFormSchema, formFields, personaChatFormSchema } from "./chat-forms"
+import { MAX_INPUT_CHARS, chatFormSchema, formFields } from "./chat-forms"
 
 const form = (entries: [string, string | Blob][]) => {
   const fd = new FormData()
@@ -39,13 +39,5 @@ describe("chatFormSchema", () => {
 
   it("ignores an effort sent without thinking (the route never forwards it)", () => {
     expect(parse({ input: "hi", effort: "off" }).success).toBe(true)
-  })
-})
-
-describe("personaChatFormSchema", () => {
-  it("requires a safe repo id and caps connector slugs", () => {
-    expect(personaChatFormSchema.safeParse({ repoId: "r1", input: "hi" }).success).toBe(true)
-    expect(personaChatFormSchema.safeParse({ repoId: "a/b", input: "hi" }).success).toBe(false)
-    expect(personaChatFormSchema.safeParse({ repoId: "r1", connectorSlugs: Array.from({ length: 51 }, () => "s") }).success).toBe(false)
   })
 })

@@ -31,8 +31,8 @@ import {
   ORG_ACTIVITY_ROUTE,
   PROJECT_ROUTE,
   PROJECT_CHAT_ROUTE,
-  AGENT_CHAT_ROUTE,
 } from "@/lib/routes";
+import { existingAgentChatHref, openAgentInChat } from "@/lib/agent-chat-handoff";
 
 // ── Navigable destinations ────────────────────────────────────────────────────
 
@@ -145,7 +145,7 @@ export default function SearchData({ open, onClose }: { open: boolean; onClose: 
       }
       case "agent-chat": {
         const agentChat = agentData?.chats.find(c => c.id === result.id);
-        if (agentChat) push(`${AGENT_CHAT_ROUTE(agentChat.personaId)}?chatId=${agentChat.id}`);
+        if (agentChat) push(existingAgentChatHref(agentChat.id));
         else {
           // The agent list changed since the results were built (chat or agent removed).
           toast.error("That chat is no longer available.");
@@ -154,7 +154,7 @@ export default function SearchData({ open, onClose }: { open: boolean; onClose: 
         break;
       }
       case "project": push(PROJECT_ROUTE(result.id));    break;
-      case "persona": push(AGENT_CHAT_ROUTE(result.id)); break;
+      case "persona": void openAgentInChat(result.id, push); break;
       case "pin": {
         if (!PINS_ENABLED) break;
         const pin = pins.find(p => p.id === result.id);

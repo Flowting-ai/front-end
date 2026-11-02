@@ -6,6 +6,7 @@ import { SidebarMenuItem } from "@/components/ui";
 import { renamePersonaChat, deletePersonaChat } from "@/lib/api/personas";
 import type { PersonaChat } from "@/lib/api/personas";
 import { openDeleteChatDialog } from "../AppDialogs";
+import { existingAgentChatHref } from "@/lib/agent-chat-handoff";
 import { toast } from "sonner";
 
 // -- PersonaChatItem — rename / delete dropdown for individual persona chats ---
@@ -88,7 +89,7 @@ export function PersonaChatItem({
           variant={isEditing ? "chat-item-edit" : "chat-item"}
           label={chat.title}
           selected={isActive}
-          href={isEditing ? undefined : `/agents/${personaId}/chat?chatId=${chat.id}`}
+          href={isEditing ? undefined : existingAgentChatHref(chat.id)}
           onClick={() => { if (!isEditing) onSelect() }}
           onMoreClick={handleMoreClick}
           onRename={() => setIsEditing(true)}

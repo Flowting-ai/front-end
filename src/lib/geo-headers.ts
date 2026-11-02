@@ -6,8 +6,8 @@ import type { NextRequest } from "next/server";
  *
  * The backend's extractGeo reads these — `x-user-timezone` drives the "current
  * time" line, so dates render in the user's zone instead of UTC. The generic
- * `/api/backend` rewrite forwards every header already; the chat /
- * persona-chat routes rebuild headers from scratch, so they drop these unless
+ * `/api/backend` rewrite forwards every header already; the chat
+ * route rebuilds headers from scratch, so they drop these unless
  * we re-add them here.
  *
  * `x-forwarded-for` carries the browser's address through this hop. Without it

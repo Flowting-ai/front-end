@@ -8,10 +8,9 @@ import { friendlyModelError } from "@/lib/model-error";
 import { normalizeActivityStatus, toolNameToType } from "@/lib/activity";
 import type { ActivityType, GeneratedFile } from "@/types/chat";
 import { toConnector } from "@/lib/connector";
-import { PERSONA_GUIDE_ENDPOINT, PERSONA_VERSION_TEST_ENDPOINT, PERSONA_CHATS_CREATE_ENDPOINT, PERSONA_CHAT_STREAM_ENDPOINT, directUpload } from "@/lib/config";
+import { PERSONA_GUIDE_ENDPOINT, PERSONA_VERSION_TEST_ENDPOINT, directUpload } from "@/lib/config";
 import type { Persona } from "./persona-model";
-import { bustPersonaChatsCache } from "./persona-chats";
-import { PERSONA_CREATE_FIELDS, PERSONA_STREAM_FIELDS, keepAcceptedFields } from "@/lib/chat-form-fields";
+import { keepAcceptedFields } from "@/lib/chat-form-fields";
 
 // ── Persona test chat ─────────────────────────────────────────────────────────
 
@@ -402,58 +401,6 @@ export async function testVersionStream(
   return () => controller.abort();
 }
 
-/**
- * Create a new persona chat session and stream the first assistant response.
- * The chatId is surfaced via `callbacks.onChatId` so callers can store it
- * for follow-up messages.
- * Returns an abort function that cancels the in-flight request.
- */
-export async function createAndStreamPersonaChat(
-  repoId: string,
-  input: string,
-  callbacks: PersonaChatStreamCallbacks,
-  options?: { files?: File[]; useMistralOcr?: boolean; connectorSlugs?: string[] },
-): Promise<() => void> {
-  const controller = new AbortController();
-  // The backend refuses connector, model and OCR fields on this route (it never read them).
-  const { body, headers } = buildStreamBody(input, options, PERSONA_CREATE_FIELDS);
-  // Multipart (file attachments) bypasses the 4.5 MB serverless proxy cap by
-  // going direct to the backend; text-only stays on the same-origin proxy.
-  const endpoint = body instanceof FormData
-    ? directUpload(PERSONA_CHATS_CREATE_ENDPOINT(repoId))
-    : PERSONA_CHATS_CREATE_ENDPOINT(repoId);
-  let response: Response;
-  try {
-    response = await apiFetch(endpoint, {
-      method: "POST",
-      body,
-      headers,
-      signal: controller.signal,
-    });
-  } catch (err) {
-    if ((err as Error).name !== "AbortError") {
-      callbacks.onError?.(friendlyModelError((err as Error).message ?? "Failed to create persona chat"));
-    }
-    return () => controller.abort();
-  }
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    callbacks.onError?.(friendlyModelError(text || `HTTP ${response.status}`, response.status));
-    return () => controller.abort();
-  }
-  // A new chat now exists for this agent — any cached list of its chats is stale.
-  bustPersonaChatsCache(repoId);
-  const chatId = response.headers.get("X-Chat-Id");
-  if (chatId) callbacks.onChatId?.(chatId);
-  const reader = response.body?.getReader();
-  if (!reader) {
-    callbacks.onError?.(friendlyModelError("No response body"));
-    return () => controller.abort();
-  }
-  readPersonaSSEStream(reader, callbacks);
-  return () => controller.abort();
-}
-
 // ── Persona guide (AI suggestions) ───────────────────────────────────────────
 
 /** A single turn in the in-memory guide conversation history. */
@@ -537,52 +484,3 @@ export async function guidePersonaStream(
   readPersonaSSEStream(reader, callbacks);
   return () => controller.abort();
 }
-
-/**
- * Send a follow-up message in an existing persona chat session and stream
- * the assistant response.
- * Returns an abort function that cancels the in-flight request.
- */
-export async function streamPersonaMessage(
-  repoId: string,
-  chatId: string,
-  input: string,
-  callbacks: PersonaChatStreamCallbacks,
-  options?: { files?: File[]; useMistralOcr?: boolean; connectorSlugs?: string[] },
-): Promise<() => void> {
-  const controller = new AbortController();
-  // The backend refuses connector, model and OCR fields on this route (it never read them).
-  const { body, headers } = buildStreamBody(input, options, PERSONA_STREAM_FIELDS);
-  // Multipart (file attachments) bypasses the 4.5 MB serverless proxy cap by
-  // going direct to the backend; text-only stays on the same-origin proxy.
-  const endpoint = body instanceof FormData
-    ? directUpload(PERSONA_CHAT_STREAM_ENDPOINT(repoId, chatId))
-    : PERSONA_CHAT_STREAM_ENDPOINT(repoId, chatId);
-  let response: Response;
-  try {
-    response = await apiFetch(endpoint, {
-      method: "POST",
-      body,
-      headers,
-      signal: controller.signal,
-    });
-  } catch (err) {
-    if ((err as Error).name !== "AbortError") {
-      callbacks.onError?.(friendlyModelError((err as Error).message ?? "Failed to stream message"));
-    }
-    return () => controller.abort();
-  }
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    callbacks.onError?.(friendlyModelError(text || `HTTP ${response.status}`, response.status));
-    return () => controller.abort();
-  }
-  const reader = response.body?.getReader();
-  if (!reader) {
-    callbacks.onError?.(friendlyModelError("No response body"));
-    return () => controller.abort();
-  }
-  readPersonaSSEStream(reader, callbacks);
-  return () => controller.abort();
-}
-

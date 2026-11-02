@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { CHAT_CREATE_FIELDS, CHAT_STREAM_FIELDS, PERSONA_STREAM_FIELDS, keepAcceptedFields } from "./chat-form-fields"
+import { CHAT_CREATE_FIELDS, CHAT_STREAM_FIELDS, keepAcceptedFields } from "./chat-form-fields"
 
 describe("keepAcceptedFields", () => {
   it("drops fields the chat endpoints refuse and keeps the rest", () => {
@@ -16,12 +16,16 @@ describe("keepAcceptedFields", () => {
     expect(fd.getAll("files")).toHaveLength(2)
   })
 
-  it("keeps librarySourcesOff for chats but not for agent chats", () => {
-    const fd = new FormData()
-    fd.append("input", "hi")
-    fd.append("librarySourcesOff", "[]")
-    expect(keepAcceptedFields(fd, CHAT_STREAM_FIELDS).has("librarySourcesOff")).toBe(true)
-    expect(keepAcceptedFields(fd, PERSONA_STREAM_FIELDS).has("librarySourcesOff")).toBe(false)
+  it("keeps persona_id (an agent version id) on create and stream", () => {
+    const make = () => {
+      const fd = new FormData()
+      fd.append("input", "hi")
+      fd.append("persona_id", "v1")
+      fd.append("personaId", "v1")
+      return fd
+    }
+    expect([...keepAcceptedFields(make(), CHAT_CREATE_FIELDS).keys()]).toEqual(["input", "persona_id"])
+    expect([...keepAcceptedFields(make(), CHAT_STREAM_FIELDS).keys()]).toEqual(["input", "persona_id"])
   })
 
   it("keeps the reply fields only on an existing chat", () => {
@@ -35,8 +39,8 @@ describe("keepAcceptedFields", () => {
     expect(keepAcceptedFields(make(), CHAT_STREAM_FIELDS).has("replace_message_id")).toBe(true)
   })
 
-  it("filters a url-encoded persona body", () => {
+  it("filters a url-encoded body", () => {
     const params = new URLSearchParams({ input: "hi", model_id: "m", connector_slugs: "slack" })
-    expect(keepAcceptedFields(params, PERSONA_STREAM_FIELDS).toString()).toBe("input=hi")
+    expect(keepAcceptedFields(params, CHAT_CREATE_FIELDS).toString()).toBe("input=hi&model_id=m")
   })
 })
