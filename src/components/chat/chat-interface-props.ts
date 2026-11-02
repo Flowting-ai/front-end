@@ -80,7 +80,6 @@ export interface ChatInterfaceProps {
   disabledModelSelector?: boolean;
   /**
    * Override the SSE proxy endpoint. Defaults to "/api/chat".
-   * Set to "/api/persona-chat" for persona-scoped chats.
    */
   endpoint?: string;
   /**

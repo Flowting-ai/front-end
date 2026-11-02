@@ -116,7 +116,6 @@ export const PROJECT_ROUTE = (projectId: string) => `/project/${projectId}`;
 export const PROJECT_CHAT_ROUTE = (projectId: string, chatId: string) =>
   `/project/${projectId}/chat/${chatId}`;
 export const PROJECT_CHAT_NEW_ROUTE = (projectId: string) => `/project/${projectId}/chat/new`;
-export const AGENT_CHAT_ROUTE = (personaId: string) => `/agents/${personaId}/chat`;
 export const AGENT_EDIT_ROUTE = (personaId: string) => `/agents/${personaId}/edit`;
 export const CHAT_SHARE_ROUTE = (shareId: string) => `/chat-shares/${shareId}`;
 

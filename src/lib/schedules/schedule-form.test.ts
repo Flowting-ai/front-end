@@ -36,6 +36,13 @@ describe('schedule form', () => {
   it('filters timezones case-insensitively', () => {
     expect(filterTimezones(['Europe/Paris', 'America/New_York'], 'new')).toEqual(['America/New_York'])
   })
+
+  it('matches a timezone search typed with spaces, the way the list shows it', () => {
+    const zones = ['Europe/Paris', 'America/New_York', 'America/Los_Angeles']
+    expect(filterTimezones(zones, 'new york')).toEqual(['America/New_York'])
+    expect(filterTimezones(zones, 'New_York')).toEqual(['America/New_York'])
+    expect(filterTimezones(zones, 'los angeles')).toEqual(['America/Los_Angeles'])
+  })
 })
 
 describe('zod form core', () => {

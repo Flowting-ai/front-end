@@ -67,7 +67,7 @@ function PersonaPublishedContent() {
   const linkShare = repoId ? activeLinkFor(sharesQ.data, repoId) : null
 
   // "Use this Agent" opens a fresh /chat with the agent pre-attached to the
-  // input (not sent, not the agent's own dedicated /agents/[id]/chat page).
+  // input (not sent; agents have no chat page of their own).
   // /chat isn't mounted yet when this fires, so the persona is handed across
   // via sessionStorage (read synchronously in a lazy initializer on /chat, the
   // same mechanism project/[id]/chat/[chatId]/page.tsx already uses for its

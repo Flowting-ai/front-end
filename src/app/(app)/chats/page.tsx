@@ -172,11 +172,27 @@ function ChatsPageInner() {
   const activeChats = useMemo(() => chats.filter((c) => c.visibility !== 'archived'), [chats])
   const archivedChats = useMemo(() => chats.filter((c) => c.visibility === 'archived'), [chats])
 
+  // The search box shows on every tab, so it filters every tab's list.
+  const searchTerm = searchQuery.trim().toLowerCase()
   const filteredChats = useMemo(() => {
-    if (!searchQuery.trim()) return activeChats
-    const q = searchQuery.toLowerCase()
-    return activeChats.filter((c) => c.title.toLowerCase().includes(q))
-  }, [activeChats, searchQuery])
+    if (!searchTerm) return activeChats
+    return activeChats.filter((c) => c.title.toLowerCase().includes(searchTerm))
+  }, [activeChats, searchTerm])
+  const filteredArchivedChats = useMemo(() => {
+    if (!searchTerm) return archivedChats
+    return archivedChats.filter((c) => c.title.toLowerCase().includes(searchTerm))
+  }, [archivedChats, searchTerm])
+  const filteredSharedItems = useMemo(() => {
+    if (!searchTerm) return sharedItems
+    return sharedItems.filter((s) => (s.chatTitle || 'Untitled chat').toLowerCase().includes(searchTerm))
+  }, [sharedItems, searchTerm])
+
+  // The list is paged (infinite scroll), and a search usually leaves too few
+  // rows to scroll, so older matches would never load. Keep fetching pages
+  // while a search is active until the history is complete.
+  useEffect(() => {
+    if (searchTerm && hasMore && !isLoading) loadMore()
+  }, [searchTerm, hasMore, isLoading, loadMore])
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const rowVirtualizer = useVirtualizer({
@@ -489,6 +505,7 @@ function ChatsPageInner() {
                           placeholder="Search chats…"
                           value={searchQuery}
                           onChange={setSearchQuery}
+                          onKeyDown={(e) => { if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery('') } }}
                           fluid
                           autoFocus
                           aria-label="Search"
@@ -515,7 +532,10 @@ function ChatsPageInner() {
             {!sharedLoading && sharedItems.length === 0 && (
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: '32px 0', textAlign: 'center' }}>No chats have been shared with you yet.</p>
             )}
-            {sharedItems.map(item => (
+            {!sharedLoading && sharedItems.length > 0 && filteredSharedItems.length === 0 && (
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: '32px 0', textAlign: 'center' }}>No shared chats match &ldquo;{searchQuery}&rdquo;</p>
+            )}
+            {filteredSharedItems.map(item => (
               <div
                 key={item.shareId}
                 style={{
@@ -565,7 +585,10 @@ function ChatsPageInner() {
             {!isLoading && archivedChats.length === 0 && (
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: '32px 0', textAlign: 'center' }}>No archived chats.</p>
             )}
-            {archivedChats.map((chat) => (
+            {!isLoading && archivedChats.length > 0 && filteredArchivedChats.length === 0 && (
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-400)', margin: '32px 0', textAlign: 'center' }}>No archived chats match &ldquo;{searchQuery}&rdquo;</p>
+            )}
+            {filteredArchivedChats.map((chat) => (
               <div key={chat.id} role="listitem" style={{ padding: '1px 0 6px' }}>
                 <ChatRow
                   title={chat.title}

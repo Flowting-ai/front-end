@@ -3,7 +3,7 @@ import { logger } from "@/lib/logger"
 
 /**
  * Shared pieces for the server route handlers that call the backend
- * (`/api/chat`, `/api/persona-chat`, `/api/template`). One place for the base
+ * (`/api/chat`, `/api/template`). One place for the base
  * URL, the session token, id checks and the error shape, so each route does
  * not re-decide them.
  */

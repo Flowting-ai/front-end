@@ -2,8 +2,8 @@ import { z } from "zod"
 import { isSafeId } from "@/lib/server/backend"
 
 /**
- * Zod schemas for the multipart bodies of POST /api/chat and
- * /api/persona-chat, checked before anything is forwarded. Limits mirror what
+ * Zod schema for the multipart body of POST /api/chat (agent chats included),
+ * checked before anything is forwarded. Limits mirror what
  * the backend accepts (services/chat/router.py: UUID ids, `algorithm` base|pro,
  * `effort` low|medium|high) plus caps the backend doesn't set. Attachments
  * arrive as Library file ids, not file parts.
@@ -61,18 +61,7 @@ export const chatFormSchema = z.object({
   }
 })
 
-export const personaChatFormSchema = z.object({
-  input: z.string().max(MAX_INPUT_CHARS, "Message is too long").default(""),
-  repoId: id,
-  chatId,
-  modelId: z.string().max(100).optional(),
-  connectorSlugs: z.array(z.string().min(1).max(100)).max(MAX_CONNECTOR_SLUGS).default([]),
-  libraryFileIds,
-  saveToLibrary: z.enum(["true", "false"]).optional(),
-})
-
 export type ChatForm = z.infer<typeof chatFormSchema>
-export type PersonaChatForm = z.infer<typeof personaChatFormSchema>
 
 /** FormData text fields as an object: empty strings and File parts dropped, repeated keys listed. */
 export function formFields(form: FormData, repeated: readonly string[] = []): Record<string, string | string[]> {

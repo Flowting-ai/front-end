@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState } from "react";
 import { useIsClient } from "@/hooks/use-is-client";
 import { m } from "framer-motion";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -10,10 +10,9 @@ import { SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection } from "@/
 import { fetchPersonaChats } from "@/lib/api/personas";
 import type { Persona, PersonaChat } from "@/lib/api/personas";
 import { usePersonas } from "@/lib/queries/personas";
-import { emitPersonaChatNav } from "@/hooks/use-sidebar-events";
-import type { PersonaChatEventDetail } from "@/hooks/use-sidebar-events";
+import { existingAgentChatHref, openAgentInChat } from "@/lib/agent-chat-handoff";
 import { Badge } from "@/components/Badge";
-import { AGENT_CHAT_ROUTE, AGENT_EDIT_ROUTE, AGENTS_ROUTE, AGENTS_TEMPLATES_ROUTE } from "@/lib/routes";
+import { AGENT_EDIT_ROUTE, CHAT_ROUTE, AGENTS_ROUTE, AGENTS_TEMPLATES_ROUTE } from "@/lib/routes";
 import { sectionHeightVariants, sectionStaggerVariants, sectionItemVariants } from "./section-motion";
 import { personaAvatarUrl, AGENT_LIST_LIMIT, goToAgentsLibrary } from "./sidebar-helpers";
 import { PersonaChatItem } from "./PersonaChatItem";
@@ -28,9 +27,8 @@ export function PersonasSectionIndividual() {
   const pathname            = usePathname()
   const personaSearchParams = useSearchParams()
 
-  const personaMatch    = pathname?.match(/^\/agents\/([^/]+)\/chat/)
-  const activePersonaId = personaMatch?.[1] ?? null
-  const activeChatId    = personaSearchParams.get("chatId")
+  // Agent chats open on the normal chat page, so the open one is /chat?id=.
+  const activeChatId    = pathname === CHAT_ROUTE ? personaSearchParams.get("id") : null
 
   const [expandedIds,     setExpandedIds]     = useState<Set<string>>(new Set())
   const [personaChatsMap, setPersonaChatsMap] = useState<
@@ -57,50 +55,6 @@ export function PersonasSectionIndividual() {
           [personaId]: { chats: [], loaded: true, loading: false },
         }))
       )
-  }, [])
-
-  useEffect(() => {
-    if (!activePersonaId) return
-    setExpandedIds(prev => {
-      if (prev.has(activePersonaId)) return prev
-      return new Set([...prev, activePersonaId])
-    })
-    loadPersonaChats(activePersonaId)
-  }, [activePersonaId, loadPersonaChats])
-
-  useEffect(() => {
-    const handleCreated = (e: Event) => {
-      const { personaId, chatId, title } = (e as CustomEvent<PersonaChatEventDetail>).detail
-      const newChat: PersonaChat = { id: chatId, title, created_at: new Date().toISOString() }
-      setPersonaChatsMap(prev => {
-        const existing = prev[personaId]
-        if (!existing) {
-          return { ...prev, [personaId]: { chats: [newChat], loaded: true, loading: false } }
-        }
-        if (existing.chats.some(c => c.id === chatId)) return prev
-        return { ...prev, [personaId]: { ...existing, chats: [newChat, ...existing.chats] } }
-      })
-    }
-    const handleTitleUpdated = (e: Event) => {
-      const { personaId, chatId, title } = (e as CustomEvent<PersonaChatEventDetail>).detail
-      setPersonaChatsMap(prev => {
-        const existing = prev[personaId]
-        if (!existing) return prev
-        return {
-          ...prev,
-          [personaId]: {
-            ...existing,
-            chats: existing.chats.map(c => c.id === chatId ? { ...c, title } : c),
-          },
-        }
-      })
-    }
-    window.addEventListener("persona:chat-created",       handleCreated)
-    window.addEventListener("persona:chat-title-updated", handleTitleUpdated)
-    return () => {
-      window.removeEventListener("persona:chat-created",       handleCreated)
-      window.removeEventListener("persona:chat-title-updated", handleTitleUpdated)
-    }
   }, [])
 
   // Re-fetch on publish/delete/update is now handled inside usePersonas() itself
@@ -151,7 +105,6 @@ export function PersonasSectionIndividual() {
 
   const renderPersonaRow = (persona: Persona) => {
     const isExpanded   = expandedIds.has(persona.id)
-    const isActive     = activePersonaId === persona.id
     const isDraft      = persona.status === 'draft'
     const chatData     = personaChatsMap[persona.id]
     const visibleChats = chatData?.chats.filter(
@@ -169,7 +122,7 @@ export function PersonasSectionIndividual() {
           fluid
           label={persona.name}
           icon={avatarIcon}
-          active={isActive}
+          active={false}
           expanded={isDraft ? false : isExpanded}
           onClick={() => isDraft
             ? push(AGENT_EDIT_ROUTE(persona.id))
@@ -185,8 +138,8 @@ export function PersonasSectionIndividual() {
                 variant="default"
                 label="New chat"
                 icon={<BubbleChatAddIcon size={20} />}
-                href={`/agents/${persona.id}/chat`}
-                onClick={() => { emitPersonaChatNav({ personaId: persona.id }); push(AGENT_CHAT_ROUTE(persona.id)) }}
+                href={CHAT_ROUTE}
+                onClick={() => { void openAgentInChat(persona.id, push) }}
               />
               {chatData?.loading && !chatData.loaded && Array.from({ length: 2 }).map((_, i) => (
                 <SidebarMenuSkeleton key={i} index={i} fluid />
@@ -196,8 +149,8 @@ export function PersonasSectionIndividual() {
                   key={chat.id}
                   personaId={persona.id}
                   chat={chat}
-                  isActive={isActive && chat.id === activeChatId}
-                  onSelect={() => { emitPersonaChatNav({ personaId: persona.id, chatId: chat.id }); push(`${AGENT_CHAT_ROUTE(persona.id)}?chatId=${chat.id}`) }}
+                  isActive={chat.id === activeChatId}
+                  onSelect={() => push(existingAgentChatHref(chat.id))}
                   onRename={(chatId, title) => handleChatRename(persona.id, chatId, title)}
                   onDelete={(chatId) => handleChatDelete(persona.id, chatId)}
                 />

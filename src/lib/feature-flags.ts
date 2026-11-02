@@ -61,11 +61,12 @@ export const LIBRARY_SETTINGS_ENABLED = process.env.NEXT_PUBLIC_ENABLE_LIBRARY_S
  * NEXT_PUBLIC_ENABLE_LIBRARY_REQUEST_ACCESS=false turns it off.
  */
 /**
- * Chatting with an agent: the @agent mention and "Add agent" in the composer, `persona_id` on a chat
- * send, and the /agents/[id]/chat page. Back-end 9079f6e3 (22 Oct) dropped `persona_id` from
- * /chats/create and /chats/{id}/stream and deleted /persona/{id}/chats/*, so a send with an agent
- * answers 400 (docs v2/tickets/2026-10-26/BACKEND_REGRESSIONS_TICKET.md R1). OFF by default; creating, editing and
- * sharing agents is unaffected. Turn on with NEXT_PUBLIC_ENABLE_AGENT_CHAT=true once the backend is back.
+ * Chatting with an agent: the @agent mention and "Add agent" in the composer, and "Use in chat". There
+ * is no agent chat page; agents are only attached to a normal /chat. Every agent chat is a regular /chats chat sent with `persona_id` (an agent version id). Back-end
+ * 9079f6e3 (22 Oct) had dropped `persona_id`; 4495366a (26 Oct) restored it on /chats/create and
+ * /chats/{id}/stream (the old /persona/{id}/chats/* routes stay gone). Off unless
+ * NEXT_PUBLIC_ENABLE_AGENT_CHAT=true (set in .env.local; deploy envs need it too). Creating, editing and
+ * sharing agents does not depend on it.
  */
 export const AGENT_CHAT_ENABLED = process.env.NEXT_PUBLIC_ENABLE_AGENT_CHAT === 'true'
 

@@ -53,8 +53,11 @@ export function timezoneList(detected = detectTimezone()): string[] {
 
 /** Case-insensitive match on the raw zone id. */
 export function filterTimezones(zones: readonly string[], search: string): string[] {
-  const q = search.trim().toLowerCase()
-  return q ? zones.filter(tz => tz.toLowerCase().includes(q)) : [...zones]
+  // The list shows zones with spaces ("America/New York", see zoneLabel), so a search typed the way
+  // it reads must match too: underscores and spaces compare as the same character.
+  const normalize = (text: string) => text.replace(/_/g, ' ').toLowerCase()
+  const q = normalize(search.trim())
+  return q ? zones.filter(tz => normalize(tz).includes(q)) : [...zones]
 }
 
 export const zoneLabel = (tz: string) => tz.replace(/_/g, ' ')

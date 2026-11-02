@@ -5,8 +5,6 @@ import { useEffect } from "react";
 const SIDEBAR_OPEN_EVENT = "sidebar:open";
 const SIDEBAR_CLOSE_EVENT = "sidebar:close";
 const SIDEBAR_NEW_CHAT_EVENT = "sidebar:new-chat";
-export const PERSONA_CHAT_CREATED_EVENT = "persona:chat-created";
-const PERSONA_CHAT_TITLE_UPDATED_EVENT = "persona:chat-title-updated";
 export const CHAT_CREATED_EVENT = "chat:created";
 // Fired by the sidebar's per-project "New chat" quick-add button while a
 // project chat that was created via the new→real-id URL swap (see the
@@ -23,21 +21,6 @@ export const PROJECT_NEW_CHAT_EVENT = "project:new-chat";
 // already-mounted page (same reasoning as SIDEBAR_NEW_CHAT_EVENT above), so
 // the agents page listens and switches itself back to the "My Agents" tab.
 export const AGENTS_SEE_ALL_EVENT = "agents:see-all";
-// Fired by the shared LeftSidebar whenever it navigates to a persona/agent
-// chat (new chat with a persona, or selecting one of that persona's existing
-// chats) — /agents/[personaId]/chat's own instanceKey logic derives its reset
-// from useSearchParams()/useParams() reactivity alone, which /chat's own
-// comments document as unreliable across Suspense transitions. This event
-// fires synchronously from the click itself, independent of that, so the page
-// can force a remount even if the router's reactive params lag or get missed.
-export const PERSONA_CHAT_NAV_EVENT = "persona:chat-nav";
-
-export interface PersonaChatEventDetail {
-  personaId: string;
-  chatId: string;
-  title: string;
-}
-
 export interface ChatCreatedEventDetail {
   id: string;
   title: string;
@@ -49,12 +32,6 @@ export interface ChatCreatedEventDetail {
 
 export interface ProjectNewChatEventDetail {
   projectId: string;
-}
-
-export interface PersonaChatNavEventDetail {
-  personaId: string;
-  /** Absent when navigating to a brand-new chat with this persona. */
-  chatId?: string;
 }
 
 export function emitSidebarOpen() {
@@ -75,18 +52,6 @@ export function emitSidebarNewChat() {
   }
 }
 
-export function emitPersonaChatCreated(detail: PersonaChatEventDetail) {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(PERSONA_CHAT_CREATED_EVENT, { detail }));
-  }
-}
-
-export function emitPersonaChatTitleUpdated(detail: PersonaChatEventDetail) {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(PERSONA_CHAT_TITLE_UPDATED_EVENT, { detail }));
-  }
-}
-
 export function emitChatCreated(detail: ChatCreatedEventDetail) {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(CHAT_CREATED_EVENT, { detail }));
@@ -102,12 +67,6 @@ export function emitAgentsSeeAll() {
 export function emitProjectNewChat(detail: ProjectNewChatEventDetail) {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(PROJECT_NEW_CHAT_EVENT, { detail }));
-  }
-}
-
-export function emitPersonaChatNav(detail: PersonaChatNavEventDetail) {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(PERSONA_CHAT_NAV_EVENT, { detail }));
   }
 }
 

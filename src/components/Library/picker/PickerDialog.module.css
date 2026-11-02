@@ -1,15 +1,34 @@
+/* "Add from Library" picker: a fixed tools band, a scrolling list and a fixed footer. */
+
 .tools {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 24px 8px;
+  gap: 12px;
+  padding: 16px 24px 12px;
+  border-bottom: 1px solid var(--border-default);
+  transition: box-shadow 160ms ease;
+}
+
+/* The list has scrolled under the tools band. */
+.tools[data-scrolled] {
+  box-shadow: 0 6px 12px -10px rgba(0, 0, 0, 0.28);
+}
+
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .search {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 10px;
+  gap: 8px;
+  padding: 8px 12px;
   border-radius: 10px;
   background: var(--text-field-bg);
   box-shadow: 0px 1px 1.5px 0px rgba(82, 75, 71, 0.12), 0px 0px 0px 1px var(--text-field-ring);
@@ -32,14 +51,29 @@
   color: var(--neutral-900);
 }
 
+.input::placeholder {
+  color: var(--neutral-500);
+}
+
+/* One row of type chips. On a narrow dialog it scrolls sideways instead of wrapping. */
 .chips {
   display: flex;
   gap: 6px;
-  flex-wrap: wrap;
+  margin: 0 -24px;
+  padding: 2px 24px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+}
+
+.chips::-webkit-scrollbar {
+  display: none;
 }
 
 .chip {
-  padding: 4px 10px;
+  flex-shrink: 0;
+  padding: 5px 12px;
   border-radius: 999px;
   border: 1px solid var(--border-default);
   cursor: pointer;
@@ -47,11 +81,24 @@
   font-weight: 500;
   font-size: 12px;
   line-height: 16px;
+  white-space: nowrap;
   background: var(--color-surface-container);
   color: var(--neutral-700);
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.chip:hover {
+  background: var(--neutral-100);
+  color: var(--neutral-900);
+}
+
+.chip:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .chip[aria-pressed='true'] {
+  border-color: var(--neutral-900);
   background: var(--neutral-900);
   color: var(--card-bg);
 }
@@ -59,22 +106,26 @@
 .results {
   flex: 1 1 0;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
-  padding: 0 16px;
+  padding: 8px 12px;
 }
 
 .loading {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 8px;
+  padding: 4px 4px;
 }
 
 .error {
   display: flex;
+  flex: 1 0 auto;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  gap: 12px;
   padding: 32px;
   text-align: center;
 }
@@ -86,40 +137,70 @@
   color: var(--neutral-600);
 }
 
-.empty {
-  margin: 0;
-  padding: 32px;
-  text-align: center;
-  font-family: var(--font-body);
-  font-size: 14px;
-  color: var(--neutral-500);
-}
-
 .list {
   list-style: none;
   margin: 0;
   padding: 0;
-}
-
-.searchRow {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.searchRow .search {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-/* Grid view: the same options as cards (glyph on top, name and date below, tick in the corner). */
+/* Grid view: the same options as cards (glyph on top, name and details below, mark in the corner). */
 .grid {
   list-style: none;
   margin: 0;
-  padding: 4px 0 8px;
+  padding: 4px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
   gap: 10px;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  background: transparent;
+  outline: none;
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.option:hover {
+  background: color-mix(in srgb, var(--neutral-100) 70%, transparent);
+}
+
+.option:hover .name {
+  color: var(--neutral-900);
+}
+
+/* A picked row still answers the pointer: one step darker than its resting fill. */
+.option[aria-selected='true']:hover {
+  background: var(--neutral-200, var(--neutral-100));
+}
+
+.option:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--focus-ring);
+}
+
+.option[aria-selected='true'] {
+  background: var(--neutral-100);
+}
+
+.option[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.option[aria-disabled='true']:hover {
+  background: transparent;
+}
+
+.option[aria-selected='true'][aria-disabled='true'] {
+  background: var(--neutral-100);
 }
 
 .option.card {
@@ -127,17 +208,37 @@
   flex-direction: column;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 14px;
-  min-height: 112px;
-  padding: 12px;
+  gap: 16px;
+  min-height: 124px;
+  padding: 14px;
   border: 1px solid var(--border-default);
   border-radius: 14px;
 }
 
-.option.card > svg:last-child {
+.option.card {
+  transition: background-color 120ms ease, border-color 120ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.option.card:hover {
+  border-color: var(--neutral-300);
+  box-shadow: 0 6px 16px -10px rgba(0, 0, 0, 0.25);
+  transform: translateY(-1px);
+}
+
+.option.card[aria-selected='true'] {
+  border-color: var(--neutral-400);
+}
+
+.option.card[aria-disabled='true']:hover {
+  border-color: var(--border-default);
+  box-shadow: none;
+  transform: none;
+}
+
+.option.card .mark {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 14px;
+  right: 14px;
 }
 
 .option.card .text,
@@ -154,29 +255,10 @@
   -webkit-box-orient: vertical;
 }
 
-.option {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 52px;
-  padding: 4px 10px;
-  border-radius: 10px;
-  cursor: pointer;
-  background: transparent;
-}
-
-.option[aria-selected='true'] {
-  background: var(--neutral-100);
-}
-
-.option[aria-disabled='true'] {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
 .text {
   display: flex;
   flex-direction: column;
+  gap: 2px;
   min-width: 0;
   flex: 1;
 }
@@ -195,15 +277,56 @@
   font-family: var(--font-body);
   font-weight: 500;
   font-size: 14px;
-  line-height: 22px;
+  line-height: 20px;
   color: var(--neutral-900);
 }
 
 .meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--font-body);
   font-size: 12px;
   line-height: 16px;
   color: var(--neutral-500);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Pick mark: an empty box until picked, then a filled box with a tick. `.radio` is the one-file variant. */
+.mark {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1.5px solid var(--neutral-300);
+  background: var(--neutral-white);
+  color: var(--card-bg);
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.option:hover .mark {
+  border-color: var(--neutral-500);
+}
+
+.mark[data-selected] {
+  border-color: var(--neutral-900);
+  background: var(--neutral-900);
+}
+
+.radio {
+  border-radius: 999px;
+}
+
+.radio[data-selected] {
+  background: var(--neutral-white);
+  box-shadow: inset 0 0 0 4px var(--neutral-900);
+}
+
+.option[aria-disabled='true'] .mark {
+  border-color: var(--neutral-300);
 }
 
 .loadMore {
@@ -212,13 +335,80 @@
   padding: 12px;
 }
 
+.footer {
+  border-top: 1px solid var(--border-default);
+}
+
+.selection {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
 .count {
   font-family: var(--font-body);
   font-size: 14px;
-  color: var(--neutral-500);
+  color: var(--neutral-600);
+  font-variant-numeric: tabular-nums;
+}
+
+.clear {
+  padding: 2px 6px;
+  margin: 0 -6px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--neutral-900);
+  text-decoration: underline;
+  text-decoration-color: var(--neutral-300);
+  text-underline-offset: 3px;
+}
+
+.clear:hover {
+  text-decoration-color: currentColor;
+}
+
+.clear:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .actions {
   display: flex;
+  flex-shrink: 0;
   gap: 8px;
+}
+
+@media (max-width: 480px) {
+  .tools {
+    padding: 14px 16px 10px;
+  }
+
+  .chips {
+    margin: 0 -16px;
+    padding: 2px 16px;
+  }
+
+  .results {
+    padding: 6px 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tools,
+  .chip,
+  .option,
+  .option.card,
+  .mark {
+    transition: none;
+  }
+
+  .option.card:hover {
+    transform: none;
+  }
 }

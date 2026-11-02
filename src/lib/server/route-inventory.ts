@@ -14,8 +14,7 @@ export type RouteAccess =
 
 export const ROUTE_INVENTORY: Record<string, { access: RouteAccess; upstream: string; note: string }> = {
   "api/backend/[...path]": { access: "session", upstream: "backend (any path)", note: "Streaming pass-through; drops cookies, forwards the browser's Bearer." },
-  "api/chat": { access: "session", upstream: "backend /chats", note: "Local-dev chat transport; deployed builds stream direct to the backend." },
-  "api/persona-chat": { access: "session", upstream: "backend /persona/{id}/chats", note: "Agent chat transport, as above." },
+  "api/chat": { access: "session", upstream: "backend /chats", note: "Local-dev chat transport (agent chats too, via persona_id); deployed builds stream direct to the backend." },
   "api/template/[uuid]": { access: "session", upstream: "backend /templates/{id}/html", note: "Served under a sandbox CSP." },
   "api/download": { access: "session", upstream: "Souvenir S3 buckets", note: "Exact hosts, no redirects, 200 MB cap." },
   "api/health": { access: "public", upstream: "backend /health", note: "Uptime check: config variable names and backend reachability only; 503 when degraded." },

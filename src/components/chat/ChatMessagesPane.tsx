@@ -85,8 +85,7 @@ export function ChatMessagesPane({
         }}
       >
         {/* 2px right padding on the scrolling element above sits the scrollbar
-            exactly 2px from the layout's edge (same convention as
-            PersonaChatInterface.tsx). Reading-comfort padding lives on the
+            exactly 2px from the layout's edge. Reading-comfort padding lives on the
             inner wrapper below, not on the scrolling element. */}
         <div style={{ width: "100%", maxWidth: "720px", padding: "0 16px", boxSizing: "border-box" }}>
         {/* Loading skeleton — shown while fetching AND while the virtualizer

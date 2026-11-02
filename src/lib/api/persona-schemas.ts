@@ -95,23 +95,6 @@ export const personaChatsSchema = z.object({
   updated_at:    z.string(),
 })
 
-export const personaFileAttachmentSchema = z.object({
-  file_link: z.string().default(''),
-  mime_type: z.string(),
-  file_size: z.number(),
-  origin:    z.string(),
-})
-
-export const personaMessagesSchema = z.object({
-  id:               z.string(),
-  input:            z.string(),
-  output:           z.string(),
-  reasoning:        nullableString,
-  file_attachments: z.array(personaFileAttachmentSchema).default([]),
-  created_at:       z.string(),
-  updated_at:       nullableString,
-})
-
 export const personaSoundSchema = z.object({
   name:        z.string(),
   description: z.string(),
@@ -144,8 +127,6 @@ export type PersonaVersionResponse   = z.infer<typeof personaVersionSchema>
 export type PersonaRepoResponse      = z.infer<typeof personaRepoSchema>
 export type PersonaVersionListItem   = z.infer<typeof personaVersionListItemSchema>
 export type PersonaChatsResponse     = z.infer<typeof personaChatsSchema>
-export type PersonaFileAttachment    = z.infer<typeof personaFileAttachmentSchema>
-export type GetPersonaMessages       = z.infer<typeof personaMessagesSchema>
 export type PersonaSound             = z.infer<typeof personaSoundSchema>
 export type PersonaStarterResponse   = z.infer<typeof personaStarterSchema>
 export type EnhanceOption            = z.infer<typeof enhanceOptionSchema>

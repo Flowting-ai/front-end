@@ -122,6 +122,21 @@ function ProjectsPageInner() {
     updateParam('q', next)
   }
 
+  // Closing (Escape or the clear button) empties the search and hands focus back to the search
+  // button, which mounts in the input's place; otherwise keyboard focus falls to <body>.
+  const searchButtonRef = useRef<HTMLButtonElement>(null)
+  const refocusSearchButton = useRef(false)
+  function closeSearch() {
+    refocusSearchButton.current = true
+    setSearchOpen(false)
+    handleQueryChange('')
+  }
+  useEffect(() => {
+    if (searchOpen || !refocusSearchButton.current) return
+    refocusSearchButton.current = false
+    searchButtonRef.current?.focus()
+  }, [searchOpen])
+
   const [editTarget,     setEditTarget]     = useState<Project | null>(null)
   const [deleteTarget,   setDeleteTarget]   = useState<Project | null>(null)
   const [leaveTarget,    setLeaveTarget]    = useState<Project | null>(null)
@@ -311,6 +326,7 @@ function ProjectsPageInner() {
                         size="sm"
                         icon={<SearchOneIcon size={20} />}
                         aria-label="Search projects"
+                        ref={searchButtonRef}
                         onClick={() => setSearchOpen(true)}
                       />
                     </m.span>
@@ -330,7 +346,7 @@ function ProjectsPageInner() {
                           <button
                             type="button"
                             aria-label="Close search"
-                            onClick={() => { setSearchOpen(false); handleQueryChange('') }}
+                            onClick={closeSearch}
                             className="kds-icon-in-field"
                             style={{ ...RESET_BUTTON_STYLE, display: 'inline-flex', cursor: 'pointer', lineHeight: 0 }}
                           >
@@ -344,6 +360,7 @@ function ProjectsPageInner() {
                         // eslint-disable-next-line jsx-a11y/no-autofocus -- focus moves into search on user-triggered open
                         autoFocus
                         aria-label="Search projects"
+                        onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); closeSearch() } }}
                       />
                     </m.div>
                   )}
