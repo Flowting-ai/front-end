@@ -1,25 +1,59 @@
 'use client'
 
 import React, { useState } from 'react'
-import { CheckmarkCircleTwoIcon, SearchOneIcon } from '@strange-huge/icons'
+import { SearchOneIcon } from '@strange-huge/icons'
 import { Button, IconButton } from '@/components/ui/button'
 import { GridViewGlyph, ListViewGlyph } from '@/components/ProjectViewToggle'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/Skeleton'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { trackLibrary } from '@/lib/library/analytics'
-import { formatDateTime, FORMAT_GROUP_LABELS, pluralize } from '@/lib/library/format'
+import { formatBytes, formatDateTime, FORMAT_GROUP_LABELS, pluralize } from '@/lib/library/format'
 import { MESSAGES, pickerLimitHint } from '@/lib/library/messages'
 import { useLibraryPicker } from '@/lib/library/queries'
 import { FORMAT_GROUPS, type FormatGroup } from '@/lib/library/schemas'
 import type { LibraryFile } from '@/lib/library/file'
 import { nextRowIndex } from '@/lib/library/table-focus'
+import { EmptyState } from '../EmptyState'
 import { FormatGlyph } from '../FormatGlyph'
 import { GeneratedMark } from '../FileMarks'
 import { togglePick } from './togglePick'
 import styles from './PickerDialog.module.css'
 
 type TypeChip = 'all' | FormatGroup | 'runs'
+
+/** The title in the title face (Google Sans), a step up from the shared 16px dialog title. */
+const TITLE_STYLE: React.CSSProperties = {
+  margin: 0,
+  fontFamily: 'var(--font-title)',
+  fontWeight: 500,
+  fontSize: 20,
+  lineHeight: '28px',
+  letterSpacing: '-0.01em',
+  color: 'var(--neutral-900)',
+}
+
+/** "DOCX · 24 KB · Today, 9:00 AM": the extension and size are skipped when the server has none. */
+function fileMeta(file: LibraryFile): string {
+  const parts: string[] = []
+  if (file.extension) parts.push(file.extension.replace(/^\./, '').toUpperCase())
+  if (file.sizeBytes > 0) parts.push(formatBytes(file.sizeBytes))
+  parts.push(formatDateTime(file.createdAt))
+  return parts.join(' · ')
+}
+
+/** The pick mark at the end of each option: a box (several files) or a circle (one file). Decorative; the option carries aria-selected. */
+function PickMark({ selected, single }: { selected: boolean; single: boolean }) {
+  return (
+    <span aria-hidden="true" data-selected={selected || undefined} className={single ? `${styles.mark} ${styles.radio}` : styles.mark}>
+      {selected && !single && (
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M2.5 6.2 4.9 8.5 9.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
+    </span>
+  )
+}
 
 const CHIPS: { id: TypeChip; label: string }[] = [
   { id: 'all', label: 'All files' },
@@ -76,36 +110,41 @@ export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel
     setPicked((current) => togglePick(current, file, single, max))
   }
   const atLimit = !single && max !== undefined && picked.length >= max
+  const filtered = debounced !== '' || chip !== 'all'
+  const clearFilters = () => { setQuery(''); setChip('all') }
+
+  // The tools' bottom edge gains a soft shadow once the list scrolls beneath it.
+  const [scrolled, setScrolled] = useState(false)
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogContent size="lg" style={{ height: 'min(640px, calc(100dvh - 32px))' }}>
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle style={TITLE_STYLE}>{title}</DialogTitle>
           <DialogDescription>Files you can open. Nothing is attached until you confirm.</DialogDescription>
         </DialogHeader>
-        <div className={styles.tools}>
+        <div className={styles.tools} data-scrolled={scrolled || undefined}>
           <div className={styles.searchRow}>
-          <div role="search" className={styles.search}>
-            <SearchOneIcon size={16} className={styles.searchIcon} />
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search library"
-              aria-label="Search library"
-              autoComplete="off"
-              className={styles.input}
+            <div role="search" className={styles.search}>
+              <SearchOneIcon size={16} className={styles.searchIcon} />
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search library"
+                aria-label="Search library"
+                autoComplete="off"
+                className={styles.input}
+              />
+            </div>
+            <IconButton
+              variant="secondary"
+              size="sm"
+              aria-label={layout === 'list' ? 'Grid view' : 'List view'}
+              title={layout === 'list' ? 'Grid view' : 'List view'}
+              icon={layout === 'list' ? <GridViewGlyph /> : <ListViewGlyph />}
+              onClick={() => setLayout(layout === 'list' ? 'grid' : 'list')}
             />
-          </div>
-          <IconButton
-            variant="secondary"
-            size="sm"
-            aria-label={layout === 'list' ? 'Grid view' : 'List view'}
-            title={layout === 'list' ? 'Grid view' : 'List view'}
-            icon={layout === 'list' ? <GridViewGlyph /> : <ListViewGlyph />}
-            onClick={() => setLayout(layout === 'list' ? 'grid' : 'list')}
-          />
           </div>
           <div role="group" aria-label="File type" className={styles.chips}>
             {CHIPS.map((entry) => (
@@ -122,7 +161,11 @@ export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel
           </div>
         </div>
 
-        <div className={`kaya-scrollbar ${styles.results}`} aria-busy={list.isRefreshing}>
+        <div
+          className={`kaya-scrollbar ${styles.results}`}
+          aria-busy={list.isRefreshing}
+          onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}
+        >
           {list.status === 'loading' ? (
             <div aria-busy="true" className={styles.loading}>
               {Array.from({ length: 5 }).map((_, index) => <Skeleton key={index} height={48} radius={10} />)}
@@ -133,7 +176,13 @@ export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel
               <Button variant="secondary" onClick={list.refetch}>{MESSAGES.retry}</Button>
             </div>
           ) : list.files.length === 0 ? (
-            <p role="status" className={styles.empty}>{debounced || chip !== 'all' ? MESSAGES.noFilesText : MESSAGES.suggestedEmptyText}</p>
+            filtered ? (
+              <EmptyState icon={<SearchOneIcon size={22} />} title={MESSAGES.noFilesTitle} text={MESSAGES.noFilesText}>
+                <Button variant="secondary" size="sm" onClick={clearFilters}>{MESSAGES.clearFilters}</Button>
+              </EmptyState>
+            ) : (
+              <EmptyState icon={<SearchOneIcon size={22} />} title={MESSAGES.suggestedEmptyTitle} text={MESSAGES.suggestedEmptyText} />
+            )
           ) : (
             <ul role="listbox" aria-multiselectable={!single} aria-label="Files" className={layout === 'grid' ? styles.grid : styles.list} onKeyDown={onListKeyDown}>
               {list.files.map((file, index) => {
@@ -154,15 +203,15 @@ export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel
                     onKeyDown={(event) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); toggle(file) } }}
                     className={layout === 'grid' ? `${styles.option} ${styles.card}` : styles.option}
                   >
-                    <FormatGlyph format={file.format} />
+                    <FormatGlyph format={file.format} size={layout === 'grid' ? 'md' : 'sm'} />
                     <span className={styles.text}>
                       <span className={styles.nameLine}>
                         <span className={styles.name}>{name}</span>
                         {file.source === 'generated' && <GeneratedMark />}
                       </span>
-                      <span className={styles.meta}>{already ? 'Already attached' : formatDateTime(file.createdAt)}</span>
+                      <span className={styles.meta}>{already ? 'Already attached' : fileMeta(file)}</span>
                     </span>
-                    {selected && <CheckmarkCircleTwoIcon size={18} />}
+                    <PickMark selected={selected} single={single} />
                   </li>
                 )
               })}
@@ -175,8 +224,13 @@ export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel
           )}
         </div>
 
-        <DialogFooter style={{ justifyContent: 'space-between', paddingTop: 12 }}>
-          <span aria-live="polite" className={styles.count}>{atLimit && max !== undefined ? `${pluralize(picked.length, 'file')} selected. ${pickerLimitHint(max)}` : picked.length === 0 ? '' : `${pluralize(picked.length, 'file')} selected`}</span>
+        <DialogFooter className={styles.footer} style={{ justifyContent: 'space-between', paddingTop: 12 }}>
+          <span className={styles.selection}>
+            <span aria-live="polite" className={styles.count}>{atLimit && max !== undefined ? `${pluralize(picked.length, 'file')} selected. ${pickerLimitHint(max)}` : picked.length === 0 ? '' : `${pluralize(picked.length, 'file')} selected`}</span>
+            {picked.length > 0 && (
+              <button type="button" className={styles.clear} onClick={() => setPicked([])}>Clear</button>
+            )}
+          </span>
           <span className={styles.actions}>
             <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
             <Button

@@ -58,7 +58,31 @@ export function TimezonePicker({ value, onChange, labelId }: { value: string; on
         size="lg"
         header={
           <div className="p-2">
-            <InputField size="small" showLabel={false} label="Search timezone" showSubtitle={false} leftIcon={<SearchOneIcon size={16} />} placeholder="Search timezone…" value={search} onChange={setSearch} fluid />
+            <InputField
+              size="small"
+              showLabel={false}
+              label="Search timezone"
+              aria-label="Search timezone"
+              showSubtitle={false}
+              leftIcon={<SearchOneIcon size={16} />}
+              placeholder="Search timezone…"
+              value={search}
+              onChange={setSearch}
+              fluid
+              // The menu leaves keys typed here to the field, so the field moves into the list itself:
+              // ArrowDown focuses the first zone (Radix arrows between zones from there), Enter takes the
+              // first match.
+              onKeyDown={event => {
+                if (event.key === 'ArrowDown') {
+                  const first = event.currentTarget.closest('[role="menu"]')?.querySelector<HTMLElement>('[role="menuitem"]:not([data-disabled])')
+                  if (first) { event.preventDefault(); first.focus() }
+                } else if (event.key === 'Enter' && !event.nativeEvent.isComposing && filtered.length > 0) {
+                  event.preventDefault()
+                  onChange(filtered[0])
+                  setOpen(false)
+                }
+              }}
+            />
           </div>
         }
       >

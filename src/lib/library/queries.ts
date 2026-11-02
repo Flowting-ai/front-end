@@ -273,7 +273,9 @@ export function useLibraryPeople(query: string, enabled: boolean) {
   return useQuery({
     queryKey: libraryKeys.people(orgKey, query),
     queryFn: () => libraryApi.listPeople(orgId, query),
-    enabled: enabled && ready,
+    // `ready` is also true when the org lookup failed (orgId ""), and that would request
+    // /organizations//members (422). Wait for a real org id instead.
+    enabled: enabled && ready && orgId !== "",
     staleTime: MINUTE,
     placeholderData: keepPreviousData,
     retry: libraryRetry,
