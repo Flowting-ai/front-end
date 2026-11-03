@@ -208,10 +208,10 @@ export function OrgBillingView() {
                               Cancel plan
                             </Button>
                           )}
-                          <Button variant="default" onClick={() => router.push(ORG_CHANGE_PLAN_ROUTE)}>Upgrade Plan</Button>
+                          <Button variant="default" shine onClick={() => router.push(ORG_CHANGE_PLAN_ROUTE)}>Upgrade Plan</Button>
                         </>
                       ) : (
-                        <Button variant="secondary" onClick={handleRequestPlanChange}>Request plan change</Button>
+                        <Button variant="default" onClick={handleRequestPlanChange}>Request plan change</Button>
                       )}
                     </div>
                   </>
@@ -227,9 +227,9 @@ export function OrgBillingView() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
                       {isAdmin ? (
-                        <Button variant="default" onClick={() => router.push(ORG_CHANGE_PLAN_ROUTE)}>Choose a plan</Button>
+                        <Button variant="default" shine onClick={() => router.push(ORG_CHANGE_PLAN_ROUTE)}>Choose a plan</Button>
                       ) : (
-                        <Button variant="secondary" onClick={handleRequestPlanChange}>Request plan change</Button>
+                        <Button variant="default" onClick={handleRequestPlanChange}>Request plan change</Button>
                       )}
                     </div>
                   </>
@@ -281,7 +281,7 @@ export function OrgBillingView() {
                 </p>
               </div>
               {isEnterprise && !billing?.paymentSetupComplete ? (
-                <Button variant="secondary" loading={openingPortal} onClick={async () => {
+                <Button variant="default" loading={openingPortal} onClick={async () => {
                   if (openingPortal) return
                   setOpeningPortal(true)
                   try { window.location.assign(await setupEnterprisePayment()) }
@@ -292,7 +292,7 @@ export function OrgBillingView() {
                   }
                 }}>Set up automatic payments</Button>
               ) : (
-                <Button variant="secondary" loading={openingPortal} onClick={() => void handleStripePortal()}>Manage on Stripe</Button>
+                <Button variant="default" loading={openingPortal} onClick={() => void handleStripePortal()}>Manage on Stripe</Button>
               )}
             </div>
           </SectionCard>

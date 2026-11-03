@@ -39,7 +39,7 @@ function GreetingContent({ name, compact }: { name: string; compact: boolean }) 
   // swap the line and restart the logo's arrival).
   const [template] = useState(() => pickGreeting());
 
-  return <GreetingHeading greeting={fillGreeting(template, name)} compact={compact} animateLogo />;
+  return <GreetingHeading greeting={fillGreeting(template, name)} compact={compact} />;
 }
 
 // An unbreakable unit: the line can wrap around it, but only wraps inside it if it alone is wider than

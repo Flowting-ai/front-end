@@ -241,7 +241,7 @@ export function NavGuardModal() {
               <Button variant="ghost" size="sm" disabled={isSaving} onClick={confirmLeave}>
                 Discard changes
               </Button>
-              <Button variant="default" size="sm" loading={isSaving} onClick={saveAndLeave}>
+              <Button variant="save" size="sm" loading={isSaving} onClick={saveAndLeave}>
                 Save &amp; Continue
               </Button>
             </>

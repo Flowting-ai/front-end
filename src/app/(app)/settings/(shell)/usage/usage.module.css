@@ -89,7 +89,7 @@
 }
 
 .segment {
-  transition: opacity 150ms ease;
+  transition: opacity 150ms ease, stroke-width 150ms ease;
   cursor: default;
 }
 

@@ -246,7 +246,7 @@ export function SetupModal({
             effect). Without this, a user who closes the external OAuth
             window has no way to escape "Waiting for auth…" except waiting
             out the poll's timeout. */}
-        <Button variant="ghost" size="sm" onClick={cancel} disabled={flow.state === 'submitting'}>Cancel</Button>
+        <Button variant="cancel" size="sm" onClick={cancel} disabled={flow.state === 'submitting'}>Cancel</Button>
         <Button
           size="sm"
           disabled={busy || reconnectNotOwned || !form.isValid}

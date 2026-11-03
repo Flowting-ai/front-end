@@ -17,7 +17,7 @@ import {
 } from '@/components/SettingsTable'
 import { Button } from '@/components/ui/button'
 
-// Matches AnalyticsPageSkeleton's 4 placeholder rows below. A real top-N cap —
+// AnalyticsPageSkeleton draws this table's chrome too. A real top-N cap —
 // "Manage members" only makes sense as a way to see the REST of the team, so
 // it must stay hidden whenever this list already covers everyone active.
 
@@ -159,8 +159,8 @@ export function TopUsersTable({ users, shownOf, onViewAll, note }: {
 
 export function SkeletonBlock({ width = '100%', height, radius = 8 }: { width?: string | number; height: number; radius?: number }) {
   return (
-    <div style={{
-      width, height, borderRadius: radius,
+    <span style={{
+      display: 'block', width, height, borderRadius: radius,
       background: 'linear-gradient(90deg, var(--neutral-100) 25%, var(--neutral-50) 50%, var(--neutral-100) 75%)',
       backgroundSize: '200% 100%',
       animation: 'analyticsSkeletonShimmer 1.4s ease-in-out infinite',
@@ -169,72 +169,156 @@ export function SkeletonBlock({ width = '100%', height, radius = 8 }: { width?: 
   )
 }
 
+/** A bone vertically centred in a text line box, so stacked lines keep the real line-heights. */
+function SkeletonLine({ width, lineHeight, height, radius = 4 }: { width: string | number; lineHeight: number; height: number; radius?: number }) {
+  return (
+    <span style={{ height: lineHeight, display: 'flex', alignItems: 'center' }}>
+      <SkeletonBlock width={width} height={height} radius={radius} />
+    </span>
+  )
+}
+
+const SKELETON_TILE: React.CSSProperties = { minWidth: 0, backgroundColor: 'var(--neutral-white)', borderRadius: 12, boxShadow: 'var(--shadow-surface-card)', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 6 }
+
+/** Mirrors page.tsx top to bottom: header + Export, date-range tabs, KPI card, feature card, top-users table. */
 export function AnalyticsPageSkeleton() {
-  const CARD_SHADOW = '0px 2px 2.8px 0px rgba(82,75,71,0.12)'
-  const INNER_SHADOW = '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)'
   return (
     <>
       <style>{`@keyframes analyticsSkeletonShimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
-      <div style={{ flex: '1 0 0', minWidth: 0, maxWidth: 908, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div aria-busy="true" style={{ flex: '1 0 0', minWidth: 0, maxWidth: 908, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-        {/* Page header */}
-        <div style={{ paddingLeft: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-            <SkeletonBlock width={180} height={24} radius={6} />
-            <SkeletonBlock width={300} height={14} radius={4} />
+        {/* Header: title + description, Export CSV at the right end */}
+        <div style={{ paddingLeft: 4, marginBottom: 4, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+          <div>
+            <SkeletonLine width={90} lineHeight={32} height={22} radius={6} />
+            <SkeletonLine width={250} lineHeight={22} height={14} />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-            <SkeletonBlock width={150} height={13} radius={4} />
-            <SkeletonBlock width={90} height={13} radius={4} />
-          </div>
+          <SkeletonBlock width={117} height={32} radius={8} />
         </div>
 
-        {/* Stats row — Monthly Limits + Active members */}
-        <div style={{ border: '1px solid var(--border-default)', borderRadius: 16, boxShadow: CARD_SHADOW, overflow: 'hidden', backgroundColor: 'var(--neutral-50)', padding: 12 }}>
-          <div style={{ display: 'flex', gap: 9 }}>
-            <div style={{ flex: '1 0 0', backgroundColor: 'var(--neutral-white)', borderRadius: 8, boxShadow: INNER_SHADOW, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <SkeletonBlock width={110} height={16} radius={4} />
-              <SkeletonBlock width={180} height={16} radius={4} />
-              <SkeletonBlock width="100%" height={4} radius={2} />
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <SkeletonBlock width={90} height={13} radius={4} />
-                <SkeletonBlock width={80} height={13} radius={4} />
+        {/* Date-range tabs + note */}
+        <div style={{ paddingLeft: 4, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <SkeletonBlock width={302} height={38} radius={11} />
+          <SkeletonLine width={265} lineHeight={18} height={12} />
+        </div>
+
+        {/* KPI card: wide plan tile + Remaining + Active members, caption below */}
+        <PageCard padding={12}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
+            <div style={{ ...SKELETON_TILE, gridColumn: 'span 2' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <SkeletonLine width={162} lineHeight={24} height={13} />
+                <SkeletonBlock width={94} height={22} radius={999} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <SkeletonLine width={86} lineHeight={34} height={24} radius={6} />
+                <SkeletonBlock width={126} height={16} radius={4} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                  <SkeletonLine width={250} lineHeight={20} height={13} />
+                  <SkeletonLine width={26} lineHeight={20} height={13} />
+                </div>
+                <SkeletonBlock width="100%" height={6} radius={999} />
               </div>
             </div>
-            <div style={{ flex: '1 0 0', backgroundColor: 'var(--neutral-white)', borderRadius: 8, boxShadow: INNER_SHADOW, padding: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <SkeletonBlock width={100} height={14} radius={4} />
-              <SkeletonBlock width={30} height={28} radius={6} />
-              <SkeletonBlock width={80} height={13} radius={4} />
-              <SkeletonBlock width={100} height={20} radius={6} />
-            </div>
+            {[{ label: 70, hint: 110 }, { label: 96, hint: 100 }].map((t, i) => (
+              <div key={i} style={SKELETON_TILE}>
+                <SkeletonLine width={t.label} lineHeight={i === 0 ? 20 : 24} height={13} />
+                <SkeletonLine width={i === 0 ? 72 : 20} lineHeight={34} height={24} radius={6} />
+                <SkeletonLine width={t.hint} lineHeight={16} height={11} />
+              </div>
+            ))}
           </div>
-        </div>
+          <div style={{ margin: '10px 4px 0' }}><SkeletonLine width={270} lineHeight={20} height={13} /></div>
+        </PageCard>
 
-        {/* Top users list */}
-        <section style={{ border: '1px solid var(--border-default)', borderRadius: 16, boxShadow: CARD_SHADOW, background: 'var(--neutral-50)', overflow: 'hidden', padding: '12px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
-            <SkeletonBlock width={200} height={16} radius={4} />
-            <div style={{ flex: '1 0 0' }} />
-            <SkeletonBlock width={80} height={32} radius={8} />
-          </div>
-          {[0, 1, 2, 3].map((row, idx) => (
-            <div key={row} style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 56, padding: '0 24px', borderBottom: idx < 3 ? '1px solid var(--neutral-100)' : undefined }}>
-              <SkeletonBlock width={16} height={13} radius={4} />
-              <SkeletonBlock width={36} height={36} radius={999} />
-              <SkeletonBlock width={`${60 - idx * 8}%`} height={13} radius={4} />
-              <div style={{ flex: '1 0 0' }} />
-              <SkeletonBlock width={90} height={13} radius={4} />
-              <SkeletonBlock width={36} height={20} radius={6} />
+        {/* Credit usage by feature: header + Mine/Organization toggle, total, note box, chart frame */}
+        <PageCard padding={0}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '16px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
+            <div style={{ flex: '1 0 0', minWidth: 0 }}>
+              <SkeletonLine width={170} lineHeight={22} height={16} />
+              <div style={{ marginTop: 2 }}><SkeletonLine width={220} lineHeight={20} height={13} /></div>
             </div>
-          ))}
-        </section>
+            <SkeletonBlock width={147} height={38} radius={11} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '20px 24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <SkeletonLine width={86} lineHeight={34} height={24} radius={6} />
+              <SkeletonBlock width={122} height={16} radius={4} />
+            </div>
+            <SkeletonBlock width="100%" height={60} radius={10} />
+            <div>
+              <div style={{ position: 'relative', height: 200 }}>
+                {[0, 1, 2, 3, 4].map(i => (
+                  <div key={i} aria-hidden style={{ position: 'absolute', left: 0, right: 0, top: `${i * 25}%`, borderTop: `1px ${i === 4 ? 'solid' : 'dashed'} var(--neutral-200)` }} />
+                ))}
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <SkeletonBlock width={289} height={36} radius={10} />
+                </div>
+              </div>
+              <div aria-hidden style={{ display: 'flex', justifyContent: 'space-around', marginTop: 8 }}>
+                {[0, 1, 2, 3, 4, 5, 6].map(i => <SkeletonLine key={i} width={32} lineHeight={16} height={10} />)}
+              </div>
+            </div>
+          </div>
+        </PageCard>
+
+        {/* Top users: same SettingsTable chrome as TopUsersTable */}
+        <SettingsTable columns={TOP_USER_COLUMNS} columnGap={0}>
+          <SettingsTableToolbar
+            title={
+              <span style={{ display: 'flex', flexDirection: 'column' }}>
+                <SkeletonLine width={150} lineHeight={22} height={16} />
+                <SkeletonLine width={215} lineHeight={20} height={13} />
+              </span>
+            }
+          >
+            <SkeletonBlock width={140} height={32} radius={8} />
+          </SettingsTableToolbar>
+          <div>
+            <SettingsTableHeader>
+              <SettingsTableHeaderCell><SkeletonLine width={56} lineHeight={22} height={13} /></SettingsTableHeaderCell>
+              <SettingsTableHeaderCell><SkeletonLine width={32} lineHeight={22} height={13} /></SettingsTableHeaderCell>
+              <SettingsTableHeaderCell align="end"><span style={{ display: 'flex', justifyContent: 'flex-end' }}><SkeletonLine width={46} lineHeight={22} height={13} /></span></SettingsTableHeaderCell>
+              <SettingsTableHeaderCell align="end"><span style={{ display: 'flex', justifyContent: 'flex-end' }}><SkeletonLine width={92} lineHeight={22} height={13} /></span></SettingsTableHeaderCell>
+            </SettingsTableHeader>
+            {[0, 1].map(row => (
+              <SettingsTableRow key={row} minHeight={68}>
+                <SettingsTableCell>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                    <SkeletonBlock width={22} height={22} radius={6} />
+                    <SkeletonBlock width={32} height={32} radius={999} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <SkeletonLine width={row === 0 ? 80 : 74} lineHeight={22} height={14} />
+                      <SkeletonLine width={row === 0 ? 93 : 170} lineHeight={16} height={10} />
+                    </div>
+                  </div>
+                </SettingsTableCell>
+                <SettingsTableCell><SkeletonBlock width={row === 0 ? 41 : 51} height={20} radius={6} /></SettingsTableCell>
+                <SettingsTableCell align="end"><SkeletonLine width={46} lineHeight={22} height={14} /></SettingsTableCell>
+                <SettingsTableCell align="end">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: 140 }}>
+                    <div style={{ flex: '1 0 0', minWidth: 0 }}><SkeletonBlock width="100%" height={4} radius={999} /></div>
+                    <div style={{ width: 36, flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}><SkeletonBlock width={28} height={13} radius={4} /></div>
+                  </div>
+                </SettingsTableCell>
+              </SettingsTableRow>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 6, margin: '0 24px' }}>
+            <div style={{ marginTop: 1 }}><SkeletonBlock width={14} height={14} radius={999} /></div>
+            <div style={{ flex: '1 0 0', minWidth: 0 }}>
+              <SkeletonLine width="100%" lineHeight={16} height={10} />
+              <SkeletonLine width="45%" lineHeight={16} height={10} />
+            </div>
+          </div>
+        </SettingsTable>
 
       </div>
     </>
   )
 }
-
-
 
 /** The page's scroll region (shared with loading.tsx). */
 export function AnalyticsScroll({ children }: { children: React.ReactNode }) {

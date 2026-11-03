@@ -8,6 +8,8 @@ import { getOrgSettings, updateOrgSettings } from '@/lib/api/organization'
 export function useOrgSettings(orgId: string | null) {
   // Settings fields
   const [aiInstructions,           setAiInstructions]           = useState('')
+  // What the server holds, so Save only lights up for a real change.
+  const [savedInstructions,        setSavedInstructions]        = useState('')
   const [allowedDomains,           setAllowedDomains]           = useState<string[]>([])
   const [defaultChatVisibility,    setDefaultChatVisibility]    = useState('private')
   const [defaultPersonaVisibility, setDefaultPersonaVisibility] = useState('private')
@@ -26,6 +28,7 @@ export function useOrgSettings(orgId: string | null) {
     getOrgSettings(orgId)
       .then(s => {
         setAiInstructions(s.orgInstructions ?? '')
+        setSavedInstructions(s.orgInstructions ?? '')
         setAllowedDomains(s.allowedEmailDomains ?? [])
         setDefaultChatVisibility(s.defaultChatVisibility ?? 'private')
         setDefaultPersonaVisibility(s.defaultPersonaVisibility ?? 'private')
@@ -40,6 +43,7 @@ export function useOrgSettings(orgId: string | null) {
     try {
       const updated = await updateOrgSettings(orgId, { orgInstructions: '' })
       setAiInstructions(updated.orgInstructions ?? '')
+      setSavedInstructions(updated.orgInstructions ?? '')
       toast.success('Instructions cleared')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to clear instructions')
@@ -60,6 +64,7 @@ export function useOrgSettings(orgId: string | null) {
       const updated = await updateOrgSettings(orgId, { orgInstructions: aiInstructions })
       const persisted = updated.orgInstructions ?? ''
       setAiInstructions(persisted)
+      setSavedInstructions(persisted)
       if (persisted === intended) {
         toast.success('Instructions saved')
       } else {
@@ -102,8 +107,12 @@ export function useOrgSettings(orgId: string | null) {
     }
   }
 
+  const instructionsDirty = aiInstructions.trim() !== savedInstructions.trim()
+
+  const hasSavedInstructions = savedInstructions.trim().length > 0
+
   return {
-    aiInstructions, setAiInstructions, allowedDomains, setAllowedDomains,
+    aiInstructions, setAiInstructions, instructionsDirty, hasSavedInstructions, allowedDomains, setAllowedDomains,
     defaultChatVisibility, setDefaultChatVisibility, defaultPersonaVisibility, setDefaultPersonaVisibility,
     settingsLoading, settingsSaving, clearingInstructions, showAddDomain, setShowAddDomain, addDomainInput, setAddDomainInput,
     handleClearInstructions, handleSaveInstructions, handleSaveDefaults, handleSaveDomains,

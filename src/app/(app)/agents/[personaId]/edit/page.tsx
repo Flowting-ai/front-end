@@ -218,7 +218,7 @@ function EditAgentContent() {
           <>
             <Button variant="outline" size="sm" onClick={() => go(AGENTS_ROUTE)} disabled={saving}>Back</Button>
             <Button
-              variant="default"
+              variant="save"
               size="sm"
               onClick={() => void handleSave()}
               loading={saving}

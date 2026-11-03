@@ -1,6 +1,7 @@
 'use client'
 
 import React, { Suspense, useDeferredValue, useEffect, useRef, useMemo, useState } from 'react'
+import { rankByTitle } from '@/lib/search/text-match'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
 import { SearchOneIcon, PlusSignIcon, ArrowDownOneIcon, CancelCircleIcon } from '@strange-huge/icons'
@@ -222,7 +223,8 @@ function ProjectsPageInner() {
   const filtered = useMemo(() => {
     if (!deferredQuery.trim()) return sorted
     const q = deferredQuery.toLowerCase()
-    return sorted.filter((p) => p.name.toLowerCase().includes(q))
+    // Best name matches first; ties keep the chosen sort.
+    return rankByTitle(sorted.filter((p) => p.name.toLowerCase().includes(q)), q, (p) => [p.name])
   }, [sorted, deferredQuery])
 
   const emptyLabel = scopeFilter === 'all'

@@ -27,5 +27,7 @@ export function useOrgUsage() {
     trackBrowserEvent('usage_csv_exported', { rows: summary.activeCount })
   }, [members, plan, summary.activeCount])
 
-  return { ready: orgReady && !membersLoading, plan, summary, exportCsv }
+  // `membersLoading` is also true while React Query refreshes in the background (e.g. on returning to
+  // the tab); only the first load, with no members yet, should show the skeleton.
+  return { ready: orgReady && !(membersLoading && members.length === 0), plan, summary, exportCsv }
 }

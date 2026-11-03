@@ -1,54 +1,62 @@
 'use client'
 
 import React from 'react'
-import { Badge } from '@/components/Badge'
 import { Button } from '@/components/ui/button'
 import styles from '../general.module.css'
 import { INSTRUCTION_STARTERS } from './GeneralParts'
 import type { OrgSettings } from './use-org-settings'
 
-/** The instructions every AI answer in the workspace follows, with one-click starters. Capped at 3,000 characters. */
+const LIMIT = 3000
+
+/**
+ * The instructions every AI answer in the workspace follows: a status chip (Active / Not set), one
+ * editor box with its starters and counter along the bottom, and Clear / Save. Capped at 3,000 characters.
+ */
 export function OrgInstructionsCard({ settings }: { settings: OrgSettings }) {
-  const { aiInstructions, setAiInstructions, settingsLoading, settingsSaving, clearingInstructions, handleClearInstructions, handleSaveInstructions } = settings
+  const { aiInstructions, setAiInstructions, instructionsDirty, hasSavedInstructions, settingsLoading, settingsSaving, clearingInstructions, handleClearInstructions, handleSaveInstructions } = settings
   return (
     <section className={styles.card} aria-labelledby="org-instructions-title">
       <div className={styles.cardHead}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h2 id="org-instructions-title" className={styles.cardTitle}>Organization-level AI instructions</h2>
-          <p className={styles.cardHint}>Applied to every AI answer in this workspace. Members can add personal instructions on top.</p>
+          <h2 id="org-instructions-title" className={styles.cardTitle}>AI instructions</h2>
+          <p className={styles.cardHint}>Every answer in this workspace follows these, ahead of members&apos; own instructions.</p>
         </div>
-        <Badge label="Overrides personal" color="Yellow" />
+        <span className={hasSavedInstructions ? styles.statusOn : styles.statusOff}>
+          <span aria-hidden className={styles.statusDot} />
+          {hasSavedInstructions ? 'Active' : 'Not set'}
+        </span>
       </div>
 
-      <div className={styles.editor} style={{ opacity: settingsLoading ? 0.6 : 1 }}>
-        <textarea
-          className={styles.textarea}
-          aria-labelledby="org-instructions-title"
-          value={aiInstructions}
-          onChange={e => setAiInstructions(e.target.value.slice(0, 3000))}
-          placeholder="Tell Souvenir how everyone's answers should read, e.g. which sources to trust, the tone to use, or what to always include."
-        />
-        <div className={styles.suggestions}>
-          <span>Add a starter:</span>
-          {INSTRUCTION_STARTERS.map(starter => (
-            <button
-              key={starter}
-              type="button"
-              className={styles.suggestion}
-              disabled={aiInstructions.includes(starter) || aiInstructions.length + starter.length + 1 > 3000}
-              onClick={() => setAiInstructions(current => (current.trim() ? `${current.trimEnd()}\n${starter}` : starter))}
-            >
-              + {starter}
-            </button>
-          ))}
-        </div>
-        <div className={styles.editorMeta}>
-          <span>Changes reach active sessions within an hour.</span>
-          <span className={styles.counter}>{aiInstructions.length.toLocaleString()} / 3,000</span>
+      <div className={styles.editorWrap} style={{ opacity: settingsLoading ? 0.6 : 1 }}>
+        <div className={styles.editorBox}>
+          <textarea
+            className={styles.textarea}
+            aria-labelledby="org-instructions-title"
+            value={aiInstructions}
+            onChange={e => setAiInstructions(e.target.value.slice(0, LIMIT))}
+            placeholder="e.g. Cite sources for facts. Keep answers short and in plain English. Use our product names exactly."
+          />
+          <div className={styles.editorBar}>
+            <div className={styles.suggestions}>
+              {INSTRUCTION_STARTERS.map(starter => (
+                <button
+                  key={starter}
+                  type="button"
+                  className={styles.suggestion}
+                  disabled={aiInstructions.includes(starter) || aiInstructions.length + starter.length + 1 > LIMIT}
+                  onClick={() => setAiInstructions(current => (current.trim() ? `${current.trimEnd()}\n${starter}` : starter))}
+                >
+                  + {starter}
+                </button>
+              ))}
+            </div>
+            <span className={styles.counter}>{aiInstructions.length.toLocaleString()} / {LIMIT.toLocaleString()}</span>
+          </div>
         </div>
       </div>
 
       <div className={styles.footer}>
+        <span className={styles.footerNote}>Changes reach active chats within an hour.</span>
         <Button
           variant="ghost"
           size="sm"
@@ -64,7 +72,7 @@ export function OrgInstructionsCard({ settings }: { settings: OrgSettings }) {
           size="sm"
           onClick={handleSaveInstructions}
           loading={settingsSaving}
-          disabled={settingsSaving || clearingInstructions || settingsLoading}
+          disabled={!instructionsDirty || settingsSaving || clearingInstructions || settingsLoading}
         >
           Save instructions
         </Button>

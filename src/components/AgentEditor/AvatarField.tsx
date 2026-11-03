@@ -43,7 +43,7 @@ export function AvatarField({ name, value, onChange, disabled = false, buttonLab
           >
             <AvatarCarousel value={pending} onChange={setPending} disabled={disabled} />
             <div style={{ display: 'flex', gap: 8 }}>
-              <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button variant="cancel" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
               <Button
                 variant="default"
                 size="sm"

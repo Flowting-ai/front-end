@@ -303,7 +303,7 @@ export function ProjectChatRow(
                 : 'This chat would be published to all members of this project'}
             </span>
             <Button
-              variant="ghost"
+              variant="cancel"
               size="sm"
               onClick={() => setPublishState(publishState === 'unpublishing' ? 'published' : 'idle')}
             >

@@ -45,6 +45,19 @@ export function rankTitle(foldedTitle: string, query: string): number {
   return MATCH_RANK.none
 }
 
+/**
+ * `items` with the best title matches first (see rankTitle); each item's rank is its best
+ * across `titles`. Stable, so ties keep the list's own order. A blank query returns `items` as is.
+ */
+export function rankByTitle<T>(items: readonly T[], query: string, titles: (item: T) => (string | null | undefined)[]): T[] {
+  if (!queryPhrase(query)) return [...items]
+  const rank = (item: T) => Math.max(...titles(item).map(title => rankTitle(foldText(title), query)))
+  return items
+    .map(item => ({ item, rank: rank(item) }))
+    .sort((a, b) => b.rank - a.rank)
+    .map(({ item }) => item)
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }

@@ -18,6 +18,17 @@
   --button-default-text:             var(--color-interactive-primary-text);
   --button-default-bg-disabled-from: var(--color-interactive-primary-surface-disabled-from);
   --button-default-bg-disabled-to:   var(--color-interactive-primary-surface-disabled-to);
+  /* The primary drawn like the secondary button, in black: same two-layer lift with a dark ring,
+     a light wash on hover, and the secondary's hover shadow. */
+  --button-primary-bg-hover:         rgba(255, 255, 255, 0.08);
+  --shadow-button-primary-outer:
+    0px 1.091px 1.091px 0px var(--neutral-800-05),
+    0px 1.455px 3.127px 0px var(--neutral-900-15),
+    0px 0px 0px 1px var(--neutral-900),
+    inset 0px -2.182px 0.364px 0px rgba(0, 0, 0, 0.45);
+  --shadow-button-primary-outer-hover:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 0px 0px 1px var(--neutral-700);
   --button-default-border-disabled:  var(--color-interactive-primary-border-disabled);
   --button-default-text-disabled:    var(--color-interactive-primary-text-disabled);
   --button-default-hover-glow:       linear-gradient(180deg, rgb(221,221,221) 0%, rgb(143,116,39) 21.635%, rgb(104,61,27) 36.058%, rgb(39,13,42) 63.462%, rgb(11,53,127) 82.212%, rgb(13,110,178) 97.115%);
@@ -67,6 +78,12 @@
      ─────────────────────────────────────────────────────────────────────────── */
   --button-danger-bg:            #DC2626;
   --button-danger-bg-hover:      #B91C1C;
+  /* shadcnspace 10 Save (a deep green, not the lime brand scale) and 23 Approve (its tint) */
+  --button-save-bg:              #15803D;
+  --button-save-bg-hover:        #166534;
+  --button-approve-bg:           rgba(21, 128, 61, 0.10);
+  --button-approve-bg-hover:     rgba(21, 128, 61, 0.18);
+  --button-approve-text:         #15803D;
   --button-danger-text:          #FFFFFF;
   --button-danger-text-disabled: #FFFFFF;
 
@@ -237,6 +254,8 @@
   /* ── Tabs (pill container) ───────────────────────────────────────────────────
      Tab container: neutral-50 at 50% bg + multi-layer inner shadow.
      ─────────────────────────────────────────────────────────────────────────── */
+  /* Tabs (shadcnspace Tabs 08 look): the active pill's ring + soft drop shadow */
+  --shadow-tab-pill: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 10px -4px rgba(0, 0, 0, 0.15), 0 0 0 1px var(--border-default);
   --tab-bg: var(--neutral-100);  /* light gray track behind the white selected tab */
 
   /* 3-layer inner shadow: bottom white highlight, top depth, ambient glow */

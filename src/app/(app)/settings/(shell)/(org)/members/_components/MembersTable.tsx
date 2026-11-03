@@ -1,6 +1,7 @@
 'use client'
 
 import { useDeferredValue, useState } from 'react'
+import { rankByTitle } from '@/lib/search/text-match'
 import { AnimatePresence, motion } from 'framer-motion'
 import { SearchOneIcon, CancelCircleIcon, UserAddOneIcon } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
@@ -50,13 +51,13 @@ export function MembersTable({
   // Filtering follows a deferred copy of the query, so typing stays responsive in a large workspace.
   const normalizedQuery = useDeferredValue(searchQuery).trim().toLowerCase()
   const filteredMembers = normalizedQuery
-    ? members.filter(member => (
+    ? rankByTitle(members.filter(member => (
         member.name.toLowerCase().includes(normalizedQuery)
         || member.email.toLowerCase().includes(normalizedQuery)
         || member.role.toLowerCase().includes(normalizedQuery)
         || member.orgRole.toLowerCase().includes(normalizedQuery)
         || member.teamMemberships.some(team => team.teamName.toLowerCase().includes(normalizedQuery))
-      ))
+      )), normalizedQuery, member => [member.name, member.email])
     : members
 
   return (
@@ -129,7 +130,7 @@ export function MembersTable({
           </Tooltip>
           {isAdmin && (
             <Button
-              variant="secondary"
+              variant="default"
               size="sm"
               iconSize={20}
               leftIcon={<UserAddOneIcon animated size={20} />}

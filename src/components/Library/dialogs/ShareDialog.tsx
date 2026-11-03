@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useId, useState } from 'react'
+import { rankByTitle } from '@/lib/search/text-match'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { CancelOneIcon, LinkSixIcon, UserAddOneIcon } from '@strange-huge/icons'
@@ -137,7 +138,7 @@ export function ShareDialog({ file, onClose, onLostAccess }: { file: LibraryFile
       ? [WORKSPACE]
       : []
   const personOptions: Staged[] = [
-    ...(people.data ?? [])
+    ...rankByTitle(people.data ?? [], needle, (person) => [person.name])
       .filter((person) => !stale || person.name.toLowerCase().includes(needle))
       .filter((person) => person.id !== file.owner.id && !present.has(person.id) && !isStaged(person.id))
       .slice(0, 6)

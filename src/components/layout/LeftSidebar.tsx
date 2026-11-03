@@ -317,6 +317,7 @@ function LeftSidebarImpl({
                 showUpgradePlan={!orgId || orgRole === 'admin'}
                 viewPlanOnly={plan?.isEnterprise ?? false}
                 email={user?.email ?? undefined}
+                roleLabel={orgId && displayRole ? displayRole.charAt(0).toUpperCase() + displayRole.slice(1) : undefined}
                 planStatusVariant={planStatusVariant}
                 avatarSrc={user?.profilePicture ?? undefined}
                 collapsed={collapsed}
@@ -449,6 +450,7 @@ function LeftSidebarImpl({
             showUpgradePlan={!orgId || orgRole === 'admin'}
             viewPlanOnly={plan?.isEnterprise ?? false}
             email={user?.email ?? undefined}
+            roleLabel={orgId && displayRole ? displayRole.charAt(0).toUpperCase() + displayRole.slice(1) : undefined}
             planStatusVariant={planStatusVariant}
             avatarSrc={user?.profilePicture ?? undefined}
             collapsed={collapsed}

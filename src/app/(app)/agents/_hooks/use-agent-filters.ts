@@ -1,6 +1,7 @@
 'use client'
 
 import { useDeferredValue, useMemo, useState } from 'react'
+import { rankByTitle } from '@/lib/search/text-match'
 import type { Persona } from '@/lib/api/personas'
 import { resolveModelName } from '../_lib/agent-models'
 
@@ -108,9 +109,11 @@ export function useAgentFilters({
     const searched = query
       ? filterPanelFiltered.filter(p => p.name.toLowerCase().includes(query))
       : filterPanelFiltered
-    if (sort === 'az') return searched.toSorted((a, b) => a.name.localeCompare(b.name))
-    if (sort === 'za') return searched.toSorted((a, b) => b.name.localeCompare(a.name))
-    return searched
+    const ordered = sort === 'az' ? searched.toSorted((a, b) => a.name.localeCompare(b.name))
+      : sort === 'za' ? searched.toSorted((a, b) => b.name.localeCompare(a.name))
+      : searched
+    // Best name matches first; ties keep the chosen sort.
+    return rankByTitle(ordered, query, p => [p.name])
   }, [filterPanelFiltered, deferredSearch, sort])
 
   return {

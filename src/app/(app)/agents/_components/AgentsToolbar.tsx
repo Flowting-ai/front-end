@@ -32,9 +32,10 @@ export function AgentsToolbar({
   const [filterOpen, setFilterOpen] = useState(false)
 
   return (
-    // Wraps on narrow screens: the search shrinks to fit and Sort/Filter drop below it.
+    // The search shrinks (down to 200px) to keep Sort/Filter on its line; only narrower than that
+    // (one card column) do they drop below it.
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 1 450px', minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 200px', maxWidth: 450, minWidth: 0 }}>
         {/* Search */}
         <div style={{
           display: 'flex',
@@ -93,7 +94,7 @@ export function AgentsToolbar({
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         {/* Sort dropdown */}
         <Dropdown.Float
           open={sortOpen}

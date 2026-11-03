@@ -4,8 +4,7 @@ import React, { useEffectEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, m, useReducedMotion } from 'framer-motion'
 import { CancelOneIcon } from '@strange-huge/icons'
-import { Avatar } from '@/components/Avatar'
-import { Badge } from '@/components/Badge'
+import { MentionAvatar } from '@/components/chat/AgentMentionMenu'
 import { Button, IconButton } from '@/components/ui/button'
 import { Divider } from '@/components/Divider'
 import { InputField } from '@/components/InputField'
@@ -180,8 +179,8 @@ function DrawerSettings({
                 onChange={setLimitDraft}
               />
             </div>
-            <Button size="sm" variant="default" onClick={saveLimit}>Save</Button>
-            <Button size="sm" variant="ghost" onClick={() => { setLimitDraft(String(link.tokenLimit)); setEditing(false) }}>Cancel</Button>
+            <Button size="sm" variant="save" onClick={saveLimit}>Save</Button>
+            <Button size="sm" variant="cancel" onClick={() => { setLimitDraft(String(link.tokenLimit)); setEditing(false) }}>Cancel</Button>
           </div>
         ) : (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -270,7 +269,7 @@ function DrawerSettings({
               >
                 Yes, revoke
               </Button>
-              <Button size="sm" variant="ghost" disabled={revoking} onClick={() => setShowRevoke(false)}>
+              <Button size="sm" variant="cancel" disabled={revoking} onClick={() => setShowRevoke(false)}>
                 Cancel
               </Button>
             </div>
@@ -373,15 +372,8 @@ export function SuperLinkDrawer({ ref, link, onClose, onStatusChange, onLimitCha
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                {link.avatarUrl ? (
-                  <img
-                    src={link.avatarUrl}
-                    alt={link.personaName}
-                    style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-                  />
-                ) : (
-                  <Avatar name={link.personaName} color={link.avatarColor} size="md" />
-                )}
+                {/* The agent's own avatar, as on the Super Links table row this drawer opened from */}
+                <MentionAvatar agent={{ id: link.repoId ?? link.id, name: link.personaName }} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                   <span
                     style={{
@@ -419,12 +411,7 @@ export function SuperLinkDrawer({ ref, link, onClose, onStatusChange, onLimitCha
               <div style={{ padding: '0 18px' }}>
                 <TabsList size="small">
                   <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="sessions">
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      Sessions
-                      <Badge color="Neutral" label={String(link.sessions.length)} />
-                    </span>
-                  </TabsTrigger>
+                  <TabsTrigger value="sessions" count={link.sessions.length}>Sessions</TabsTrigger>
                   <TabsTrigger value="settings">Settings</TabsTrigger>
                 </TabsList>
               </div>

@@ -1,6 +1,8 @@
 'use client'
 
-import { ShareOneIcon, CancelOneIcon } from '@strange-huge/icons'
+import { ShareOneIcon, CancelOneIcon, SidebarRightIcon } from '@strange-huge/icons'
+import { usePathname } from 'next/navigation'
+import { useOpenChatPanel } from '@/hooks/use-open-chat-panel'
 import { Avatar } from '@/components/Avatar'
 import { Checkbox } from '@/components/Checkbox'
 import { Button, IconButton } from '@/components/ui/button'
@@ -50,12 +52,28 @@ import { useChatShare } from './use-chat-share'
 export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOpen }: ChatShareOverlayProps) {
   const { orgId, chatShareOpen, setChatShareOpen, activeTab, setActiveTab, existingShares, sharesLoading, revokingShareId, selectedIds, creatingShare, copyingChat, handleOpenChatShare, toggleSelected, handleCreateShare, handleRevokeShare, handleCopyReadableChat, shareableMembers, memberRowStyle } = useChatShare({ chatId, canManage, onCopied, autoOpen })
 
+  // The chat panel (Context · Browser · Agents) toggle shares this row, right of Share, so the two
+  // stay level with the chat-name chip on the left (TopBar).
+  const inProject = usePathname().startsWith('/project/')
+  const chatPanel = useOpenChatPanel({ inProject, agentsDisabled: readOnly })
+
   return (
     <>
+      <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
       {chatId && canManage && !!orgId && (
-        <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 10 }}>
+        // With the side panel open the chat column is narrower, so Share drops to its icon.
+        chatPanel.isOpen ? (
+          <IconButton
+            variant="default"
+            size="sm"
+            aria-label="Share chat"
+            title="Share"
+            icon={<ShareOneIcon size={18} animated />}
+            onClick={() => { trackFeature('share_button', { surface: 'chat' }); handleOpenChatShare() }}
+          />
+        ) : (
           <Button
-            variant="outline"
+            variant="default"
             size="sm"
             aria-label="Share chat"
             leftIcon={<ShareOneIcon animated />}
@@ -63,15 +81,24 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
           >
             Share
           </Button>
-        </div>
+        )
       )}
       {chatId && readOnly && (
-        <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 10 }}>
           <Button variant="secondary" size="sm" loading={copyingChat} onClick={() => void handleCopyReadableChat()}>
             Create a copy
           </Button>
-        </div>
       )}
+        <IconButton
+          variant="outline"
+          size="sm"
+          aria-label={chatPanel.isOpen ? 'Close side panel' : 'Open side panel'}
+          aria-expanded={chatPanel.isOpen}
+          title={chatPanel.isOpen ? 'Close side panel' : 'Context, browser and agents'}
+          active={chatPanel.isOpen}
+          icon={<SidebarRightIcon size={18} />}
+          onClick={chatPanel.toggle}
+        />
+      </div>
 
       <Dialog open={chatShareOpen} onOpenChange={setChatShareOpen}>
         <DialogContent
@@ -107,21 +134,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                 <div style={{ padding: '16px 20px 0', flexShrink: 0 }}>
                   <TabsList size="small">
                     <TabsTrigger value="share">Share</TabsTrigger>
-                    <TabsTrigger value="manage">
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                        Active shares
-                        {existingShares.length > 0 && (
-                          <span style={{
-                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                            minWidth: 16, height: 16, borderRadius: 8, padding: '0 4px',
-                            backgroundColor: 'var(--blue-100)', fontFamily: 'var(--font-body)',
-                            fontWeight: 600, fontSize: 9, color: 'var(--blue-700)', flexShrink: 0,
-                          }}>
-                            {existingShares.length}
-                          </span>
-                        )}
-                      </span>
-                    </TabsTrigger>
+                    <TabsTrigger value="manage" count={existingShares.length > 0 ? existingShares.length : undefined}>Active shares</TabsTrigger>
                   </TabsList>
                 </div>
 

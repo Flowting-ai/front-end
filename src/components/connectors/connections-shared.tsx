@@ -42,6 +42,9 @@ export function fetchBrowsePage(q: string, category: string, cursor: string | un
   return getQueryClient().fetchQuery({ ...connectorsPageQuery(browseQuery(q, category, cursor)), staleTime: PAGE_TTL_MS })
 }
 
+// The page shell's top padding; the sticky toolbar pins above it.
+const SHELL_PAD_TOP = 'clamp(28px, 5vw, 48px)'
+
 export const SPACE = { xs: 4, sm: 6, md: 8, lg: 12, xl: 16, xxl: 24, section: 32 } as const
 
 export const heading: React.CSSProperties = { margin: 0, color: 'var(--neutral-900)', fontFamily: 'var(--font-title)', fontSize: 32, fontWeight: 400, lineHeight: 1.2 }
@@ -67,7 +70,7 @@ export function ConnectorsShell({ children, maxWidth = 1040 }: { children: React
         overflowX: 'hidden',
         overscrollBehaviorY: 'contain',
         boxSizing: 'border-box',
-        padding: 'clamp(28px, 5vw, 48px) clamp(20px, 4vw, 40px) 72px',
+        padding: `${SHELL_PAD_TOP} clamp(20px, 4vw, 40px) 72px`,
         background: 'var(--neutral-50)',
         fontFamily: 'var(--font-body)',
       }}
@@ -79,13 +82,26 @@ export function ConnectorsShell({ children, maxWidth = 1040 }: { children: React
 
 export function Header({ title, subtitle, tools }: { title: string; subtitle?: string; tools?: React.ReactNode }) {
   return (
-    <header style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: SPACE.xl, marginBottom: SPACE.section }}>
+    <header style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: SPACE.xl, marginBottom: SPACE.xl }}>
       <div style={{ minWidth: 240 }}>
         <h1 style={heading}>{title}</h1>
         {subtitle && <p style={{ ...muted, marginTop: SPACE.sm }}>{subtitle}</p>}
       </div>
       {tools}
     </header>
+  )
+}
+
+// Centred spinner + "Loading connectors" line, used wherever the catalogue is waiting on data.
+export function ConnectorsSpinner({ minHeight = 320 }: { minHeight?: number }) {
+  return (
+    <div role="status" aria-live="polite" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: SPACE.xl, minHeight, width: '100%' }}>
+      <svg width={40} height={40} viewBox="0 0 40 40" fill="none" aria-hidden className="animate-spin">
+        <circle cx="20" cy="20" r="16" stroke="var(--neutral-200)" strokeWidth="4" />
+        <path d="M36 20a16 16 0 0 0-16-16" stroke="var(--neutral-900)" strokeWidth="4" strokeLinecap="round" />
+      </svg>
+      <p style={{ margin: 0, color: 'var(--neutral-900)', fontFamily: 'var(--font-title)', fontSize: 16, fontWeight: 400, lineHeight: 1.3 }}>Loading connectors</p>
+    </div>
   )
 }
 
@@ -137,7 +153,10 @@ export function SortMenu({ value, change }: { value: SortMode; change: (value: S
 
 export function CategoryMenu({ categories, value, change }: { categories: string[]; value: string; change: (value: string) => void }) {
   const [open, setOpen] = useState(false)
-  if (categories.length === 0) return null
+  // While the categories load, keep the button in place (disabled) so it doesn't vanish and come back.
+  if (categories.length === 0) {
+    return <Button type="button" variant="outline" size="sm" rightIcon={<ArrowDownOneIcon size={16} />} disabled>{value || 'All categories'}</Button>
+  }
   const options = ['', ...[...categories].sort((a, b) => a.localeCompare(b))]
   return (
     <Dropdown.Float
@@ -146,7 +165,7 @@ export function CategoryMenu({ categories, value, change }: { categories: string
       onOpenChange={setOpen}
       placement="bottom-end"
     >
-      <Dropdown size="sm">
+      <Dropdown size="lg">
         <Dropdown.Section fluid>
           {options.map(id => (
             <Dropdown.Item
@@ -173,7 +192,9 @@ export function CatalogToolbar({
   categories: string[]; category: string; setCategory: (value: string) => void
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACE.lg, flexWrap: 'wrap', marginBottom: SPACE.xxl }}>
+    // Stays at the top while the catalogue scrolls, on the page's own background: pinned flush to the
+    // scroll box's edge (above the shell's top padding), a little wider than the grid so card shadows hide under it.
+    <div style={{ position: 'sticky', top: `calc(-1 * ${SHELL_PAD_TOP})`, zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACE.lg, flexWrap: 'wrap', margin: `0 -8px ${SPACE.xxl}px`, padding: `${SPACE.lg}px 8px`, background: 'var(--neutral-50)', borderBottom: '1px solid var(--neutral-100)' }}>
       <TabsRoot value={view} onValueChange={value => changeView(value as CatalogView)}>
         <TabsList size="small" aria-label="Connector views">
           {VIEW_LABELS.map(([id, label]) => <TabsTrigger key={id} value={id}>{label}</TabsTrigger>)}
@@ -198,13 +219,17 @@ export function catalogCardState(summary: ConnectorCatalog): ConnectorCatalogCar
   return 'available'
 }
 
-export function CatalogSectionLabel({ label, sub, flush }: { label: string; sub?: string; flush?: boolean }) {
+/** A section's heading: its name (and a line on what's in it), with an optional action at the right. */
+export function CatalogSectionLabel({ label, sub, action }: { label: string; sub?: string; action?: React.ReactNode }) {
   return (
-    <div style={{ margin: flush ? 0 : `0 0 ${SPACE.lg}px` }}>
-      <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, letterSpacing: 0.2, textTransform: 'uppercase', color: 'var(--neutral-500)' }}>
-        {label}
-      </p>
-      {sub && <p style={{ ...muted, marginTop: 2, fontSize: 'var(--font-size-caption)' }}>{sub}</p>}
+    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: SPACE.md, margin: `0 0 ${SPACE.lg}px` }}>
+      <div style={{ minWidth: 0 }}>
+        <h2 style={{ margin: 0, fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)' }}>
+          {label}
+        </h2>
+        {sub && <p style={{ ...muted, marginTop: 2, fontSize: 13, lineHeight: '20px' }}>{sub}</p>}
+      </div>
+      {action}
     </div>
   )
 }
@@ -215,13 +240,13 @@ export function shownCategory(categories: string[], filter: string): string | un
   return filter && categories.includes(filter) ? filter : categories[0]
 }
 
-export function CatalogCell({ summary, select, highlight, pendingSlug, category }: { summary: ConnectorCatalog; select: (summary: ConnectorCatalog | ConnectorPick) => void; highlight?: string; pendingSlug?: string | null; category: string }) {
+export function CatalogCell({ summary, select, highlight, pendingSlug, category, hideCategory }: { summary: ConnectorCatalog; select: (summary: ConnectorCatalog | ConnectorPick) => void; highlight?: string; pendingSlug?: string | null; category: string; /** The section already names the category. */ hideCategory?: boolean }) {
   const state = catalogCardState(summary)
   return (
     <ConnectorCatalogCard
       name={summary.name}
       description={summary.description}
-      category={shownCategory(summary.categories, category)}
+      category={hideCategory ? undefined : shownCategory(summary.categories, category)}
       icon={<ConnectorGlyph slug={summary.slug} name={summary.name} logoUrl={summary.logoUrl} size={32} />}
       density="detailed"
       state={state}
@@ -237,7 +262,7 @@ export function CatalogCell({ summary, select, highlight, pendingSlug, category 
 export function PickSection({ label, sub, picks, select, pendingSlug, category }: { label: string; sub: string; picks: ConnectorPick[]; select: (summary: ConnectorPick) => void; pendingSlug?: string | null; category: string }) {
   if (picks.length === 0) return null
   return (
-    <div style={{ marginBottom: SPACE.section }}>
+    <div style={{ marginBottom: 40 }}>
       <CatalogSectionLabel label={label} sub={sub} />
       <div style={CATALOG_GRID}>
         {picks.map(pick => (

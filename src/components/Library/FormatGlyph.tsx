@@ -51,6 +51,12 @@ export function formatTintText(format: Format): string {
   return `var(--color-tag-${TINT_BY_FORMAT[format]}-text)`
 }
 
+/** A format's light tint fill and ring, for a tile behind its glyph (e.g. chat output cards). */
+export function formatTintTile(format: Format): { background: string; ring: string } {
+  const tint = TINT_BY_FORMAT[format]
+  return { background: `var(--color-tag-${tint}-bg)`, ring: `var(--color-tag-${tint}-ring)` }
+}
+
 export interface FormatGlyphProps {
   format: Format
   size?: keyof typeof SIZES

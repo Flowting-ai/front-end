@@ -125,7 +125,7 @@ export default function FeatureRequestPage() {
           <div className={styles.footer}>
             <span>Your draft is kept while you are signed in.</span>
             <div className={styles.actions}>
-              <Button type="submit" variant="default" size="sm" loading={state.submitting} disabled={state.submitting || !message.trim()}>
+              <Button type="submit" variant="default" size="sm" sendState={state.submitting ? 'loading' : state.succeeded ? 'success' : 'idle'} disabled={!message.trim()}>
                 Send request
               </Button>
             </div>

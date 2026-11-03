@@ -138,7 +138,7 @@ export function SaveVersionModal({
           <Button variant="ghost" size="sm" disabled={isSaving} onClick={() => onSave([])}>
             Skip
           </Button>
-          <Button variant="default" size="sm" loading={isSaving} disabled={isSaving} onClick={() => onSave([...selected])}>
+          <Button variant="save" size="sm" loading={isSaving} disabled={isSaving} onClick={() => onSave([...selected])}>
             {isSaving ? 'Saving…' : 'Save version'}
           </Button>
         </div>

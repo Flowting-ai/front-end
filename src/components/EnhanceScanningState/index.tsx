@@ -97,11 +97,13 @@ export function EnhanceScanningState({ ref, rotateMs = 900, messages, className,
           }}
         >
           <m.span
-            initial={{ x: '-30%', width: '30%' }}
-            animate={{ x: '130%' }}
+            // `left`, not `x`: a translate % is of the pill's own width, which only carried it ~40% across.
+            initial={{ left: '-30%' }}
+            animate={{ left: '100%' }}
             transition={{ duration: 1.2, ease: 'easeInOut', repeat: Infinity, repeatType: 'loop' }}
             style={{
               position:        'absolute',
+              width:           '30%',
               top:             0,
               bottom:           0,
               borderRadius:    999,

@@ -1334,6 +1334,7 @@ export function ChatInput({
               <IconButton
                 variant="default"
                 size="md"
+                shine
                 aria-label={isRecording ? 'Stop recording' : value ? 'Send message' : 'Start recording'}
                 icon={
                   <AnimatePresence mode="popLayout" initial={false}>

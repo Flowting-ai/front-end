@@ -73,7 +73,9 @@ function extractFileAttachments(raw: Message): Pick<UIMessage, "generatedFiles" 
         // matching the behaviour of the `image` SSE event during streaming.
         generatedImages.push({ url });
       } else {
-        generatedFiles.push({ url, filename, mimeType });
+        // A Library copy that is deleted or locked has no page to open; View falls back to the link.
+        const documentId = att.document_id && att.libraryState !== "deleted" && att.libraryState !== "locked" ? att.document_id : undefined;
+        generatedFiles.push({ url, filename, mimeType, ...(documentId ? { documentId } : {}) });
       }
     } else if (origin === "uploaded" || origin === "user") {
       // Populate the user message bubble with the actual backend URL after a page refresh.

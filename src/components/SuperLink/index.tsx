@@ -315,7 +315,7 @@ export function SuperLink(
                         style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
                       >
                         <Button
-                          variant="ghost"
+                          variant="cancel"
                           size="sm"
                           onClick={() => setRevoking(false)}
                           style={{ flexShrink: 0 }}

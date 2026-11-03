@@ -4,24 +4,18 @@ import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import { HugeiconsIcon } from "@hugeicons/react";
 import AiWebBrowsingIcon from "@hugeicons/core-free-icons/AiWebBrowsingIcon";
-import { ContextPanelContent } from "@/components/ContextPanel";
-import { useProjectPanel } from "@/context/project-panel-context";
-import { trackFeature } from "@/lib/analytics/events";
+import { useOpenChatPanel } from "@/hooks/use-open-chat-panel";
 import type { ActivityStatus, UIMessage } from "@/types/chat";
 import styles from "./TurnStatusChips.module.css";
 
 // Two chips riding just above the composer while a reply is running:
 //   left  — "Using browser", only while the agent is driving the browser;
-//           click opens the Context panel, which follows the agent to its
-//           Browser tab.
+//           click opens the chat panel on its Browser tab.
 //   right — how long the turn has run, with a ring for steps done / started.
 //           Hidden for quick replies (under SHOW_AFTER_MS) so a one-line
 //           answer doesn't flash a timer.
 
 const SHOW_AFTER_MS = 3000;
-// Must match FloatingPanel's CONTEXT_PANEL_TITLE so its toggle recognises
-// the panel this chip opens.
-const CONTEXT_PANEL_TITLE = "Context";
 const RUNNING: ReadonlySet<ActivityStatus> = new Set(["start", "executing", "reading"]);
 
 function formatElapsed(ms: number): string {
@@ -62,17 +56,8 @@ export function TurnStatusChips({ messages, active }: { messages: UIMessage[]; a
   }, [turnId]);
   const showTimer = !!turn && elapsed >= SHOW_AFTER_MS;
 
-  const { panel, setPanel } = useProjectPanel();
-  const openBrowserPanel = () => {
-    if (panel?.title === CONTEXT_PANEL_TITLE) return;
-    trackFeature("context_panel_opened");
-    setPanel({
-      title: CONTEXT_PANEL_TITLE,
-      content: <ContextPanelContent />,
-      onClose: () => setPanel(null),
-      sidePadding: 8,
-    });
-  };
+  const { open: openChatPanel } = useOpenChatPanel();
+  const openBrowserPanel = () => openChatPanel("browser");
 
   if (!browserLabel && !showTimer) return null;
 

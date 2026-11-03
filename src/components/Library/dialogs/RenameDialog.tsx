@@ -71,8 +71,8 @@ export function RenameDialog({ file, onClose }: { file: LibraryFile; onClose: ()
             </p>
           </DialogBody>
           <DialogFooter>
-            <Button type="button" variant="secondary" disabled={rename.isPending} onClick={onClose}>Cancel</Button>
-            <Button type="submit" loading={rename.isPending}>Save</Button>
+            <Button type="button" variant="cancel" disabled={rename.isPending} onClick={onClose}>Cancel</Button>
+            <Button variant="save" type="submit" loading={rename.isPending}>Save</Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -100,7 +100,7 @@ export function PersonalBillingView() {
                     </Button>
                   )}
                   {isTrialUser && billingLoaded && !usage?.isTrial && (
-                    <Button variant="secondary" leftIcon={<TokenCircleIcon size={16} animated />} loading={isClaimingTrial} onClick={() => { void handleClaimTrial() }}>
+                    <Button variant="default" leftIcon={<TokenCircleIcon size={16} animated />} loading={isClaimingTrial} onClick={() => { void handleClaimTrial() }}>
                       Claim free 1,000 credits
                     </Button>
                   )}
@@ -156,7 +156,7 @@ export function PersonalBillingView() {
                 {pm?.expiry ?? 'Add a card to continue.'}
               </p>
             </div>
-            <Button variant="secondary" loading={openingPortal} onClick={() => { void handleStripePortal() }}>Manage on Stripe</Button>
+            <Button variant="default" loading={openingPortal} onClick={() => { void handleStripePortal() }}>Manage on Stripe</Button>
           </div>
         </SectionCard>
 

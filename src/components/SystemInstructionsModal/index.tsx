@@ -145,9 +145,9 @@ export function SystemInstructionsModal({
 
         {/* ── Footer ── */}
         <div className="flex shrink-0 items-center justify-end gap-2 px-5 py-4">
-          <Button variant="ghost" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button variant="cancel" onClick={onClose} disabled={saving}>Cancel</Button>
           <Button variant="secondary" onClick={handleClear} loading={savingAction === 'clear'} disabled={!value || saving}>Clear</Button>
-          <Button variant="default" onClick={handleSave} loading={savingAction === 'save'} disabled={saving}>Save instructions</Button>
+          <Button variant="save" onClick={handleSave} loading={savingAction === 'save'} disabled={saving}>Save instructions</Button>
         </div>
       </DialogContent>
     </Dialog>

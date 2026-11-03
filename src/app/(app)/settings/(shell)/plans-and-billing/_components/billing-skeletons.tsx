@@ -15,7 +15,7 @@ export function BillingLoadError({ onRetry, retrying }: { onRetry: () => void; r
         tone="alert"
         heading="Couldn't load billing"
         body="Your plan and billing details didn't load. Check your connection and try again."
-        actions={<Button variant="secondary" size="sm" loading={retrying} onClick={onRetry}>Retry</Button>}
+        actions={<Button variant="default" size="sm" loading={retrying} onClick={onRetry}>Retry</Button>}
       />
     </div>
   )
@@ -37,11 +37,21 @@ export function SkeletonShimmerStyle() {
   return <style>{`@keyframes plansSkeletonShimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
 }
 
+/** A bone vertically centred in a text line box, so stacked lines keep the real line-heights. */
+export function SkeletonLine({ width, lineHeight, height, radius = 4 }: { width: string | number; lineHeight: number; height: number; radius?: number }) {
+  return (
+    <div style={{ height: lineHeight, display: 'flex', alignItems: 'center' }}>
+      <SkeletonBlock width={width} height={height} radius={radius} />
+    </div>
+  )
+}
+
+/** Title (24/32) + description (14/22), as in the real page header. */
 export function SkeletonPageHeader() {
   return (
-    <div style={{ paddingLeft: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <SkeletonBlock width={80} height={24} radius={6} />
-      <SkeletonBlock width={240} height={14} radius={4} />
+    <div style={{ paddingLeft: 4, display: 'flex', flexDirection: 'column' }}>
+      <SkeletonLine width={150} lineHeight={32} height={22} radius={6} />
+      <SkeletonLine width={290} lineHeight={22} height={14} />
     </div>
   )
 }
@@ -49,53 +59,104 @@ export function SkeletonPageHeader() {
 /** Bordered-card bone matching SectionCard's real chrome (header row + body). */
 export function SkeletonSectionCard({
   hasAction = false,
+  action,
   headerDivider = true,
+  subtitle = true,
+  titleWidth = 80,
   bodyPadding = '12px 24px',
+  bodyGap = 8,
+  bodyAlign = 'center',
+  background,
   children,
 }: {
   hasAction?:     boolean
+  /** Custom action bone (replaces the default 120x36 button). */
+  action?:        React.ReactNode
   headerDivider?: boolean
+  subtitle?:      boolean
+  titleWidth?:    number
   bodyPadding?:   string
+  bodyGap?:       number
+  bodyAlign?:     'center' | 'flex-start' | 'space-between'
+  background?:    string
   children:       React.ReactNode
 }) {
   return (
-    <div style={{ border: '1px solid var(--border-default)', borderRadius: 16, boxShadow: SHADOW_CARD, display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 12, paddingBottom: 12, overflow: 'hidden', width: '100%' }}>
+    <div style={{ border: '1px solid var(--border-default)', borderRadius: 16, boxShadow: SHADOW_CARD, display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 18, paddingBottom: 12, overflow: 'hidden', width: '100%', background }}>
       <div style={{ borderBottom: headerDivider ? '1px solid var(--neutral-100)' : undefined, padding: headerDivider ? '0 24px 24px' : '0 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <SkeletonBlock width={80} height={16} radius={4} />
-          <SkeletonBlock width={210} height={14} radius={4} />
+        <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <SkeletonLine width={titleWidth} lineHeight={22} height={16} />
+          {subtitle && <SkeletonLine width={240} lineHeight={22} height={14} />}
         </div>
-        {hasAction && <SkeletonBlock width={120} height={32} radius={8} />}
+        {action ?? (hasAction && <SkeletonBlock width={120} height={36} radius={10} />)}
       </div>
-      <div style={{ flex: '1 0 0', padding: bodyPadding, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ flex: '1 0 0', padding: bodyPadding, display: 'flex', flexDirection: 'column', justifyContent: bodyAlign, gap: bodyGap }}>
         {children}
       </div>
     </div>
   )
 }
 
-/** "Big number + label, action button" row — the Plan / Credits Remaining cards' body. */
-export function SkeletonStatRow() {
+/** Big 26/34 line + 14/22 caption: the stat cards' top block. */
+function SkeletonStatBlock({ bigWidth, captionWidth }: { bigWidth: number; captionWidth: number }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <SkeletonBlock width={180} height={16} radius={4} />
-        <SkeletonBlock width={140} height={14} radius={4} />
-      </div>
-      <SkeletonBlock width={130} height={32} radius={8} />
+    <div>
+      <SkeletonLine width={bigWidth} lineHeight={34} height={24} radius={6} />
+      <div style={{ marginTop: 6 }}><SkeletonLine width={captionWidth} lineHeight={22} height={14} /></div>
     </div>
   )
 }
 
-/** Plan + Credits Remaining two-card row (Figma 18:25119) — Teams and Personal both use this. */
+/** "Big number + label, action button" row: Personal/Enterprise stat body. */
+export function SkeletonStatRow() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ flex: '1 0 0', minWidth: 0 }}><SkeletonStatBlock bigWidth={180} captionWidth={160} /></div>
+    </div>
+  )
+}
+
+/** Plan + Credits remaining two-card row inside the shared bordered shell (Figma 18:25119). */
 export function SkeletonTwoCardRow() {
   return (
-    <div style={{ display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' }}>
-      <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
-        <SkeletonSectionCard hasAction headerDivider={false}><SkeletonStatRow /></SkeletonSectionCard>
-      </div>
-      <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
-        <SkeletonSectionCard headerDivider={false}><SkeletonStatRow /></SkeletonSectionCard>
+    <div style={{ width: '100%', border: '1px solid var(--border-default)', borderRadius: 16, boxShadow: SHADOW_CARD, overflow: 'hidden', backgroundColor: 'var(--neutral-50)', padding: 12 }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
+          <SkeletonSectionCard
+            headerDivider={false}
+            subtitle={false}
+            titleWidth={40}
+            action={<SkeletonBlock width={41} height={20} radius={6} />}
+            background="linear-gradient(135deg, var(--neutral-white) 0%, var(--neutral-200) 100%)"
+            bodyAlign="space-between"
+          >
+            <SkeletonStatBlock bigWidth={230} captionWidth={195} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
+              <SkeletonBlock width={110} height={36} radius={10} />
+              <SkeletonBlock width={121} height={36} radius={10} />
+            </div>
+          </SkeletonSectionCard>
+        </div>
+        <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
+          <SkeletonSectionCard headerDivider={false} subtitle={false} titleWidth={130} background="var(--neutral-white)" bodyAlign="space-between" bodyGap={12}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <SkeletonLine width={72} lineHeight={34} height={24} radius={6} />
+                <SkeletonBlock width={93} height={14} radius={4} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <SkeletonLine width={197} lineHeight={20} height={13} />
+                  <SkeletonLine width={26} lineHeight={20} height={13} />
+                </div>
+                <SkeletonBlock width="100%" height={6} radius={999} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+              <SkeletonBlock width={108} height={36} radius={10} />
+            </div>
+          </SkeletonSectionCard>
+        </div>
       </div>
     </div>
   )
@@ -103,43 +164,38 @@ export function SkeletonTwoCardRow() {
 
 export function SkeletonPaymentCard() {
   return (
-    <SkeletonSectionCard>
+    <SkeletonSectionCard titleWidth={65}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <SkeletonBlock width={44} height={28} radius={6} />
-        <div style={{ flex: '1 0 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <SkeletonBlock width={180} height={16} radius={4} />
-          <SkeletonBlock width={100} height={14} radius={4} />
+        <SkeletonBlock width={63} height={44} radius={6} />
+        <div style={{ flex: '1 0 0', display: 'flex', flexDirection: 'column' }}>
+          <SkeletonLine width={150} lineHeight={22} height={16} />
+          <SkeletonLine width={100} lineHeight={22} height={14} />
         </div>
-        <SkeletonBlock width={150} height={32} radius={8} />
+        <SkeletonBlock width={148} height={36} radius={10} />
       </div>
     </SkeletonSectionCard>
   )
 }
 
-export function SkeletonInvoiceCard() {
+export function SkeletonInvoiceCard({ rows = 1 }: { rows?: number }) {
+  const cell: React.CSSProperties = { flex: '1 0 0', minWidth: 0 }
   return (
-    <div style={{ border: '1px solid var(--border-default)', borderRadius: 16, boxShadow: SHADOW_CARD, display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 12, paddingBottom: 12, overflow: 'hidden', width: '100%' }}>
-      <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '0 24px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ flex: '1 0 0' }}><SkeletonBlock width={120} height={16} radius={4} /></div>
-        <SkeletonBlock width={100} height={32} radius={8} />
-      </div>
-      <div style={{ padding: '0 24px 12px' }}>
-        <div style={{ background: 'var(--neutral-white)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE }}>
-          <div style={{ display: 'flex', gap: 24, padding: '0 12px 12px', borderBottom: '1px solid var(--neutral-100)' }}>
-            {['Date', 'Amount', 'Status'].map(k => <SkeletonBlock key={k} width={55} height={13} radius={4} />)}
-            <div style={{ width: 200, display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={55} height={13} radius={4} /></div>
-          </div>
-          {[0, 1, 2].map((i, idx) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 24, padding: 12, borderBottom: idx < 2 ? '1px solid var(--neutral-100)' : undefined }}>
-              <SkeletonBlock width={80} height={14} radius={4} />
-              <SkeletonBlock width={60} height={14} radius={4} />
-              <SkeletonBlock width={45} height={20} radius={6} />
-              <div style={{ width: 200, display: 'flex', justifyContent: 'center' }}><SkeletonBlock width={36} height={14} radius={4} /></div>
-            </div>
-          ))}
+    <SkeletonSectionCard titleWidth={110} action={<SkeletonBlock width={94} height={36} radius={10} />} bodyPadding="0 24px 12px">
+      <div style={{ background: 'var(--neutral-white)', borderRadius: 8, padding: 12, boxShadow: SHADOW_TILE }}>
+        <div style={{ display: 'flex', gap: 24, padding: '0 12px 12px', borderBottom: '1px solid var(--neutral-100)' }}>
+          {[32, 55, 45].map(w => <div key={w} style={cell}><SkeletonLine width={w} lineHeight={22} height={13} /></div>)}
+          <div style={{ width: 200, display: 'flex', justifyContent: 'center' }}><SkeletonLine width={50} lineHeight={22} height={13} /></div>
         </div>
+        {Array.from({ length: rows }, (_, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 24, padding: 12, borderBottom: i < rows - 1 ? '1px solid var(--neutral-100)' : undefined }}>
+            <div style={cell}><SkeletonLine width={84} lineHeight={22} height={14} /></div>
+            <div style={cell}><SkeletonLine width={56} lineHeight={22} height={14} /></div>
+            <div style={cell}><SkeletonLine width={31} lineHeight={24} height={20} radius={6} /></div>
+            <div style={{ width: 200, display: 'flex', justifyContent: 'center' }}><SkeletonLine width={32} lineHeight={22} height={14} /></div>
+          </div>
+        ))}
       </div>
-    </div>
+    </SkeletonSectionCard>
   )
 }
 
@@ -173,16 +229,18 @@ export function EnterprisePlansSkeleton({ isAdmin }: { isAdmin: boolean }) {
 }
 
 /** Teams branch (org, not enterprise): no hero — Plan + Credits Remaining row →
- *  Payment/Invoice (admin-only). */
-export function TeamsPlansSkeleton({ isAdmin }: { isAdmin: boolean }) {
+ *  Payment/Invoice. Non-admins are redirected off this page (page.tsx), so the
+ *  org view always ends with Payment + Invoice; they're drawn even while the
+ *  role is still resolving (page.tsx passes isAdmin={false} then). */
+export function TeamsPlansSkeleton(_props: { isAdmin: boolean }) {
   return (
     <>
       <SkeletonShimmerStyle />
       <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <SkeletonPageHeader />
         <SkeletonTwoCardRow />
-        {isAdmin && <SkeletonPaymentCard />}
-        {isAdmin && <SkeletonInvoiceCard />}
+        <SkeletonPaymentCard />
+        <SkeletonInvoiceCard />
       </div>
     </>
   )

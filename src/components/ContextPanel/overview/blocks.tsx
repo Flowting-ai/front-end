@@ -27,6 +27,7 @@ export function PanelCard({ children }: { children: React.ReactNode }) {
 
 export function PanelSection({
   title,
+  icon,
   count,
   aside,
   action,
@@ -37,6 +38,9 @@ export function PanelSection({
   children,
 }: {
   title:    string
+  /** A 16px icon for the section, shown in a small tile before the title. */
+  icon?:    React.ReactNode
+  /** Items in the section: a round count when there are some, a muted "None" when there are none. */
   count?:   number
   /** Shown in the header, so it stays visible while the section is collapsed. */
   aside?:   React.ReactNode
@@ -64,7 +68,7 @@ export function PanelSection({
     <section style={{ borderTop: first ? undefined : '1px solid var(--border-default)' }}>
       {/* The toggle covers the whole header; the visible pieces sit over it, inert, so only
           `action` is a separate target. */}
-      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, minHeight: 44, padding: '0 10px 0 14px' }}>
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10, minHeight: 52, padding: '0 10px 0 12px' }}>
         <button
           type="button"
           aria-expanded={open}
@@ -75,14 +79,20 @@ export function PanelSection({
         >
           <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>{title}</span>
         </button>
-        <h3 aria-hidden style={{ ...TEXT, color: 'var(--neutral-600)', pointerEvents: 'none', position: 'relative' }}>{title}</h3>
+        {icon && (
+          <span aria-hidden style={{ position: 'relative', pointerEvents: 'none', flexShrink: 0, width: 28, height: 28, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--neutral-100)', boxShadow: 'inset 0 0 0 1px var(--border-default)', color: count === 0 ? 'var(--neutral-400)' : 'var(--neutral-700)' }}>
+            {icon}
+          </span>
+        )}
+        <h3 aria-hidden style={{ ...TEXT, fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-medium)', color: count === 0 ? 'var(--neutral-500)' : 'var(--neutral-800)', pointerEvents: 'none', position: 'relative' }}>{title}</h3>
         {count !== undefined && count > 0 && (
-          <span aria-hidden style={{ ...CAPTION, position: 'relative', pointerEvents: 'none', minWidth: 18, height: 18, padding: '0 6px', borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--border-default)', color: 'var(--neutral-600)' }}>
+          <span aria-hidden style={{ ...CAPTION, position: 'relative', pointerEvents: 'none', minWidth: 18, height: 18, padding: '0 5px', boxSizing: 'border-box', borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--neutral-200)', color: 'var(--neutral-700)', fontSize: 11, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
             {count}
           </span>
         )}
         <div style={{ flex: '1 1 0' }} />
         {aside && <span style={{ ...CAPTION, position: 'relative', pointerEvents: 'none', display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>{aside}</span>}
+        {!aside && count === 0 && <span aria-hidden style={{ ...CAPTION, position: 'relative', pointerEvents: 'none', color: 'var(--neutral-400)' }}>None</span>}
         {action && <span style={{ position: 'relative', display: 'inline-flex' }}>{action}</span>}
         <m.span
           aria-hidden

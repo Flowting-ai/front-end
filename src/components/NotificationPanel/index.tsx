@@ -456,7 +456,7 @@ function Header({ titleId, tab, onTabChange, unreadCount, onMarkAllRead }: {
       <Tabs value={tab} onValueChange={v => onTabChange(v as PanelTab)}>
         <Tabs.List size="small">
           <Tabs.Trigger value="all">All</Tabs.Trigger>
-          <Tabs.Trigger value="unread">{unreadCount > 0 ? `Unread · ${unreadCount > 99 ? '99+' : unreadCount}` : 'Unread'}</Tabs.Trigger>
+          <Tabs.Trigger value="unread" count={unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : undefined}>Unread</Tabs.Trigger>
         </Tabs.List>
       </Tabs>
     </div>

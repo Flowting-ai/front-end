@@ -208,7 +208,7 @@ export function ReportBugModal({ onClose }: ReportBugModalProps) {
 
             {/* Footer */}
             <div style={{ padding: '24px 0 12px' }}>
-              <Button variant="default" fluid type="submit" loading={state.submitting} disabled={state.submitting}>
+              <Button variant="default" fluid type="submit" sendState={state.submitting ? 'loading' : state.succeeded ? 'success' : 'idle'}>
                 Submit bug
               </Button>
             </div>

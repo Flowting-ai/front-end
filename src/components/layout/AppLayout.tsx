@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { m } from "framer-motion";
 import { CancelOneIcon } from "@strange-huge/icons";
@@ -361,7 +361,15 @@ export function AppLayout({
 // header/close-button chrome as Pinboard (see PinboardHeader), so the two
 // side panels read as one consistent system.
 function ProjectPanelSidebar() {
-  const { panel, isOpen } = useProjectPanel();
+  const { panel: livePanel, isOpen } = useProjectPanel();
+  // Mounting or unmounting the panel's body is the expensive part, so it never happens while the
+  // panel slides: on open the shell slides in with its header and the body mounts once it has
+  // settled; on close the last panel stays rendered until the slide-out finishes.
+  const [shownPanel, setShownPanel] = useState(livePanel);
+  const [settled, setSettled] = useState(false);
+  if (livePanel && livePanel !== shownPanel) setShownPanel(livePanel);
+  if (!isOpen && settled) setSettled(false);
+  const panel = livePanel ?? shownPanel;
   const sidePadding = panel?.sidePadding ?? 24;
 
   return (
@@ -369,6 +377,10 @@ function ProjectPanelSidebar() {
       animate={isOpen ? { width: 356, opacity: 1 } : { width: 0, opacity: 0 }}
       initial={{ width: 0, opacity: 0 }}
       transition={{ type: "spring", stiffness: 260, damping: 32, mass: 0.9 }}
+      onAnimationComplete={() => {
+        if (isOpen) setSettled(true);
+        else setShownPanel(null);
+      }}
       style={{
         height:        "100%",
         flexShrink:    0,
@@ -432,7 +444,7 @@ function ProjectPanelSidebar() {
           style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", overflowX: "hidden", boxSizing: "border-box" }}
         >
           <div style={{ padding: `14px ${sidePadding}px ${sidePadding}px`, boxSizing: "border-box", height: "100%" }}>
-            {panel?.content}
+            {(settled || !isOpen) && panel?.content}
           </div>
         </div>
       </div>

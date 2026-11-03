@@ -53,6 +53,7 @@ function pct(part: number, whole: number): string {
   if (whole <= 0) return '0%'
   const value = (part / whole) * 100
   if (value > 0 && value < 1) return '<1%'
+  if (value > 99 && value < 100) return '>99%'
   return `${Math.round(value)}%`
 }
 
@@ -62,7 +63,10 @@ function pct(part: number, whole: number): string {
 
 const SIZE = 200
 const STROKE = 18
-const RADIUS = (SIZE - STROKE) / 2
+// A hovered segment's ring grows by this much; the radius leaves room for it so the ring never
+// reaches past the SVG's edge (where it would be clipped).
+const HOVER_GROW = 4
+const RADIUS = (SIZE - STROKE - HOVER_GROW) / 2
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 const GAP = 2
 const MIN_ARC = 3
@@ -86,7 +90,7 @@ function Donut({ segments, total, active, onActive }: {
 
   return (
     <div className={styles.donutWrap}>
-      <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} role="img" aria-label={`${fmtNum(total)} credits used: ${segments.map((s) => `${s.label} ${fmtNum(s.value)}`).join(', ')}`}>
+      <svg width={SIZE} height={SIZE} viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ overflow: 'visible' }} role="img" aria-label={`${fmtNum(total)} credits used: ${segments.map((s) => `${s.label} ${fmtNum(s.value)}`).join(', ')}`}>
         <g transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}>
           <circle cx={SIZE / 2} cy={SIZE / 2} r={RADIUS} fill="none" stroke="var(--neutral-100)" strokeWidth={STROKE} />
           {arcs.map((arc) => (
@@ -99,7 +103,7 @@ function Donut({ segments, total, active, onActive }: {
               fill="none"
               stroke={arc.color}
               // A wider invisible hit area would need a second ring; the 18px stroke is already a comfortable target.
-              strokeWidth={active === arc.key ? STROKE + 4 : STROKE}
+              strokeWidth={active === arc.key ? STROKE + HOVER_GROW : STROKE}
               strokeDasharray={`${arc.length} ${CIRCUMFERENCE - arc.length}`}
               strokeDashoffset={-arc.offset}
               opacity={active && active !== arc.key ? 0.35 : 1}
@@ -132,42 +136,79 @@ function Card({ title, meta, children }: { title: string; meta?: React.ReactNode
 }
 
 function Skeleton() {
+  // Built from the real page's own classes so every card, row and tile lands where the loaded one does.
   const bone = (w: number | string, h: number, r: number | string = 6, extra: React.CSSProperties = {}) => (
     <div className="kaya-skeleton" style={{ width: w, height: h, borderRadius: r, flexShrink: 0, ...extra }} />
   )
-  const card = (children: React.ReactNode) => (
-    <div style={{ borderRadius: 16, border: '1px solid var(--border-default)', boxShadow: SECTION_SHADOW, overflow: 'hidden' }}>
-      <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--neutral-100)', display: 'flex', justifyContent: 'space-between' }}>{bone(150, 18)}{bone(110, 14)}</div>
-      {children}
+  // A text line: a box of the real line-height with a glyph-height bar centred in it.
+  const line = (lh: number, h: number, w: number | string, extra: React.CSSProperties = {}) => (
+    <div style={{ height: lh, display: 'flex', alignItems: 'center', ...extra }}>{bone(w, h, 4)}</div>
+  )
+  const head = (titleW: number, meta?: React.ReactNode) => (
+    <div className={styles.cardHead}>
+      <div style={{ flex: 1, minWidth: 0 }}>{line(22, 16, titleW)}</div>
+      {meta}
     </div>
   )
   return (
-    <div style={{ flex: '1 0 0', minHeight: 0, display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '64px 24px 48px' }}>
+    <div className={`kaya-scrollbar ${styles.root}`} style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '64px 24px 48px' }}>
       <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 12 }} aria-busy>
         <div style={{ paddingLeft: 4, marginBottom: 4 }}>
-          <div style={{ height: 32, display: 'flex', alignItems: 'center' }}>{bone(90, 24)}</div>
-          <div style={{ height: 22, display: 'flex', alignItems: 'center' }}>{bone(380, 14, 4)}</div>
+          {line(32, 24, 90)}
+          {line(22, 14, 380)}
         </div>
-        {card(
-          <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 32, alignItems: 'center', padding: 24 }}>
-            {bone(200, 200, '50%')}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+
+        <section className={styles.card}>
+          {head(180, line(20, 13, 120))}
+          <div className={styles.split}>
+            {/* Donut ring: same 200px box and ring position as the real chart */}
+            <div className={styles.donutWrap}>
+              <div style={{ position: 'absolute', inset: 2, borderRadius: '50%', border: '18px solid var(--neutral-100)' }} />
+              <div className={styles.donutCenter}>
+                {bone(78, 26, 6)}
+                {line(16, 11, 67, { marginTop: 8 })}
+              </div>
+            </div>
+            <div className={styles.legend}>
               {[0, 1, 2].map((i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div key={i} className={styles.legendRow}>
                   {bone(12, 12, 4)}
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>{bone(90 + i * 12, 14, 4)}{bone(170, 12, 4)}</div>
-                  {bone(60, 14, 4)}
+                  <div style={{ minWidth: 0 }}>
+                    {line(22, 14, 70 + i * 20)}
+                    {line(16, 11, 170)}
+                  </div>
+                  {line(22, 14, 80)}
+                  {line(20, 13, 32, { justifyContent: 'flex-end' })}
                 </div>
               ))}
             </div>
-          </div>,
-        )}
-        {card(
-          <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {bone('100%', 8, 999)}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>{bone('100%', 64, 12)}{bone('100%', 64, 12)}{bone('100%', 64, 12)}</div>
-          </div>,
-        )}
+          </div>
+        </section>
+
+        <section className={styles.card}>
+          {head(120)}
+          <div className={styles.balance}>
+            <div>
+              <div className={styles.meterLabels}>
+                {line(20, 13, 180)}
+                {line(20, 13, 26)}
+              </div>
+              {bone('100%', 8, 999, { marginTop: 8 })}
+            </div>
+            <div className={styles.stats}>
+              {[0, 1, 2].map((i) => (
+                <div key={i} className={styles.stat}>
+                  {line(16, 11, 80)}
+                  {line(28, 18, 100)}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className={styles.footer}>
+            {line(20, 13, 274)}
+            {bone(167, 32, 8)}
+          </div>
+        </section>
       </div>
     </div>
   )
@@ -186,7 +227,7 @@ export default function UsagePage() {
       <div style={{ flex: "1 0 0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: 48, textAlign: "center" }}>
         <p style={{ margin: 0, fontFamily: BODY, fontWeight: 500, fontSize: 16, lineHeight: "24px", color: "var(--neutral-900)" }}>Couldn&apos;t load your usage</p>
         <p style={{ margin: 0, fontFamily: BODY, fontSize: 14, lineHeight: "22px", color: "var(--neutral-600)" }}>Check your connection and try again.</p>
-        <Button variant="secondary" size="sm" onClick={() => { void usageQ.refetch() }}>Try again</Button>
+        <Button variant="default" size="sm" onClick={() => { void usageQ.refetch() }}>Try again</Button>
       </div>
     )
   }
@@ -314,7 +355,7 @@ export default function UsagePage() {
           <div className={styles.footer}>
             <span>{lowBalance ? 'Top up or change plan to keep working without interruption.' : 'Credits reset at the start of each billing period.'}</span>
             <Button
-              variant={lowBalance ? 'default' : 'secondary'}
+              variant="default"
               size="sm"
               rightIcon={<ArrowRightOneIcon size={16} />}
               onClick={() => router.push(ORG_PLANS_ROUTE)}

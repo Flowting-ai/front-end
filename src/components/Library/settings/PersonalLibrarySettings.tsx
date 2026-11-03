@@ -2,7 +2,6 @@
 
 import React from 'react'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/Skeleton'
 import { SettingsPageShell } from '@/components/SettingsPageShell'
 import { trackLibrary } from '@/lib/library/analytics'
 import { MESSAGES } from '@/lib/library/messages'
@@ -10,30 +9,10 @@ import { useUpdatePrefs } from '@/lib/library/mutations'
 import { useLibraryPrefs, useStorage } from '@/lib/library/queries'
 import { AUTO_SAVE_MODES, type AutoSave } from '@/lib/library/schemas'
 import { InfoTip } from '../InfoTip'
-import { NativeSelect, QuietLine, SettingRow, SettingSwitch, SettingsCard, SettingsSection, StorageBlock } from './SettingsParts'
+import { NativeSelect, QuietLine, SettingRow, SettingSwitch, SettingsCard, SettingsCardSkeleton, SettingsSection, StorageBlock, StorageBlockSkeleton } from './SettingsParts'
 
 export const AUTO_SAVE_LABELS: Record<AutoSave, string> = { always: 'Always', ask: 'Ask each time', never: 'Never' }
 const AUTO_SAVE_OPTIONS = AUTO_SAVE_MODES.map((value) => ({ value, label: AUTO_SAVE_LABELS[value] }))
-
-function RowLoading({ last }: { last?: boolean }) {
-  return (
-    <div aria-hidden="true" style={{ display: 'flex', alignItems: 'center', gap: 24, minHeight: 64, padding: '14px 16px', boxSizing: 'border-box', borderTop: last === false ? undefined : '1px solid var(--neutral-100)' }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <Skeleton height={14} radius={6} width="32%" />
-        <Skeleton height={12} radius={6} width="48%" />
-      </div>
-      <Skeleton height={32} radius={10} width={88} />
-    </div>
-  )
-}
-
-function CardLoading({ rows = 2 }: { rows?: number }) {
-  return (
-    <div role="status" aria-busy="true" aria-label="Loading">
-      {Array.from({ length: rows }).map((_, index) => <RowLoading key={index} last={index === 0 ? false : undefined} />)}
-    </div>
-  )
-}
 
 /**
  * Settings > Library for one person, laid out like the prototype: Chats (save files from chats, search my
@@ -50,10 +29,11 @@ export function PersonalLibrarySettings() {
     <SettingsPageShell title="Library" description="Where your files are saved, and how Souvenir may use them." maxWidth={860}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 32, marginTop: 14 }}>
         <SettingsSection title="Chats">
+          {prefs.isPending ? (
+            <SettingsCardSkeleton rows={[{ titleWidth: 132, hint: true, hintWidth: 186, control: 'select' }, { titleWidth: 168, control: 'switch' }]} />
+          ) : (
           <SettingsCard>
-            {prefs.isPending ? (
-              <CardLoading />
-            ) : !data ? (
+            {!data ? (
               <div role="alert" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-600)' }}>{MESSAGES.listError}</span>
                 <Button variant="secondary" size="sm" onClick={() => void prefs.refetch()}>{MESSAGES.retry}</Button>
@@ -90,11 +70,12 @@ export function PersonalLibrarySettings() {
               </>
             )}
           </SettingsCard>
+          )}
         </SettingsSection>
 
         <SettingsSection title="Storage">
           {storage.isPending ? (
-            <SettingsCard><CardLoading /></SettingsCard>
+            <StorageBlockSkeleton />
           ) : storage.data ? (
             <StorageBlock storage={storage.data} tip={storage.data.limitBytes === null ? <InfoTip text="There is no storage limit yet." /> : undefined} />
           ) : (

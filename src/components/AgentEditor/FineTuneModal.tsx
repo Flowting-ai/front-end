@@ -109,8 +109,8 @@ function Body({
           borderTop: '1px solid var(--neutral-100)', flexShrink: 0,
         }}
       >
-        <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={saving}>Cancel</Button>
-        <Button type="button" variant="default" size="sm" onClick={() => void handleSave()} loading={saving} disabled={!canSave}>
+        <Button type="button" variant="cancel" size="sm" onClick={onClose} disabled={saving}>Cancel</Button>
+        <Button type="button" variant="save" size="sm" onClick={() => void handleSave()} loading={saving} disabled={!canSave}>
           {saveLabel ?? 'Save'}
         </Button>
       </div>

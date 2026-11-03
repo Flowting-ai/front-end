@@ -292,7 +292,7 @@ export function FixAgentModelsModal({ open, onClose, agents, onSaved }: FixAgent
             : 'No replacements picked yet'}
         </span>
         <div style={{ display: 'flex', gap: 8 }}>
-          <Button variant="ghost" onClick={handleClose} disabled={saving}>
+          <Button variant="cancel" onClick={handleClose} disabled={saving}>
             Cancel
           </Button>
           <Button

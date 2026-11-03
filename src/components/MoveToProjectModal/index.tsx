@@ -393,7 +393,7 @@ export function MoveToProjectModal({
           padding:        '12px 16px 16px',
           borderTop:      '1px solid var(--neutral-100)',
         }}>
-          <Button variant="ghost" onClick={handleClose} disabled={loading}>
+          <Button variant="cancel" onClick={handleClose} disabled={loading}>
             Cancel
           </Button>
           <Button variant="default" disabled={!selectedId || loading} loading={loading} onClick={handleConfirm}>

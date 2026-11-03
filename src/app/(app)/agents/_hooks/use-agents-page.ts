@@ -106,7 +106,9 @@ export function useAgentsPage() {
   function openDetails(id: string) {
     const params = new URLSearchParams(searchParams.toString())
     params.set('agent', id)
-    replace(`${AGENTS_ROUTE}?${params.toString()}`, { scroll: false })
+    // A shallow URL update (useSearchParams follows it): router.replace would refetch the route
+    // from the server, freezing the panel's slide.
+    window.history.replaceState(null, '', `${AGENTS_ROUTE}?${params.toString()}`)
     const name = personas.find(p => p.id === id)?.name
     toastAgentDetailsOpened(name)
   }
@@ -115,7 +117,7 @@ export function useAgentsPage() {
     const params = new URLSearchParams(searchParams.toString())
     params.delete('agent')
     const query = params.toString()
-    replace(query ? `${AGENTS_ROUTE}?${query}` : AGENTS_ROUTE, { scroll: false })
+    window.history.replaceState(null, '', query ? `${AGENTS_ROUTE}?${query}` : AGENTS_ROUTE)
     toastAgentDetailsClosed()
   }
 

@@ -407,11 +407,11 @@ export function MessageBubble({
                 alignItems: 'center',
               }}
             >
-              <Button variant="outline" size="sm" onClick={handleEditCancel}>
+              <Button variant="cancel" size="sm" onClick={handleEditCancel}>
                 Cancel
               </Button>
               <Button
-                variant="default"
+                variant="save"
                 size="sm"
                 disabled={!editDraft.trim() || editDraft.trim() === content}
                 onClick={handleEditSave}

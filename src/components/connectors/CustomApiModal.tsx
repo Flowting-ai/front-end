@@ -190,7 +190,7 @@ export function CustomApiModal({
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: SPACE.md, marginTop: SPACE.xxl }}>
-        <Button variant="ghost" size="sm" onClick={close} disabled={busy}>Cancel</Button>
+        <Button variant="cancel" size="sm" onClick={close} disabled={busy}>Cancel</Button>
         <Button variant="default" size="sm" onClick={() => void submit()} loading={busy} disabled={!validation.success || !credentials.success}>Add API</Button>
       </div>
     </Modal>
