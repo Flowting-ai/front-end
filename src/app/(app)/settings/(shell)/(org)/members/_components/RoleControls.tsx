@@ -54,14 +54,8 @@ export function RemoveButton({
           initial={{ opacity: 0, filter: 'blur(4px)' }}
           animate={{ opacity: 1, filter: 'blur(0px)', transition: REVEAL }}
           exit={{    opacity: 0, filter: 'blur(4px)', transition: REVEAL }}
-          // Inverted danger (red text on the field surface) for the idle state only; the confirm step stays solid red.
-          style={{
-            display: 'flex', flexShrink: 0,
-            '--button-danger-bg':            'var(--field-surface)',
-            '--button-danger-bg-hover':      'var(--red-50)',
-            '--button-danger-text':          'var(--red-500)',
-            '--button-danger-text-disabled': 'var(--red-500)',
-          } as React.CSSProperties}
+          // The plain danger button (red, white text), like the confirm step.
+          style={{ display: 'flex', flexShrink: 0 }}
         >
           <Button
             variant="danger"

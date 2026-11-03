@@ -650,7 +650,7 @@ function RightSidebarImpl() {
                   aria-label="Folder name"
                 />
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                  <Button variant="ghost" size="sm" onClick={() => { setShowRenameModal(false); setRenameFolderTarget(null); setRenameModalName("") }}>
+                  <Button variant="cancel" size="sm" onClick={() => { setShowRenameModal(false); setRenameFolderTarget(null); setRenameModalName("") }}>
                     Cancel
                   </Button>
                   <Button variant="default" size="sm" disabled={!renameModalName.trim()} onClick={handleConfirmRename}>
@@ -733,7 +733,7 @@ function RightSidebarImpl() {
                   aria-label="Folder name"
                 />
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                  <Button variant="ghost" size="sm" onClick={() => { setShowFolderModal(false); setFolderModalName("") }}>
+                  <Button variant="cancel" size="sm" onClick={() => { setShowFolderModal(false); setFolderModalName("") }}>
                     Cancel
                   </Button>
                   <Button variant="default" size="sm" disabled={!folderModalName.trim()} onClick={handleCreateFolder}>

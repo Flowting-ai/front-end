@@ -105,16 +105,7 @@ export function ProjectChatList({ project, viewerId, members, canPublish, team }
           <div style={{ width: 32, flexShrink: 0 }} aria-hidden />
           <TabsList size="small">
             <TabsTrigger value="personal">Your chats</TabsTrigger>
-            <TabsTrigger value="publish">
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                {publishedTabLabel}
-                {publishedChats.length > 0 && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, borderRadius: 8, padding: '0 4px', backgroundColor: 'var(--blue-100)', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 9, color: 'var(--blue-700)', flexShrink: 0 }}>
-                    {publishedChats.length}
-                  </span>
-                )}
-              </span>
-            </TabsTrigger>
+            <TabsTrigger value="publish" count={publishedChats.length > 0 ? publishedChats.length : undefined}>{publishedTabLabel}</TabsTrigger>
           </TabsList>
           <Tooltip
             side="left"

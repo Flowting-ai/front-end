@@ -179,7 +179,7 @@ export function ScheduleEditModal({ isOpen, schedule, onSave, onClose }: Schedul
 
         {/* Actions */}
         <div className="flex shrink-0 justify-end gap-2 border-t border-[var(--neutral-100)] px-6 py-4">
-          <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+          <Button variant="cancel" size="sm" onClick={onClose}>Cancel</Button>
           <Button variant="default" size="sm" disabled={!isValid} onClick={save}>
             {isCreate ? 'Start task' : 'Update in Tasks'}
           </Button>

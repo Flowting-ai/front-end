@@ -152,9 +152,9 @@ describe('OverviewView', () => {
     expect([...order].sort((a, b) => a - b)).toEqual(order)
   })
 
-  it('opens to-dos and populated sections; keeps empty ones closed', () => {
+  it('opens populated sections; keeps empty ones (to-dos without a plan too) closed', () => {
     const html = render([user('u'), reply('a', { activities: [step('g', 'agent', 'Analyst')], webCitations: [{ title: 'T', url: 'https://x.example.com' }] })])
-    expect(expanded(html, 'To-dos')).toBe('true')
+    expect(expanded(html, 'To-dos')).toBe('false')
     expect(expanded(html, 'Agents')).toBe('true')
     expect(expanded(html, 'Sources')).toBe('true')
     expect(expanded(html, 'Connectors')).toBe('false')

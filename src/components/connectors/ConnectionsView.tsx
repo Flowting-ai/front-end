@@ -9,6 +9,7 @@
 // Parts: connections-shared.tsx, CatalogDiscover.tsx, Catalog.tsx.
 
 import React, { useMemo } from 'react'
+import { PlusSignIcon } from '@strange-huge/icons'
 import { Button } from '@/components/ui/button'
 import { type ConnectorPick } from '@/lib/api/recommendations'
 import { ConnectorCatalog } from '@/lib/api/connectors'
@@ -47,7 +48,7 @@ export function ConnectionsView({
         <Header
           title="Connectors"
           subtitle="Tools your workspace can use across chat"
-          tools={<Button variant="outline" size="sm" disabled>Add custom API</Button>}
+          tools={<Button variant="default" size="sm" leftIcon={<PlusSignIcon size={14} />} disabled>Add custom API</Button>}
         />
         <CatalogLoading />
       </ConnectorsShell>
@@ -59,13 +60,14 @@ export function ConnectionsView({
       <Header
         title="Connectors"
         subtitle="Tools your workspace can use across chat"
-        tools={<Button variant="outline" size="sm" onClick={addCustomApi}>Add custom API</Button>}
+        tools={<Button variant="default" size="sm" leftIcon={<PlusSignIcon size={14} />} onClick={addCustomApi}>Add custom API</Button>}
       />
       {attention.length > 0 && (
         <div style={{ ...panel, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACE.xl, flexWrap: 'wrap', padding: SPACE.lg, marginBottom: SPACE.xxl, background: 'var(--yellow-50)' }}>
           <strong>{attention.length} account{attention.length === 1 ? '' : 's'} need attention</strong>
           <Button
             variant="outline"
+            attention
             size="sm"
             onClick={() => {
               const first = catalog.find(row => row.needsAttention)

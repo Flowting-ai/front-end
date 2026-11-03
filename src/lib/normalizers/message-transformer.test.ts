@@ -61,4 +61,19 @@ describe("toUIMessage", () => {
     const ui = toUIMessage({ ...base, content: "", errorNotice: INCOMPLETE_ANSWER_MESSAGE, image_links: ["https://img/x.png"] })
     expect(ui).toMatchObject({ content: "", isError: false, errorNotice: INCOMPLETE_ANSWER_MESSAGE })
   })
+  it("gives a generated file its Library id only while the Library copy can be opened", () => {
+    const ui = toUIMessage({
+      ...base,
+      file_attachments: [
+        { file_link: "https://s3/a.docx", file_name: "a.docx", origin: "generated", document_id: "d1", libraryState: "open" },
+        { file_link: "https://s3/b.pdf", file_name: "b.pdf", origin: "generated", document_id: "d2", libraryState: "deleted" },
+        { file_link: "https://s3/c.csv", file_name: "c.csv", origin: "generated" },
+      ],
+    } as Message)
+    expect(ui.generatedFiles).toEqual([
+      { url: "https://s3/a.docx", filename: "a.docx", mimeType: undefined, documentId: "d1" },
+      { url: "https://s3/b.pdf", filename: "b.pdf", mimeType: undefined },
+      { url: "https://s3/c.csv", filename: "c.csv", mimeType: undefined },
+    ])
+  })
 })

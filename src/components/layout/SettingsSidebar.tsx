@@ -22,7 +22,7 @@ import { useOrg } from '@/context/org-context'
 import type { CreditsDisplay } from '@/lib/api/plan'
 import { formatCredits } from '@/lib/format-credits'
 import { useGuardedRouter, useNavGuard } from '@/context/nav-guard-context'
-import { AUTH_LOGIN_ROUTE, SETTINGS_ACCOUNT_ROUTE, SETTINGS_USAGE_ROUTE, SETTINGS_HELP_ROUTE, SETTINGS_REPORT_BUG_ROUTE, SETTINGS_FEATURE_REQUEST_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE, SETTINGS_LIBRARY_ROUTE, ORG_LIBRARY_ROUTE, ORG_AUDIT_LOG_ROUTE, ORG_INVENTORY_ROUTE } from '@/lib/routes'
+import { AUTH_LOGIN_ROUTE, SETTINGS_ACCOUNT_ROUTE, SETTINGS_USAGE_ROUTE, SETTINGS_HELP_ROUTE, SETTINGS_REPORT_BUG_ROUTE, SETTINGS_FEATURE_REQUEST_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE, SETTINGS_LIBRARY_ROUTE, ORG_LIBRARY_ROUTE } from '@/lib/routes'
 import { LIBRARY_SETTINGS_ENABLED } from '@/lib/feature-flags'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 
@@ -120,11 +120,8 @@ const WORKSPACE_ITEMS = [
   { id: 'usage',   label: 'Usage',           href: ORG_ANALYTICS_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/usage-workspace.svg" /> },
   // Workspace Library settings (Admin): auto-save default, AI use, file limits.
   ...(LIBRARY_SETTINGS_ENABLED ? [{ id: 'library', label: 'Library', href: ORG_LIBRARY_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/library.svg" /> }] : []),
-  // Static pages promised for phase 2 (prototype: Audit log, Inventory), marked with a "Phase 2" badge.
-  ...(LIBRARY_SETTINGS_ENABLED ? [
-    { id: 'audit-log', label: 'Audit log', href: ORG_AUDIT_LOG_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/plans-billing.svg" />, phase2: true },
-    { id: 'inventory', label: 'Inventory', href: ORG_INVENTORY_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/general.svg" />, phase2: true },
-  ] : []),
+  // Audit log and Inventory (phase 2 placeholders) are hidden for now; their pages still exist at
+  // ORG_AUDIT_LOG_ROUTE / ORG_INVENTORY_ROUTE.
 ]
 
 // HELP & SUPPORT: node 18:27804. New group — Help & Legal moves out of

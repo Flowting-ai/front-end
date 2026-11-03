@@ -1,0 +1,153 @@
+/* The Context tab before a chat has started: an orbit of what the panel will track, then a legend. */
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 16px 16px;
+  text-align: center;
+}
+
+.stage {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  margin-bottom: 18px;
+}
+
+/* A soft glow behind everything. */
+.stage::before {
+  content: '';
+  position: absolute;
+  inset: 24px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--blue-500) 16%, transparent), transparent);
+  animation: breathe 4.8s ease-in-out infinite;
+}
+
+.ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px dashed var(--neutral-200);
+}
+.ringOuter { inset: 6px; }
+.ringInner { inset: 52px; border-style: solid; border-color: var(--neutral-100); }
+
+/* The orbit turns; each chip counter-turns so its icon stays upright. */
+.orbit {
+  position: absolute;
+  inset: 6px;
+  animation: spin 36s linear infinite;
+}
+
+.slot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  /* --a: the chip's angle around the ring; 94px: the ring's radius. */
+  transform: rotate(var(--a)) translateY(-94px) rotate(calc(-1 * var(--a)));
+}
+
+.chip {
+  position: absolute;
+  left: -17px;
+  top: -17px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  background: var(--card-bg);
+  color: var(--chip-color);
+  box-shadow: 0 1px 2px rgba(38, 33, 30, 0.08), 0 4px 12px -4px color-mix(in srgb, var(--chip-color) 45%, transparent), 0 0 0 1px var(--neutral-100);
+  animation: spin 36s linear infinite reverse, float 3.6s ease-in-out infinite;
+  animation-delay: 0s, var(--d);
+}
+
+/* The chat itself, in the middle. */
+.core {
+  position: absolute;
+  inset: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--neutral-900);
+  color: var(--neutral-white);
+  box-shadow: 0 6px 18px -6px rgba(38, 33, 30, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.core::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--neutral-900) 25%, transparent);
+  animation: pulse 2.8s ease-out infinite;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: 18px;
+  line-height: 26px;
+  color: var(--neutral-900);
+}
+
+.text {
+  margin: 4px 0 0;
+  max-width: 260px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--neutral-500);
+}
+
+/* What each section will hold, revealed one after another. */
+.legend {
+  width: 100%;
+  margin: 18px 0 0;
+  padding: 6px;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  border-radius: 12px;
+  background: var(--neutral-50);
+  box-shadow: inset 0 0 0 1px var(--neutral-100);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  text-align: left;
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--neutral-700);
+  opacity: 0;
+  animation: rise 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: var(--d);
+}
+
+.dot {
+  flex: none;
+  display: flex;
+  color: var(--chip-color);
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
+@keyframes breathe { 0%, 100% { opacity: 0.7; scale: 0.94; } 50% { opacity: 1; scale: 1.04; } }
+@keyframes pulse { from { opacity: 0.9; scale: 1; } to { opacity: 0; scale: 1.35; } }
+@keyframes rise { from { opacity: 0; translate: 0 6px; } to { opacity: 1; translate: 0 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit, .chip, .stage::before, .core::after { animation: none; }
+  .item { animation: none; opacity: 1; }
+}

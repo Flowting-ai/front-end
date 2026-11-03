@@ -10,6 +10,14 @@
   border-bottom: 1px solid var(--neutral-100);
 }
 
+/* A card head with actions on the right (Profile's Edit / Save). */
+.cardHeadRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
 .cardTitle {
   margin: 0;
   font-family: var(--font-body);
@@ -27,13 +35,22 @@
   color: var(--neutral-600);
 }
 
-/* Profile header: avatar, name, email and role, with the edit actions on the right. */
+/* Profile body: the photo beside the name fields. */
 .profile {
   display: flex;
-  align-items: center;
-  gap: 20px;
-  padding: 24px;
+  align-items: flex-start;
+  gap: 24px;
+  padding: 20px 24px;
   border-bottom: 1px solid var(--neutral-100);
+}
+
+.avatarCol {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 88px;
 }
 
 .avatar {
@@ -87,43 +104,11 @@
   opacity: 1;
 }
 
-.identity {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.name {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-family: var(--font-title);
-  font-size: 20px;
-  line-height: 28px;
-  color: var(--neutral-900);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.email {
-  margin: 0;
-  font-family: var(--font-body);
-  font-size: 14px;
-  line-height: 22px;
-  color: var(--neutral-600);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .avatarActions {
   display: flex;
-  gap: 8px;
-  margin-top: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
 }
 
 .actions {
@@ -133,10 +118,69 @@
 }
 
 .fields {
+  flex: 1;
+  min-width: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px 24px;
-  padding: 20px 24px 24px;
+  gap: 16px 24px;
+}
+
+/* Read-only (before Edit): InputField greys label, value and caption alike. Keep the label and
+   caption muted but let the value read as the content. Inline colour, hence !important. */
+.fields :global(.kds-input-field-input):disabled {
+  color: var(--neutral-800) !important;
+  -webkit-text-fill-color: var(--neutral-800);
+}
+
+/* The fixed details: label and why on the left, the value on the right. */
+.details {
+  margin: 0;
+  padding: 4px 24px;
+}
+
+.detailRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 12px 0;
+}
+
+.detailRow + .detailRow {
+  border-top: 1px solid var(--neutral-100);
+}
+
+.detailRow dt {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.detailLabel {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-900);
+}
+
+.detailHint {
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--neutral-500);
+}
+
+.detailValue {
+  margin: 0;
+  min-width: 0;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-700);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 720px) {
@@ -144,11 +188,12 @@
     grid-template-columns: 1fr;
   }
   .profile {
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: stretch;
   }
-  /* Give the name/email room before the actions wrap below it. */
-  .identity {
-    min-width: 140px;
+  .avatarCol {
+    width: auto;
+    align-items: flex-start;
   }
 }
 

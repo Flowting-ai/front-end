@@ -346,7 +346,7 @@ function NewProjectPageInner() {
 
         {/* Footer */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-          <Button variant="ghost" onClick={() => push(PROJECTS_ROUTE)}>
+          <Button variant="cancel" onClick={() => push(PROJECTS_ROUTE)}>
             Cancel
           </Button>
           <Button

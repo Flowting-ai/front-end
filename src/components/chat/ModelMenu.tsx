@@ -84,7 +84,7 @@ function EffortSlider({ options, value, onChange }: {
         </SliderPrimitive.Track>
         <div aria-hidden className={styles.pips}>
           {steps.map((s, i) => (
-            <span key={s ?? 'off'} className={styles.pip} data-active={i > 0 && i < index} />
+            <span key={s ?? 'off'} className={styles.pip} data-active={i < index} data-current={i === index} />
           ))}
         </div>
         <SliderPrimitive.Thumb className={styles.thumb} aria-label="Thinking effort" aria-valuetext={effortLabel(steps[index])} />

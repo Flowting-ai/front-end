@@ -226,6 +226,8 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
     const [draft,      setDraft]      = useState('')
     const [role,       setRole]       = useState<WorkspaceRole>('member')
     const [submitting, setSubmitting] = useState(false)
+    // Button 30: after every invite goes out, the button shows "Sent" briefly before the modal closes.
+    const [sent, setSent] = useState(false)
 
     useEffect(() => { inputRef.current?.focus() }, [])
 
@@ -310,7 +312,8 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
           }))
 
         if (result.failed.length === 0) {
-          onClose?.()
+          setSent(true)
+          window.setTimeout(() => { setSent(false); onClose?.() }, 900)
         }
       } finally {
         setSubmitting(false)
@@ -461,12 +464,13 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
 
         {/* Footer */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
-          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+          <Button variant="cancel" size="sm" onClick={onClose}>Cancel</Button>
           <Button
             variant="default"
             size="sm"
-            loading={loading || submitting}
-            disabled={pendingCount === 0}
+            sendState={sent ? 'success' : loading || submitting ? 'loading' : 'idle'}
+            successLabel={pendingCount > 1 ? 'Invites sent' : 'Invite sent'}
+            disabled={pendingCount === 0 && !sent}
             onClick={() => void handleSubmit()}
           >
             {pendingCount > 1 ? `Send ${pendingCount} invites` : 'Send invite'}

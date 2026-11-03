@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { SettingsOneIcon, TickTwoIcon } from '@strange-huge/icons'
+import { SettingsOneIcon } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
 import { Button } from '@/components/ui/button'
 import { AnimatePresence, m } from 'framer-motion'
@@ -77,23 +77,9 @@ function SaveChanges({ count, onClick, loading }: { count: number; onClick: () =
           transition={{ type: 'spring', stiffness: 520, damping: 34 }}
           style={{ display: 'flex', justifyContent: 'flex-end', overflow: 'visible' }}
         >
-          <button
-            type="button"
-            disabled={loading}
-            aria-busy={loading || undefined}
-            onClick={onClick}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              height: 32, padding: '0 14px 0 10px', border: 'none', borderRadius: 999,
-              backgroundColor: 'var(--static-white)', color: 'var(--static-black)',
-              fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 14, lineHeight: '20px',
-              boxShadow: '0px 1px 3px color-mix(in srgb, var(--static-black) 25%, transparent), 0px 0px 0px 1px color-mix(in srgb, var(--static-black) 8%, transparent)',
-              cursor: loading ? 'progress' : 'pointer', opacity: loading ? 0.85 : 1,
-            }}
-          >
-            {loading ? <Spinner size={16} /> : <TickTwoIcon size={16} color="var(--static-black)" />}
+          <Button variant="save" size="sm" loading={loading} onClick={onClick}>
             {loading ? 'Saving…' : `Save ${count} ${count === 1 ? 'change' : 'changes'}`}
-          </button>
+          </Button>
         </m.div>
       )}
     </AnimatePresence>

@@ -9,6 +9,15 @@ import { springs } from '@/lib/springs'
 import { TabItem } from '@/components/TabItem'
 import { IconButton } from '@/components/ui/button'
 
+// Styled after shadcnspace "Tabs 08 - Animated Dashboard Tabs": a 1px-bordered track with 4px of
+// padding (3px small) around the tabs, and a white pill the size of the active tab (ring + soft drop
+// shadow) that springs between tabs; the label that becomes active pops in. Corners follow our design
+// system: the pill uses the button radius (10px / 8px small) and the track is concentric with it
+// (pill radius + padding: 14px / 11px).
+const TRACK_PAD = { medium: 4, small: 3 } as const
+const TRACK_BORDER = 1
+const PILL_SPRING = { type: 'spring', stiffness: 500, damping: 34, mass: 0.9 } as const
+
 // ── Contexts — set by TabsList, consumed by TabsTrigger ───────────────────────
 
 type TabsSize = 'medium' | 'small'
@@ -37,12 +46,12 @@ export interface TabsListProps
   justify?: 'start' | 'center' | 'space-evenly' | 'space-between'
   /**
    * Top offset of the active pill from the row top edge.
-   * Negative = extends beyond; positive = inset. Default: -0.5.
+   * Negative = extends beyond; positive = inset. Default: 0.
    */
   pillTopInset?: number
   /**
    * Bottom offset of the active pill from the row bottom edge.
-   * Negative = extends beyond; positive = inset. Default: -0.5.
+   * Negative = extends beyond; positive = inset. Default: 0.
    */
   pillBottomInset?: number
   /**
@@ -58,6 +67,8 @@ export interface TabsTriggerProps
   extends React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger> {
   /** Optional 16×16 icon rendered to the left of the label */
   icon?: React.ReactNode
+  /** Optional count shown as a round badge after the label */
+  count?: number | string
   /**
    * Injected by an outer Slot-based wrapper (e.g. a Radix TooltipTrigger with
    * asChild) — never by a caller. Dropped rather than forwarded; see TabsTrigger.
@@ -100,12 +111,14 @@ export function TabsList({
   collapse,
   size = 'medium',
   justify,
-  pillTopInset = -0.5,
-  pillBottomInset = -0.5,
+  pillTopInset = 0,
+  pillBottomInset = 0,
   ...props
 }: TabsListProps & { ref?: React.Ref<React.ElementRef<typeof TabsPrimitive.List>> }) {
   const isSmall  = size === 'small'
-  const radius   = isSmall ? '8px' : '10px'
+  const radius   = isSmall ? '11px' : '14px'
+  const pillRadius = isSmall ? '8px' : '10px'
+  const pad      = TRACK_PAD[size]
 
   const rowRef    = useRef<HTMLDivElement>(null)
   const shadowRef = useRef<HTMLDivElement>(null)
@@ -191,7 +204,7 @@ export function TabsList({
   useLayoutEffect(() => {
     if (!scrollable || !pill) return
     const sl      = rowRef.current?.scrollLeft ?? 0
-    const targetX = pill.x - sl
+    const targetX = pill.x - sl + pad
 
     if (isFirstPill.current) {
       applyShadow(targetX, pill.width)
@@ -206,20 +219,20 @@ export function TabsList({
     const fromW = shadowWCur.current
 
     shadowAnimX.current = animate(fromX, targetX, {
-      ...springs.fast,
+      ...PILL_SPRING,
       onUpdate: (v) => {
         shadowXCur.current = v
         if (shadowRef.current) shadowRef.current.style.transform = `translateX(${v}px)`
       },
     })
     shadowAnimW.current = animate(fromW, pill.width, {
-      ...springs.fast,
+      ...PILL_SPRING,
       onUpdate: (v) => {
         shadowWCur.current = v
         if (shadowRef.current) shadowRef.current.style.width = `${v}px`
       },
     })
-  }, [pill, scrollable, applyShadow])
+  }, [pill, scrollable, applyShadow, pad])
 
   // ── Scrollable: detect overflow so the grab cursor only shows when draggable ──
 
@@ -318,10 +331,10 @@ export function TabsList({
     setAtEnd(row.scrollLeft + row.clientWidth >= row.scrollWidth - 1)
     if (!pill) return
     shadowAnimX.current?.stop()
-    const x = pill.x - row.scrollLeft
+    const x = pill.x - row.scrollLeft + pad
     shadowXCur.current = x
     if (shadowRef.current) shadowRef.current.style.transform = `translateX(${x}px)`
-  }, [pill])
+  }, [pill, pad])
 
   // ── Pill base style (shared by all pill layers, size-aware) ────────────────
 
@@ -329,7 +342,7 @@ export function TabsList({
     position:      'absolute',
     top:           pillTopInset,
     bottom:        pillBottomInset,
-    borderRadius:  radius,
+    borderRadius:  pillRadius,
     pointerEvents: 'none',
   }
 
@@ -345,6 +358,10 @@ export function TabsList({
           position:   'relative',
           display:    scrollable ? 'block' : fluid ? 'flex' : 'inline-flex',
           alignItems: 'flex-start',
+          padding:    pad,
+          border:     `${TRACK_BORDER}px solid var(--border-default)`,
+          borderRadius: radius,
+          boxSizing:  'border-box',
           ...(fluid && { width: '100%' }),
           ...(!scrollable && !fluid && { alignSelf: 'flex-start' }),
           ...(scrollable && {
@@ -358,11 +375,8 @@ export function TabsList({
         {/* ── Beige pill background ── */}
         <div
           aria-hidden
-          style={{ position: 'absolute', inset: 0, borderRadius: radius, pointerEvents: 'none' }}
-        >
-          <div style={{ position: 'absolute', inset: 0, borderRadius: radius, backgroundColor: 'var(--tab-bg)' }} />
-          <div style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', boxShadow: 'var(--shadow-tab-inner)' }} />
-        </div>
+          style={{ position: 'absolute', inset: 0, borderRadius: `calc(${radius} - ${TRACK_BORDER}px)`, pointerEvents: 'none', backgroundColor: 'var(--tab-bg)' }}
+        />
 
         {/* ── Scrollable: outer shadow on the List (never inside scroll container) ── */}
         {scrollable && (
@@ -371,7 +385,11 @@ export function TabsList({
             aria-hidden
             style={{
               ...pillBase,
-              boxShadow:  'var(--shadow-tab-item-selected)',
+              // In List coordinates (outside the scrolling row), so offset by the track padding.
+              top:        pad + pillTopInset,
+              bottom:     pad + pillBottomInset,
+              backgroundColor: 'var(--tab-item-bg-selected)',
+              boxShadow:  'var(--shadow-tab-pill)',
               width:       0,
               visibility: pill ? 'visible' : 'hidden',
             }}
@@ -415,25 +433,17 @@ export function TabsList({
               active indicators simultaneously, so we skip it entirely. */}
           {pill && !scrollable && (
             <>
-              {/* White bg + outer shadow */}
+              {/* White pill: ring + soft drop shadow */}
               <motion.div
                 aria-hidden
                 style={{
                   ...pillBase,
                   backgroundColor: 'var(--tab-item-bg-selected)',
-                  boxShadow: 'var(--shadow-tab-item-selected)',
+                  boxShadow: 'var(--shadow-tab-pill)',
                 }}
                 animate={{ x: pill.x, width: pill.width }}
                 initial={false}
-                transition={collapse ? springs.moderate : springs.fast}
-              />
-              {/* Inner bottom shadow — above the white bg */}
-              <motion.div
-                aria-hidden
-                style={{ ...pillBase, boxShadow: 'var(--shadow-tab-item-selected-inner)' }}
-                animate={{ x: pill.x, width: pill.width }}
-                initial={false}
-                transition={collapse ? springs.moderate : springs.fast}
+                transition={collapse ? springs.moderate : PILL_SPRING}
               />
             </>
           )}
@@ -481,6 +491,7 @@ export function TabsTrigger({
   ref,
   children,
   icon,
+  count,
   className,
   'data-state': outerDataState,
   ...props
@@ -501,7 +512,7 @@ export function TabsTrigger({
     // disableSelectedStyle suppresses TabItem's own bg/shadow since TabsList's
     // animated pill handles the selected treatment.
     <TabsPrimitive.Trigger asChild ref={ref} {...props}>
-      <TabItem icon={icon} size={size} disableSelectedStyle fluid={isFluid} collapse={isCollapse} reservedLabelWidth={maxLabelW} className={className}>
+      <TabItem icon={icon} size={size} disableSelectedStyle fluid={isFluid} collapse={isCollapse} reservedLabelWidth={maxLabelW} count={count} className={cn('kaya-tab-pop', className)}>
         {children}
       </TabItem>
     </TabsPrimitive.Trigger>

@@ -232,7 +232,7 @@ export function PickerDialog({ onClose, onConfirm, excludeIds = [], confirmLabel
             )}
           </span>
           <span className={styles.actions}>
-            <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+            <Button type="button" variant="cancel" onClick={onClose}>Cancel</Button>
             <Button
               type="button"
               disabled={picked.length === 0}

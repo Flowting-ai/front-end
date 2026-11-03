@@ -129,7 +129,7 @@ function AddChannelForm({
         A project channel carries that project&apos;s context into Slack. Your organization&apos;s members are invited.
       </p>
       <div className={styles.actions}>
-        <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
+        <Button variant="cancel" size="sm" onClick={onCancel}>Cancel</Button>
         <Button variant="default" size="sm" loading={creating} disabled={!name.trim()} onClick={() => void create()}>
           Create
         </Button>
@@ -206,8 +206,8 @@ function ChannelProjectCard({
             onChange={event => setDraft(event.target.value)}
             style={{ flex: 1 }}
           />
-          <Button variant="default" size="sm" loading={busy} onClick={() => void rename()}>Save</Button>
-          <Button variant="ghost" size="sm" onClick={() => setDraft(null)}>Cancel</Button>
+          <Button variant="save" size="sm" loading={busy} onClick={() => void rename()}>Save</Button>
+          <Button variant="cancel" size="sm" onClick={() => setDraft(null)}>Cancel</Button>
         </div>
       )}
     </section>
@@ -283,7 +283,7 @@ function ChannelSettingsCard({ orgId, channelId }: { orgId: string; channelId: s
         style={{ marginTop: 12 }}
       />
       <div className={styles.actions}>
-        <Button variant="default" size="sm" loading={saving} onClick={() => void save({ instructions: settings.instructions })}>
+        <Button variant="save" size="sm" loading={saving} onClick={() => void save({ instructions: settings.instructions })}>
           Save instructions
         </Button>
       </div>

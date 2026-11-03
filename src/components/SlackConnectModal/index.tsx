@@ -215,7 +215,7 @@ export function SlackConnectModal({ isOpen, onClose, orgId, onConnected }: Slack
 
             {/* ── Footer ── */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '16px 28px' }}>
-              <Button variant="ghost" size="sm" onClick={onClose} disabled={connecting}>
+              <Button variant="cancel" size="sm" onClick={onClose} disabled={connecting}>
                 Cancel
               </Button>
               <Button variant="default" size="sm" loading={connecting} onClick={handleConnect}>

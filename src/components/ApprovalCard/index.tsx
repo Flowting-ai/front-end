@@ -353,9 +353,10 @@ export const ApprovalCard = React.forwardRef<HTMLDivElement, ApprovalCardProps>(
                 >
                   <div style={{ flex: '1 0 0' }}>
                     <Button
-                      variant="default"
+                      variant="approve"
                       size="md"
                       fluid
+                      attention
                       onClick={handleAccept}
                     >
                       Accept
@@ -363,7 +364,7 @@ export const ApprovalCard = React.forwardRef<HTMLDivElement, ApprovalCardProps>(
                   </div>
                   <div style={{ flex: '1 0 0' }}>
                     <Button
-                      variant="outline"
+                      variant="reject"
                       size="md"
                       fluid
                       onClick={handleDenyStart}

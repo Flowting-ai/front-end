@@ -292,6 +292,8 @@ export interface GeneratedFile {
   s3Key?: string
   filename: string
   mimeType?: string
+  /** Its Library file, once saved there and still openable (the history's `document_id`): View opens its page. */
+  documentId?: string
 }
 
 // ── Structured output types (response blocks) ─────────────────────────────────

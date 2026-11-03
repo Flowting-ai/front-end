@@ -68,6 +68,7 @@ export function ExhaustionBanner({ children }: { children?: React.ReactNode }) {
           <Button
             size="sm"
             variant={level === 'normal' ? 'outline' : 'default'}
+            shine
             onClick={() => router.push(ORG_PLANS_ROUTE)}
           >
             <span className="text-xs">Top up</span>

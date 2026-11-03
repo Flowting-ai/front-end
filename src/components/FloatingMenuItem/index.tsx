@@ -120,11 +120,13 @@ export function FloatingMenuItem(
           paddingRight:  0,
           opacity:       disabled ? 0.7 : 1,
           cursor:        disabled ? 'default' : 'pointer',
+          // Outlined like the outline Button beside it (e.g. Share): field fill, 1px border, darker on hover.
           boxShadow:     isActive ? SHADOW_OUTER : undefined,
-          transition:    'box-shadow 150ms',
+          transition:    'box-shadow 150ms, border-color 150ms',
           userSelect:    'none',
-          background:    'none',
-          border:        'none',
+          background:    'var(--field-surface)',
+          border:        `1px solid ${isActive ? 'var(--button-subtle-border-hover)' : 'var(--button-outline-border)'}`,
+          boxSizing:     'border-box',
           textAlign:     'left',
           ...style,
         }}
@@ -140,7 +142,8 @@ export function FloatingMenuItem(
             style={{
               position:        'absolute',
               inset:           0,
-              backgroundColor: 'var(--floating-menu-item-hover-bg)',
+              // Same hover fill as the ghost IconButton, so it reads as one of our icon buttons.
+              backgroundColor: 'var(--icon-button-ghost-bg-hover)',
               pointerEvents:   'none',
             }}
           />
@@ -148,12 +151,15 @@ export function FloatingMenuItem(
 
         {/* ── Icon ── */}
         {icon !== undefined && (
+          // A 32px box with an 18px icon — the sm IconButton's proportions.
           <div
+            className="[&_svg]:size-[18px]"
             style={{
               display:        'flex',
               alignItems:     'center',
               justifyContent: 'center',
-              padding:        '6px',
+              width:          30,
+              height:         30,
               flexShrink:     0,
               position:       'relative',
               pointerEvents:  'none',
@@ -174,7 +180,7 @@ export function FloatingMenuItem(
             visibility:  'hidden',
             pointerEvents: 'none',
             whiteSpace:  'nowrap',
-            fontFamily:  'var(--font-body)',
+            fontFamily:  'var(--font-title)',
             fontWeight:  'var(--font-weight-medium)',
             fontSize:    'var(--font-size-body)',
             lineHeight:  'var(--line-height-body)',
@@ -211,7 +217,7 @@ export function FloatingMenuItem(
                 },
               }}
               style={{
-                fontFamily:  'var(--font-body)',
+                fontFamily:  'var(--font-title)',
                 fontWeight:  'var(--font-weight-medium)',
                 fontSize:    'var(--font-size-body)',
                 lineHeight:  'var(--line-height-body)',

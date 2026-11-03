@@ -62,7 +62,7 @@ export function CancelSubscriptionDialog({
           </p>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <Button variant="secondary" disabled={isCanceling} onClick={onKeep}>
+          <Button variant="default" disabled={isCanceling} onClick={onKeep}>
             Keep plan
           </Button>
           <Button variant="danger" loading={isCanceling} onClick={onConfirmCancel}>

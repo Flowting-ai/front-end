@@ -3,7 +3,6 @@
 import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/Badge'
-import { Skeleton } from '@/components/Skeleton'
 import { SettingsPageShell } from '@/components/SettingsPageShell'
 import { FORMAT_GROUP_LABELS } from '@/lib/library/format'
 import { MESSAGES } from '@/lib/library/messages'
@@ -21,8 +20,10 @@ import {
   SettingSwitch,
   SettingValue,
   SettingsCard,
+  SettingsCardSkeleton,
   SettingsSection,
   StorageBlock,
+  StorageBlockSkeleton,
 } from './SettingsParts'
 
 const SIZE_PRESETS_MB = [10, 30, 50, 100]
@@ -37,26 +38,6 @@ function sizeOptions(current: number) {
 
 /** Read-only, one line, as in the prototype ("PDF, Document, Sheet, CSV, Image, Audio"). */
 const FILE_TYPES_LINE = FORMAT_GROUPS.map((group) => FORMAT_GROUP_LABELS[group]).join(', ')
-
-function RowLoading({ last }: { last?: boolean }) {
-  return (
-    <div aria-hidden="true" style={{ display: 'flex', alignItems: 'center', gap: 24, minHeight: 64, padding: '14px 16px', boxSizing: 'border-box', borderTop: last === false ? undefined : '1px solid var(--neutral-100)' }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <Skeleton height={14} radius={6} width="32%" />
-        <Skeleton height={12} radius={6} width="48%" />
-      </div>
-      <Skeleton height={32} radius={10} width={88} />
-    </div>
-  )
-}
-
-function CardLoading({ rows = 2 }: { rows?: number }) {
-  return (
-    <div role="status" aria-busy="true" aria-label="Loading">
-      {Array.from({ length: rows }).map((_, index) => <RowLoading key={index} last={index === 0 ? false : undefined} />)}
-    </div>
-  )
-}
 
 function CardError({ children, onRetry }: { children: React.ReactNode; onRetry?: () => void }) {
   return (
@@ -113,10 +94,11 @@ export function AdminLibrarySettings() {
         )}
 
         <SettingsSection title="Saving files">
+          {settings.isPending ? (
+            <SettingsCardSkeleton rows={[{ titleWidth: 124, hint: true, hintWidth: 330, control: 'select' }, { titleWidth: 124, hint: true, hintWidth: 140, control: 'switch' }]} />
+          ) : (
           <SettingsCard>
-            {settings.isPending ? (
-              <CardLoading />
-            ) : !data ? (
+            {!data ? (
               <CardError onRetry={() => void settings.refetch()}>{MESSAGES.listError}</CardError>
             ) : (
               <>
@@ -141,13 +123,15 @@ export function AdminLibrarySettings() {
               </>
             )}
           </SettingsCard>
+          )}
         </SettingsSection>
 
         <SettingsSection title="Souvenir">
+          {settings.isPending ? (
+            <SettingsCardSkeleton rows={[{ titleWidth: 84, hint: true, hintWidth: 170, control: 'switch' }]} />
+          ) : (
           <SettingsCard>
-            {settings.isPending ? (
-              <CardLoading rows={1} />
-            ) : !data ? (
+            {!data ? (
               <CardError onRetry={() => void settings.refetch()}>{MESSAGES.listError}</CardError>
             ) : (
               <SettingRow
@@ -158,7 +142,14 @@ export function AdminLibrarySettings() {
               />
             )}
           </SettingsCard>
+          )}
         </SettingsSection>
+
+        {settings.isPending && (
+          <SettingsSection title="Files">
+            <SettingsCardSkeleton rows={[{ titleWidth: 104, control: 'select' }, { titleWidth: 72, control: 'value' }]} />
+          </SettingsSection>
+        )}
 
         {data && (
           <SettingsSection title="Files">
@@ -181,7 +172,7 @@ export function AdminLibrarySettings() {
 
         <SettingsSection title="Storage">
           {storage.isPending ? (
-            <SettingsCard><CardLoading rows={1} /></SettingsCard>
+            <StorageBlockSkeleton />
           ) : storage.data ? (
             <StorageBlock storage={storage.data} tip={storage.data.limitBytes === null ? <InfoTip text="There is no storage limit yet." /> : undefined} />
           ) : (

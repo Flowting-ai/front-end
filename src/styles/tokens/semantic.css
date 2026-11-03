@@ -78,6 +78,12 @@
      ─────────────────────────────────────────────────────────────────────────── */
   --button-danger-bg:            #DC2626;
   --button-danger-bg-hover:      #B91C1C;
+  /* shadcnspace 10 Save (a deep green, not the lime brand scale) and 23 Approve (its tint) */
+  --button-save-bg:              #15803D;
+  --button-save-bg-hover:        #166534;
+  --button-approve-bg:           rgba(21, 128, 61, 0.10);
+  --button-approve-bg-hover:     rgba(21, 128, 61, 0.18);
+  --button-approve-text:         #15803D;
   --button-danger-text:          #FFFFFF;
   --button-danger-text-disabled: #FFFFFF;
 
@@ -248,6 +254,8 @@
   /* ── Tabs (pill container) ───────────────────────────────────────────────────
      Tab container: neutral-50 at 50% bg + multi-layer inner shadow.
      ─────────────────────────────────────────────────────────────────────────── */
+  /* Tabs (shadcnspace Tabs 08 look): the active pill's ring + soft drop shadow */
+  --shadow-tab-pill: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 10px -4px rgba(0, 0, 0, 0.15), 0 0 0 1px var(--border-default);
   --tab-bg: var(--neutral-100);  /* light gray track behind the white selected tab */
 
   /* 3-layer inner shadow: bottom white highlight, top depth, ambient glow */

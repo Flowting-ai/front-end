@@ -17,63 +17,67 @@ function SkeletonBlock({ width = '100%', height, radius = 8 }: { width?: string 
   )
 }
 
+/** A bone vertically centred in a text line of the given height, so line boxes match the real text. */
+function Line({ lh, width, height, radius = 4 }: { lh: number; width: number | string; height: number; radius?: number }) {
+  return <div style={{ height: lh, display: 'flex', alignItems: 'center' }}><SkeletonBlock width={width} height={height} radius={radius} /></div>
+}
+
+const ROW_BORDER = '1px solid var(--neutral-100)'
+
 export function MembersPageSkeleton() {
   return (
     <>
       <style>{`@keyframes membersSkeletonShimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }`}</style>
       <div style={{ width: '100%', maxWidth: 908, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-        {/* Page header — h1/subtitle left, "Roles & Permissions" button right */}
+        {/* Page header: h1 (32px line) + subtitle (4px gap, 22px line) left, "Roles & Permissions" button right */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <SkeletonBlock width={120} height={28} radius={6} />
-            <SkeletonBlock width={320} height={14} radius={4} />
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <Line lh={32} width={112} height={26} radius={6} />
+            <div style={{ marginTop: 4 }}><Line lh={22} width={423} height={14} /></div>
           </div>
-          <SkeletonBlock width={170} height={32} radius={8} />
+          <SkeletonBlock width={172} height={32} radius={8} />
         </div>
 
         {/* Stats row */}
         <div style={{ border: '1px solid var(--border-default)', borderRadius: 16, boxShadow: SHADOW_CARD, padding: 12, display: 'flex', gap: 9 }}>
-          {[0, 1, 2].map(i => (
+          {[90, 50, 100].map((w, i) => (
             <div key={i} style={{ flex: '1 0 0', minWidth: 0, backgroundColor: 'var(--neutral-white)', borderRadius: 8, padding: 12, display: 'flex', flexDirection: 'column', gap: 6, boxShadow: SHADOW_STAT_CARD }}>
-              <SkeletonBlock width={90} height={13} radius={4} />
-              <SkeletonBlock width={40} height={28} radius={6} />
-              <SkeletonBlock width={100} height={12} radius={4} />
+              <Line lh={20} width={w} height={13} />
+              <Line lh={36} width={20} height={28} radius={6} />
+              <Line lh={16} width={w + 20} height={11} />
             </div>
           ))}
         </div>
 
-        {/* Members table skeleton */}
-        <div style={{ borderRadius: 16, border: '1px solid var(--border-default)', backgroundColor: 'var(--legacy-f9f5f1)', boxShadow: SHADOW_CARD, overflow: 'hidden', width: '100%' }}>
-          {/* Toolbar — title left, search icon button + "Invite members" button right */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
-            <SkeletonBlock width={120} height={16} radius={4} />
+        {/* Team Members table card */}
+        <div style={{ borderRadius: 16, border: '1px solid var(--border-default)', backgroundColor: 'var(--legacy-f9f5f1)', boxShadow: SHADOW_CARD, overflow: 'hidden', width: '100%', padding: '12px 0' }}>
+          {/* Toolbar: title left, search icon + "Invite members" right */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, height: 69, padding: '12px 23px 0 24px', boxSizing: 'border-box', borderBottom: ROW_BORDER }}>
+            <Line lh={32} width={114} height={15} />
             <div style={{ flex: '1 0 0' }} />
             <SkeletonBlock width={32} height={32} radius={8} />
-            <SkeletonBlock width={130} height={32} radius={8} />
+            <SkeletonBlock width={151} height={32} radius={8} />
           </div>
-          {/* Column headers — Member / Role / Actions (WORKSPACE_MEMBER_COLUMNS) */}
-          <div style={{ display: 'flex', alignItems: 'center', padding: '12px 24px' }}>
-            <div style={{ flex: '1 0 0', minWidth: 0 }}><SkeletonBlock width={60} height={13} radius={4} /></div>
-            <div style={{ width: 150, display: 'flex' }}><SkeletonBlock width={40} height={13} radius={4} /></div>
-            <div style={{ width: 240, display: 'flex', justifyContent: 'flex-end' }}><SkeletonBlock width={55} height={13} radius={4} /></div>
+          {/* Column headers: Member / Role / Actions */}
+          <div style={{ display: 'flex', alignItems: 'center', height: 47, marginTop: 12, padding: '0 24px', boxSizing: 'border-box', borderBottom: ROW_BORDER }}>
+            <div style={{ flex: '1 0 0', minWidth: 0 }}><SkeletonBlock width={54} height={13} radius={4} /></div>
+            <div style={{ width: 150, display: 'flex' }}><SkeletonBlock width={30} height={13} radius={4} /></div>
+            <div style={{ width: 240, display: 'flex', justifyContent: 'flex-end' }}><SkeletonBlock width={50} height={13} radius={4} /></div>
           </div>
-          {/* Member rows */}
-          {[0, 1, 2, 3].map((i, idx) => (
-            <React.Fragment key={i}>
-              {idx > 0 && <div style={{ height: 1, backgroundColor: 'var(--neutral-100)', margin: 0 }} />}
-              <div style={{ display: 'flex', alignItems: 'center', padding: '10px 24px' }}>
-                <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <SkeletonBlock width={32} height={32} radius={16} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                    <SkeletonBlock width={120} height={13} radius={4} />
-                    <SkeletonBlock width={160} height={11} radius={4} />
-                  </div>
+          {/* Member rows (72px each) */}
+          {[0, 1].map(i => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', height: 72, padding: '0 24px', boxSizing: 'border-box', borderBottom: ROW_BORDER }}>
+              <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <SkeletonBlock width={32} height={32} radius={16} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Line lh={22} width={i ? 74 : 80} height={13} />
+                  <Line lh={16} width={i ? 176 : 93} height={10} />
                 </div>
-                <div style={{ width: 150, display: 'flex' }}><SkeletonBlock width={80} height={28} radius={8} /></div>
-                <div style={{ width: 240, display: 'flex', justifyContent: 'flex-end' }}><SkeletonBlock width={72} height={28} radius={8} /></div>
               </div>
-            </React.Fragment>
+              <div style={{ width: 150, display: 'flex' }}><SkeletonBlock width={i ? 90 : 78} height={32} radius={8} /></div>
+              <div style={{ width: 240, display: 'flex', justifyContent: 'flex-end' }}>{i > 0 && <SkeletonBlock width={97} height={32} radius={8} />}</div>
+            </div>
           ))}
         </div>
 

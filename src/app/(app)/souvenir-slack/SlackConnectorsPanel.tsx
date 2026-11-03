@@ -189,7 +189,7 @@ export function SlackConnectorsPanel({ orgId, channelId }: { orgId: string; chan
                 </div>
               ))}
           </div>
-          <div className={styles.actions}><Button variant="ghost" size="sm" onClick={() => setMode('closed')}>Cancel</Button></div>
+          <div className={styles.actions}><Button variant="cancel" size="sm" onClick={() => setMode('closed')}>Cancel</Button></div>
         </div>
       )}
 
@@ -208,7 +208,7 @@ export function SlackConnectorsPanel({ orgId, channelId }: { orgId: string; chan
               </div>
             ))}
           </div>
-          <div className={styles.actions}><Button variant="ghost" size="sm" onClick={() => setMode('closed')}>Cancel</Button></div>
+          <div className={styles.actions}><Button variant="cancel" size="sm" onClick={() => setMode('closed')}>Cancel</Button></div>
         </div>
       )}
 

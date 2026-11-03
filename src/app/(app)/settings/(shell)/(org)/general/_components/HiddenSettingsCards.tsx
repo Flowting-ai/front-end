@@ -33,7 +33,7 @@ export function AllowedDomainsCard({ settings }: { settings: OrgSettings }) {
         }}>
           Allowed email domains
         </p>
-        <Button variant="secondary" size="sm" onClick={() => { setShowAddDomain(true); setAddDomainInput('') }}>+ Add domain</Button>
+        <Button variant="default" size="sm" onClick={() => { setShowAddDomain(true); setAddDomainInput('') }}>+ Add domain</Button>
       </div>
 
       <div style={{ padding: '12px 24px', display: 'flex', flexDirection: 'column', gap: 12, opacity: settingsLoading ? 0.6 : 1 }}>
@@ -102,7 +102,7 @@ export function AllowedDomainsCard({ settings }: { settings: OrgSettings }) {
               Add
             </Button>
             <Button
-              variant="secondary"
+              variant="cancel"
               size="sm"
               onClick={() => { setShowAddDomain(false); setAddDomainInput('') }}
             >
@@ -113,7 +113,7 @@ export function AllowedDomainsCard({ settings }: { settings: OrgSettings }) {
         {allowedDomains.length > 0 && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
             <Button
-              variant="default"
+              variant="save"
               size="sm"
               onClick={handleSaveDomains}
               disabled={settingsSaving}
@@ -214,7 +214,7 @@ export function WorkspaceDefaultsCard({ settings }: { settings: OrgSettings }) {
 
       <div style={{ padding: '12px 24px', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--neutral-100)' }}>
         <Button
-          variant="default"
+          variant="save"
           size="sm"
           onClick={handleSaveDefaults}
           disabled={settingsSaving || settingsLoading}

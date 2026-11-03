@@ -108,7 +108,7 @@ export default function EnhancePanel({ flow, value }: { flow: EnhanceFlow; value
                           Still working on it — this can take a little while.
                         </p>
                       )}
-                      <Button size="sm" variant="ghost" onClick={flow.close}>Cancel</Button>
+                      <Button size="sm" variant="cancel" onClick={flow.close}>Cancel</Button>
                     </div>
                   )}
                 </>

@@ -19,9 +19,7 @@ import type { SelectedPersonaInfo } from '@/lib/chat-personas'
 import { usePinboard } from '@/context/pinboard-context'
 import { PINS_ENABLED } from '@/lib/feature-flags'
 import { usePathname } from 'next/navigation'
-import { useProjectPanel } from '@/context/project-panel-context'
-import { useHighlight } from '@/context/highlight-context'
-import { AgentsPanelContent } from '@/components/AgentsPanel'
+import { useOpenAgentsPanel } from '@/hooks/use-open-agents-panel'
 import { CHAT_ROUTE } from '@/lib/routes'
 import { MentionAvatar } from '@/components/chat/AgentMentionMenu'
 import { USE_STYLE_OPTIONS } from '@/lib/tone-options'
@@ -80,20 +78,12 @@ export function ChatAddMenu({
   const showPersona        = !hidePersona && AGENT_CHAT_ENABLED
   const { personas, loading: loadingPersonas } = useSelectableChatPersonas(personaMenuOpen)
   const { push } = useRouter()
-  // On /chat the agent list is the Agents side panel (same one the floating toolbar opens); elsewhere
+  // On /chat the agent list is the chat panel's Agents tab (same panel the top-right toggle opens); elsewhere
   // nothing listens for it, so the inline submenu stays.
   const pathname = usePathname()
   const inProjectChat = /^\/project\/[^/]+\/chat\//.test(pathname)
   const onChatPage = pathname === CHAT_ROUTE || inProjectChat
-  const { panel: sidePanel, setPanel: setSidePanel } = useProjectPanel()
-  const { close: closeHighlight } = useHighlight()
-  const { close: closePinboard } = usePinboard()
-  const openAgentsPanel = () => {
-    if (sidePanel?.title === 'Agents') return
-    closePinboard()
-    closeHighlight()
-    setSidePanel({ title: 'Agents', content: <AgentsPanelContent inProject={inProjectChat} />, onClose: () => setSidePanel(null), sidePadding: 8 })
-  }
+  const openAgentsPanel = useOpenAgentsPanel({ inProject: inProjectChat })
 
   return (
     <Dropdown style={{ width: 200 }} maxHeight={false}>

@@ -464,7 +464,7 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
           extra space when the list is short). */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', paddingTop: 12, flexShrink: 0 }}>
         <Button
-          variant="ghost"
+          variant="default"
           size="md"
           fluid
           leftIcon={<PlusSignIcon size={16} />}

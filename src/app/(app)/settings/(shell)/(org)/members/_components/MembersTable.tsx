@@ -130,7 +130,7 @@ export function MembersTable({
           </Tooltip>
           {isAdmin && (
             <Button
-              variant="secondary"
+              variant="default"
               size="sm"
               iconSize={20}
               leftIcon={<UserAddOneIcon animated size={20} />}

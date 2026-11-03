@@ -409,7 +409,7 @@ function NewAgentContent() {
           subtitle="Everything is pre-filled. Change anything, then finish to create your agent."
           actions={
             <>
-              <Button variant="outline" size="sm" onClick={handleCancel} disabled={saving}>Cancel</Button>
+              <Button variant="cancel" size="sm" onClick={handleCancel} disabled={saving}>Cancel</Button>
               <Button variant="default" size="sm" onClick={() => void handleFinish()} loading={saving} disabled={saving}>
                 Finish Agent Creation
               </Button>

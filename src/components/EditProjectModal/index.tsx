@@ -392,8 +392,8 @@ export function EditProjectModal({
             flexShrink:     0,
           }}
         >
-          <Button variant="ghost" onClick={onClose} disabled={submitting}>Cancel</Button>
-          <Button variant="default" onClick={handleSave} loading={submitting} disabled={!form.isValid || submitting}>
+          <Button variant="cancel" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button variant={creating ? 'default' : 'save'} onClick={handleSave} loading={submitting} disabled={!form.isValid || submitting}>
             {creating ? 'Create project' : 'Save changes'}
           </Button>
         </div>

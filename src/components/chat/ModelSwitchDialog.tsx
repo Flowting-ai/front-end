@@ -161,7 +161,7 @@ export function ModelSwitchDialog({
 
             {/* Actions */}
             <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-              <Button variant="ghost" size="sm" onClick={onCancel}>
+              <Button variant="cancel" size="sm" onClick={onCancel}>
                 Cancel
               </Button>
               <Button variant="default" size="sm" onClick={onConfirm}>

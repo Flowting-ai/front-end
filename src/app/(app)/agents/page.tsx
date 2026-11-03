@@ -115,6 +115,7 @@ function PersonasPageInner() {
                     {unavailableAgents.length > 0 && (
                       <Button
                         variant="secondary"
+                        attention
                         leftIcon={<AlertTwoIcon size={16} color="var(--color-tag-Yellow-text)" />}
                         onClick={() => setFixModelsOpen(true)}
                       >

@@ -2,202 +2,186 @@
 
 import React from "react";
 import { m } from "framer-motion";
+import { DownloadOneIcon, ViewIcon } from "@strange-huge/icons";
+import { useRouter } from "next/navigation";
 import { trackFeature } from "@/lib/analytics/events";
-import { Tooltip } from "@/components/Tooltip";
+import { LIBRARY_FILE_ROUTE } from "@/lib/routes";
+import { IconButton } from "@/components/ui/button";
+import { FormatGlyph, formatTintTile } from "@/components/Library/FormatGlyph";
+import { formatLabel } from "@/lib/library/format";
+import type { Format } from "@/lib/library/schemas";
 import type { GeneratedFile } from "@/types/chat";
 
-// ── Generated files: type badge, name, View + Download links ──────────────────
+// ── Generated files: the file-type icon (as Library shows it), name, type, View + Download ──
 
 const listStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: "8px",
-  marginTop: "12px",
+  gap: 8,
+  marginTop: 12,
 };
 
 const cardStyle: React.CSSProperties = {
-  display: "inline-flex",
+  display: "flex",
   alignItems: "center",
-  gap: "10px",
-  padding: "8px 10px 8px 8px",
-  borderRadius: "10px",
-  backgroundColor: "rgba(59,54,50,0.05)",
-  border: "1px solid var(--neutral-800-10)",
-  width: "fit-content",
-  maxWidth: "420px",
+  gap: 12,
+  width: "100%",
+  maxWidth: 315,
+  padding: "8px 8px 8px 8px",
+  borderRadius: 14,
+  backgroundColor: "var(--card-bg)",
+  border: "1px solid var(--neutral-200)",
+  boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
   boxSizing: "border-box",
 };
 
-const badgeTextStyle: React.CSSProperties = {
-  fontSize: 12,
-  fontWeight: 700,
-  color: "var(--static-white)",
-  letterSpacing: "0.4px",
-  lineHeight: 1,
-};
+// The icon sits on its format's light accent: blue for documents, red for PDFs, green for spreadsheets…
+function tileStyle(format: Format): React.CSSProperties {
+  const tint = formatTintTile(format);
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    // The tag tints are badge-strength; mixed halfway into the card they read as a light accent.
+    backgroundColor: `color-mix(in srgb, ${tint.background} 50%, var(--card-bg))`,
+    boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${tint.ring} 55%, var(--card-bg))`,
+  };
+}
 
-const filenameStyle: React.CSSProperties = {
-  fontFamily: "var(--font-body)",
-  fontSize: 13,
-  fontWeight: 500,
-  color: "var(--neutral-700)",
+const nameStyle: React.CSSProperties = {
+  margin: 0,
+  fontFamily: "var(--font-title)",
+  fontWeight: "var(--font-weight-medium)",
+  fontSize: "var(--font-size-body)",
+  lineHeight: "var(--line-height-body)",
+  color: "var(--neutral-900)",
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
-  flex: 1,
-  minWidth: 0,
 };
 
-const actionsStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 4,
-  flexShrink: 0,
+const typeStyle: React.CSSProperties = {
+  margin: 0,
+  fontFamily: "var(--font-body)",
+  fontSize: "var(--font-size-caption)",
+  lineHeight: "var(--line-height-caption)",
+  color: "var(--neutral-500)",
+  whiteSpace: "nowrap",
 };
 
-// Shared by View and Download.
-const actionLinkStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  width: 28,
-  height: 28,
-  borderRadius: 6,
-  backgroundColor: "transparent",
-  border: "none",
-  cursor: "pointer",
-  transition: "background-color 120ms",
-  textDecoration: "none",
-  color: "inherit",
+// ── The file's Library format (for its icon) and its extension (for the type line) ──
+
+const FORMAT_BY_EXTENSION: Record<string, Format> = {
+  pdf: "pdf",
+  doc: "document", docx: "document", odt: "document", rtf: "document",
+  xls: "sheet", xlsx: "sheet", csv: "sheet", tsv: "sheet", ods: "sheet",
+  ppt: "slides", pptx: "slides", key: "slides", odp: "slides",
+  txt: "text", md: "text", markdown: "text", json: "text", xml: "text", yaml: "text", yml: "text",
+  html: "web", htm: "web",
+  eml: "email",
+  png: "image", jpg: "image", jpeg: "image", gif: "image", webp: "image", svg: "image",
+  mp3: "audio", wav: "audio", m4a: "audio", ogg: "audio",
 };
 
-const hoverOn = (e: React.MouseEvent<HTMLAnchorElement>) => {
-  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "var(--neutral-800-10)"
-}
-const hoverOff = (e: React.MouseEvent<HTMLAnchorElement>) => {
-  (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "transparent"
-}
-
-// ── Derive file type label + badge colour ──────────────────────
-function fileTypeLabel(file: GeneratedFile): string {
-  if (file.mimeType) {
-    const sub = file.mimeType.split("/").pop() ?? ""
-    if (sub.includes("pdf")) return "PDF"
-    if (sub.includes("wordprocessingml") || sub.includes("msword")) return "DOCX"
-    if (sub.includes("spreadsheetml") || sub.includes("excel")) return "XLSX"
-    if (sub.includes("presentationml") || sub.includes("powerpoint")) return "PPTX"
-    if (sub.includes("csv")) return "CSV"
-    if (sub.includes("markdown") || sub.includes("md")) return "MD"
-    return sub.toUpperCase().slice(0, 5) || "FILE"
-  }
-  const fromName = (file.filename.split(".").pop() ?? "").toUpperCase()
-  return fromName.slice(0, 5) || "FILE"
+function extensionOf(file: GeneratedFile): string {
+  const fromName = file.filename.includes(".") ? (file.filename.split(".").pop() ?? "") : "";
+  if (fromName) return fromName.toLowerCase();
+  const sub = file.mimeType?.split("/").pop() ?? "";
+  if (sub.includes("pdf")) return "pdf";
+  if (sub.includes("wordprocessingml") || sub.includes("msword")) return "docx";
+  if (sub.includes("spreadsheetml") || sub.includes("excel")) return "xlsx";
+  if (sub.includes("presentationml") || sub.includes("powerpoint")) return "pptx";
+  if (sub.includes("csv")) return "csv";
+  if (sub.includes("markdown")) return "md";
+  return sub.toLowerCase();
 }
 
-function badgeColorFor(ext: string): string {
-  switch (ext) {
-    case "PDF":  return "var(--danger-500)"
-    case "DOCX": case "DOC": return "var(--blue-600)"
-    case "XLSX": case "XLS": return "var(--success-700)"
-    case "CSV":  return "var(--success-800)"
-    case "PPTX": case "PPT": return "var(--warning-600)"
-    case "MD":   return "var(--violet-500)"
-    default:     return "var(--neutral-600)"
-  }
+function formatOf(file: GeneratedFile, ext: string): Format {
+  if (FORMAT_BY_EXTENSION[ext]) return FORMAT_BY_EXTENSION[ext];
+  if (file.mimeType?.startsWith("image/")) return "image";
+  if (file.mimeType?.startsWith("audio/")) return "audio";
+  return "document";
+}
+
+// Types a browser shows in a tab. Anything else (Office files, Markdown, CSV…) just downloads when
+// opened, so those get Download only, not a View that does the same thing.
+const VIEWABLE_EXTENSIONS = new Set(["pdf", "png", "jpg", "jpeg", "gif", "webp", "svg", "mp3", "wav", "m4a", "ogg", "mp4", "webm", "txt", "json"]);
+
+function canView(file: GeneratedFile, ext: string): boolean {
+  const mime = file.mimeType ?? "";
+  if (mime === "application/pdf" || mime === "text/plain" || mime === "application/json") return true;
+  if (mime.startsWith("image/") || mime.startsWith("audio/") || mime.startsWith("video/")) return true;
+  return VIEWABLE_EXTENSIONS.has(ext);
+}
+
+/** "PDF", "Spreadsheet · XLSX": the format's word, plus the extension when it adds something. */
+function typeLine(format: Format, ext: string): string {
+  const label = formatLabel(format);
+  const extLabel = ext.toUpperCase();
+  return !extLabel || extLabel === label.toUpperCase() ? label : `${label} · ${extLabel}`;
+}
+
+/** View for a file saved in Library: opens its file page. Its own component, so the router is only
+ *  needed where such a file shows. */
+function LibraryViewButton({ fileId, filename }: { fileId: string; filename: string }) {
+  const router = useRouter();
+  return (
+    <IconButton variant="ghost" size="sm" aria-label={`View ${filename}`} title="View" icon={<ViewIcon size={18} />} onClick={() => router.push(LIBRARY_FILE_ROUTE(fileId))} />
+  );
 }
 
 export function GeneratedFilesList({ files }: { files: GeneratedFile[] }) {
   return (
     <div style={listStyle}>
       {files.map((file, i) => {
-        const ext = fileTypeLabel(file)
-        const badgeColor = badgeColorFor(ext)
+        const ext = extensionOf(file);
+        const format = formatOf(file, ext);
 
-        // Download URL goes through our proxy so the browser always saves
-        // the file (avoids CORS + Content-Disposition issues from S3)
-        const downloadHref = `/api/download?url=${encodeURIComponent(file.url)}&filename=${encodeURIComponent(file.filename)}`
+        // Download goes through our proxy so the browser always saves the file (avoids CORS +
+        // Content-Disposition issues from S3).
+        const download = () => {
+          trackFeature("document_download", { file_ext: ext });
+          const link = document.createElement("a");
+          link.href = `/api/download?url=${encodeURIComponent(file.url)}&filename=${encodeURIComponent(file.filename)}`;
+          link.download = file.filename;
+          link.click();
+        };
+        // View opens the file's Library page when it is saved there (any type: the page has its own
+        // viewers, see LibraryViewButton); otherwise it opens the file in a new tab, offered only for
+        // types a browser shows.
+        const view = () => { window.open(file.url, "_blank", "noopener,noreferrer"); };
 
         return (
-          <m.div key={file.url}
+          <m.div
+            key={file.url}
             initial={{ opacity: 0, y: 8, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{
-              type: "spring",
-              stiffness: 360,
-              damping: 26,
-              delay: i * 0.07,
-            }}
+            transition={{ type: "spring", stiffness: 360, damping: 26, delay: i * 0.07 }}
             style={cardStyle}
           >
-            {/* Coloured type badge */}
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 7,
-                backgroundColor: badgeColor,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <span style={badgeTextStyle}>
-                {ext}
-              </span>
-            </div>
-
-            {/* Filename */}
-            <span style={filenameStyle}>
-              {file.filename}
+            <span style={tileStyle(format)}>
+              <FormatGlyph format={format} size="sm" />
             </span>
 
-            {/* Action buttons */}
-            <div style={actionsStyle}>
-              {/* View - opens file in new tab (browsers show PDF inline, download DOCX/XLSX etc.) */}
-              <Tooltip content="View"><a aria-label="View"
-                href={file.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={actionLinkStyle}
-                onMouseEnter={hoverOn}
-                onMouseLeave={hoverOff}
-              >
-                {/* External link icon */}
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                  <path
-                    d="M10 2h4v4M14 2 8 8M7 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V9"
-                    stroke="var(--neutral-400)"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </a></Tooltip>
+            <div style={{ flex: "1 1 0", minWidth: 0, display: "flex", flexDirection: "column" }}>
+              <p style={nameStyle} title={file.filename}>{file.filename}</p>
+              <p style={typeStyle}>{typeLine(format, ext)}</p>
+            </div>
 
-              {/* Download - proxied through /api/download so browser always saves */}
-              <Tooltip content="Download"><a aria-label="Download"
-                href={downloadHref}
-                download={file.filename}
-                onClick={() => trackFeature("document_download", { file_ext: file.filename?.split(".").pop()?.toLowerCase() })}
-                style={actionLinkStyle}
-                onMouseEnter={hoverOn}
-                onMouseLeave={hoverOff}
-              >
-                {/* Download arrow icon */}
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                  <path
-                    d="M8 2v8m0 0L5.5 7.5M8 10l2.5-2.5M2 13h12"
-                    stroke="var(--neutral-400)"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </a></Tooltip>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+              {file.documentId ? (
+                <LibraryViewButton fileId={file.documentId} filename={file.filename} />
+              ) : canView(file, ext) && (
+                <IconButton variant="ghost" size="sm" aria-label={`View ${file.filename}`} title="View" icon={<ViewIcon size={18} />} onClick={view} />
+              )}
+              <IconButton variant="ghost" size="sm" aria-label={`Download ${file.filename}`} title="Download" icon={<DownloadOneIcon size={18} />} onClick={download} />
             </div>
           </m.div>
-        )
+        );
       })}
     </div>
   );

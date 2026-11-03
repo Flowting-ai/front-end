@@ -551,13 +551,13 @@ export function ShareModal({
             gap:            8,
           }}
         >
-          <Button variant="outline" size="sm" onClick={onClose}>
+          <Button variant="cancel" size="sm" onClick={onClose}>
             Cancel
           </Button>
           <Button
             variant="default"
             size="sm"
-            loading={loading}
+            sendState={loading ? 'loading' : 'idle'}
             onClick={handleInvite}
             disabled={!emailDraft.trim()}
           >

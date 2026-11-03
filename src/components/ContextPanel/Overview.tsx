@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { DownloadOneIcon, FileTwoIcon, ImageTwoIcon, ShapesOneIcon } from '@strange-huge/icons'
+import { CheckmarkCircleTwoIcon, DownloadOneIcon, FileTwoIcon, FolderLibraryIcon, ImageTwoIcon, LinkSixIcon, ShapesOneIcon, StarIcon, UserAiIcon } from '@strange-huge/icons'
 import { SourceFileRow } from '@/components/Library/chat/SourceFileRow'
 import { useChatLibrarySources, type ChatLibrarySources } from '@/components/Library/chat/useChatLibrarySources'
 import { Spinner } from '@/components/Spinner'
@@ -14,6 +14,7 @@ import { openChatFilePanel } from '@/lib/library/chat-file-panel'
 import { CHAT_MESSAGES } from '@/lib/library/messages'
 import type { SourceRow } from '@/lib/library/sources'
 import { AgentFace, ConnectorLogo, connectorSpecialistSlug, useConnectorIdentities } from './identity'
+import { EmptyOverview } from './overview/EmptyOverview'
 import { AnimatedList, EmptyHint, ItemRow, PanelCard, PanelSection } from './overview/blocks'
 import { deriveOverview, downloadFile, extensionOf, formatElapsed, stepCount, turnState, type SourceItem, type UploadItem } from './overview/derive'
 import { useExecutionSeconds, useShowAll, type SectionKey } from './overview/hooks'
@@ -81,7 +82,8 @@ export function OverviewView({ messages, timing, library }: {
   // A section opens on its own once it has something in it; after the viewer toggles it,
   // their choice sticks.
   const [toggled, setToggled] = useState<Partial<Record<SectionKey, boolean>>>({})
-  const isOpen = (key: SectionKey) => toggled[key] ?? (key === 'progress' || counts[key] > 0)
+  // To-dos too: it opens only once there is a plan, so an empty body never leaves a gap.
+  const isOpen = (key: SectionKey) => toggled[key] ?? counts[key] > 0
   const section = (key: SectionKey) => ({
     open:     isOpen(key),
     onToggle: () => setToggled(current => ({ ...current, [key]: !isOpen(key) })),
@@ -90,9 +92,7 @@ export function OverviewView({ messages, timing, library }: {
   if (messages.length === 0) {
     return (
       <PanelCard>
-        <p style={{ ...TEXT, color: 'var(--neutral-500)', padding: 14 }}>
-          Nothing here yet. To-dos, agents, connectors, sources and outputs for this chat show up as soon as it starts working.
-        </p>
+        <EmptyOverview />
       </PanelCard>
     )
   }
@@ -110,6 +110,7 @@ export function OverviewView({ messages, timing, library }: {
       <PanelSection
         first
         title="To-dos"
+        icon={<CheckmarkCircleTwoIcon size={16} />}
         aside={<TurnStatus state={state} seconds={seconds} count={stepCount(data.plan)} />}
         loading={state === 'working'}
         {...section('progress')}
@@ -117,7 +118,7 @@ export function OverviewView({ messages, timing, library }: {
         {data.plan && <PlanList plan={data.plan} steps={data.steps} />}
       </PanelSection>
 
-      <PanelSection title="Agents" count={counts.agents} {...section('agents')}>
+      <PanelSection title="Agents" icon={<UserAiIcon size={16} />} count={counts.agents} {...section('agents')}>
         {data.agents.length === 0 ? <EmptyHint>No agents were asked to help.</EmptyHint> : (
           <AnimatedList>
             {showAll.limit('agents', data.agents).map(agent => (
@@ -134,7 +135,7 @@ export function OverviewView({ messages, timing, library }: {
         {showAll.more('agents', data.agents, 'agents')}
       </PanelSection>
 
-      <PanelSection title="Connectors" count={counts.connectors} {...section('connectors')}>
+      <PanelSection title="Connectors" icon={<LinkSixIcon size={16} />} count={counts.connectors} {...section('connectors')}>
         {data.connectors.length === 0 ? <EmptyHint>No connected apps were used.</EmptyHint> : (
           <AnimatedList>
             {showAll.limit('connectors', data.connectors).map(connector => (
@@ -152,7 +153,7 @@ export function OverviewView({ messages, timing, library }: {
         {showAll.more('connectors', data.connectors, 'connectors')}
       </PanelSection>
 
-      <PanelSection title="Sources" count={counts.sources} {...section('sources')}>
+      <PanelSection title="Sources" icon={<FolderLibraryIcon size={16} />} count={counts.sources} {...section('sources')}>
         {sources.length === 0 ? <EmptyHint>{CHAT_MESSAGES.noSourcesYet}</EmptyHint> : (
           <AnimatedList>
             {showAll.limit('sources', sources).map(entry => entry.kind === 'file' ? (
@@ -175,6 +176,7 @@ export function OverviewView({ messages, timing, library }: {
 
       <PanelSection
         title="Outputs"
+        icon={<ShapesOneIcon size={16} />}
         count={counts.outputs}
         action={data.outputs.length > 1 && (
           <Tooltip content={`Download all ${data.outputs.length}`}>
@@ -208,7 +210,7 @@ export function OverviewView({ messages, timing, library }: {
         {showAll.more('outputs', data.outputs, 'outputs')}
       </PanelSection>
 
-      <PanelSection title="Skills" count={counts.skills} {...section('skills')}>
+      <PanelSection title="Skills" icon={<StarIcon size={16} />} count={counts.skills} {...section('skills')}>
         {data.skills.length === 0 ? <EmptyHint>No skills were loaded.</EmptyHint> : (
           <AnimatedList>
             {showAll.limit('skills', data.skills).map(({ name, activity }) => (

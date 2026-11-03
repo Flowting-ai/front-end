@@ -245,9 +245,9 @@ function StateMessage({ icon, title, body, action, large }: { icon: React.ReactN
         textAlign:      'center',
       }}
     >
-      <span style={{ color: 'var(--neutral-500)', display: 'inline-flex' }}>{icon}</span>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: large ? 360 : 240 }}>
-        <p style={{ ...BODY, fontWeight: 'var(--font-weight-medium)' }}>{title}</p>
+      <span style={{ color: 'var(--neutral-600)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: 12, backgroundColor: 'var(--neutral-100)', boxShadow: 'inset 0 0 0 1px var(--border-default)' }}>{icon}</span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: large ? 360 : 260 }}>
+        <p style={{ ...BODY, fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-medium)', color: 'var(--neutral-900)' }}>{title}</p>
         {body && <p style={CAPTION}>{body}</p>}
       </div>
       {action}
@@ -420,7 +420,9 @@ export function BrowserScreen({ session, expanded, onExpandedChange }: BrowserSc
   const transition = reduceMotion ? { duration: 0 } : { type: 'spring' as const, stiffness: 320, damping: 34, mass: 0.9 }
   const phase = expanded ? 'full' : returning ? 'returning' : 'docked'
 
-  const THUMB_LOOK: React.CSSProperties = { borderRadius: 12, backgroundColor: 'var(--neutral-100)', boxShadow: 'inset 0 0 0 1px var(--border-default)' }
+  // In the panel the screen sits in the same card as the Context tab's sections.
+  // A real border, not an inset box-shadow, so the screen inside can't paint over it.
+  const THUMB_LOOK: React.CSSProperties = { borderRadius: 16, backgroundColor: 'var(--card-bg)', border: '1px solid var(--neutral-200)', boxSizing: 'border-box' }
   const cardPlacement: React.CSSProperties =
     phase === 'full'      ? { position: 'fixed', zIndex: Z_BACKDROP + 1, ...fullFrame(windowSize, aspect), borderRadius: 16, backgroundColor: 'var(--neutral-white)', boxShadow: '0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)' }
     : phase === 'returning' ? { position: 'fixed', zIndex: Z_BACKDROP + 1, ...returnRect, ...THUMB_LOOK }
@@ -520,7 +522,8 @@ export function BrowserScreen({ session, expanded, onExpandedChange }: BrowserSc
             position:        'relative',
             flex:            '1 1 0',
             minHeight:       0,
-            backgroundColor: 'var(--neutral-100)',
+            // The card's fill shows through; a live frame covers it.
+            backgroundColor: 'transparent',
           }}
         >
           <ScreenBody session={session} large={expanded} onFrameSize={setAspect} videoRef={videoRef} />

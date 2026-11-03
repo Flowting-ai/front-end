@@ -31,7 +31,7 @@ export function AgentsListLoading() {
         <div style={{ width: '100%', maxWidth: 991, padding: '0 12px', boxSizing: 'border-box', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 41 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {/* Tabs: the My Agents / Super Links segmented control */}
-            <Skeleton width={191} height={36} radius={10} />
+            <Skeleton width={217} height={46} radius={14} />
 
             {/* Title row: "Agents" (24/32) + New agent button */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

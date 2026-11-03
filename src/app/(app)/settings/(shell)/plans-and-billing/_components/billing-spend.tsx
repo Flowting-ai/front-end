@@ -127,8 +127,8 @@ export function SpendLimitCard({
       subtitle="A monthly spending budget before tax. New work pauses at the limit; work in progress may finish."
       action={
         isAdmin
-          ? <Button variant="secondary" onClick={onEdit}>Edit limit</Button>
-          : <Button variant="secondary" onClick={onRequest}>Request change</Button>
+          ? <Button variant="default" onClick={onEdit}>Edit limit</Button>
+          : <Button variant="default" onClick={onRequest}>Request change</Button>
       }
     >
       {unlimited ? (
@@ -193,7 +193,7 @@ export function SpendCapModal({
       maxWidth={560}
       onClose={onClose}
       footer={
-        <Button variant="default" fluid onClick={handleSave} loading={saving} disabled={!valid}>
+        <Button variant="save" fluid onClick={handleSave} loading={saving} disabled={!valid}>
           Save limit
         </Button>
       }

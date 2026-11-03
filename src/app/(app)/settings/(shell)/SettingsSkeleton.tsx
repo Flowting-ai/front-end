@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import accountStyles from './account/account.module.css'
 
 // ── Primitive ─────────────────────────────────────────────────────────────────
 
@@ -171,51 +172,106 @@ function LinkRowSkeleton() {
 
 // ── Page skeletons ────────────────────────────────────────────────────────────
 
-// Real page maxWidth is 860, not the shared 908 every other skeleton here uses.
-const ACCOUNT_INNER: React.CSSProperties = { ...INNER, maxWidth: 860 }
+// Account mirrors the real page: 860px column (padding on the scroller, not
+// inside the column), 12px gaps, and the page's own card/grid classes so the
+// profile header, field grid and choice tiles keep their real sizes.
+const ACCOUNT_OUTER: React.CSSProperties = { ...OUTER, padding: '64px 24px 48px' }
+const ACCOUNT_INNER: React.CSSProperties = { width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 12 }
+
+/** A text line: the real line-height box with a glyph-height bar centred in it. */
+function Line({ lh, h, w }: { lh: number; h: number; w: number | string }) {
+  return (
+    <div style={{ height: lh, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+      <Bone w={w} h={h} r={4} />
+    </div>
+  )
+}
+
+/** Label (22) + 36px input (r10) + optional hint (22), as InputField lays them out. */
+function FieldSkeleton({ labelW, hintW }: { labelW: number; hintW?: number }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <Line lh={22} h={13} w={labelW} />
+      <Bone w="100%" h={36} r={10} />
+      {hintW !== undefined && <Line lh={22} h={12} w={hintW} />}
+    </div>
+  )
+}
+
+/** Choice tile: 72px preview, icon + title + radio row, hint (1 or 2 lines). */
+function ChoiceTileSkeleton({ titleW, hintLines = 1 }: { titleW: number; hintLines?: number }) {
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', gap: 10, padding: 12,
+      border: '1px solid var(--border-default)', borderRadius: 12, background: 'var(--card-bg)',
+    }}>
+      <Bone w="100%" h={72} r={8} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 22 }}>
+        <Bone w={16} h={16} r={4} />
+        <div style={{ flex: 1 }}><Bone w={titleW} h={13} r={4} /></div>
+        <Bone w={16} h={16} r={8} />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {Array.from({ length: hintLines }, (_, i) => <Line key={i} lh={18} h={11} w={i === 0 ? '80%' : '45%'} />)}
+      </div>
+    </div>
+  )
+}
+
+function ChoiceCardSkeleton({ titleW, hintW, tiles }: { titleW: number; hintW: number; tiles: { titleW: number; hintLines?: number }[] }) {
+  return (
+    <section className={accountStyles.card}>
+      <div className={accountStyles.cardHead}>
+        <Line lh={22} h={16} w={titleW} />
+        <div style={{ marginTop: 2 }}><Line lh={20} h={12} w={hintW} /></div>
+      </div>
+      <div className={accountStyles.choices}>
+        {tiles.map((t, i) => <ChoiceTileSkeleton key={i} {...t} />)}
+      </div>
+    </section>
+  )
+}
 
 export function AccountSkeleton() {
   return (
-    <div className="kaya-scrollbar" style={OUTER} aria-busy="true">
+    <div className="kaya-scrollbar" style={ACCOUNT_OUTER} aria-busy="true">
       <div style={ACCOUNT_INNER}>
-        <PageHeader />
+        <div style={{ paddingLeft: 4, marginBottom: 4 }}>
+          <Line lh={32} h={24} w={110} />
+          <Line lh={22} h={14} w={340} />
+        </div>
 
-        {/* Profile card */}
-        <div style={CARD}>
-          <Section divider>
-            <Bone w={65} h={65} r={32} />
-          </Section>
-          <Section divider>
-            <FormRow2Col />
-          </Section>
-          <Section divider>
-            <FormRow2Col />
-          </Section>
-          <Section>
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Bone w={130} h={34} r={8} />
+        {/* Profile — head with Edit, photo beside the two name fields, then email / role rows */}
+        <section className={accountStyles.card}>
+          <div className={`${accountStyles.cardHead} ${accountStyles.cardHeadRow}`}>
+            <div>
+              <Line lh={22} h={16} w={56} />
+              <div style={{ marginTop: 2 }}><Line lh={20} h={12} w={170} /></div>
             </div>
-          </Section>
-        </div>
-
-        {/* Personalisation — Screen mode + Style rows (Default Model row and Danger Zone are hidden) */}
-        <div style={CARD}>
-          <Section divider>
-            <Bone w={130} h={16} />
-          </Section>
-          {[0, 1].map(i => (
-            <Section key={i} divider={i < 1}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <Bone w={110} h={14} />
-                  <Bone w={200} h={12} />
+            <div className={accountStyles.actions}><Bone w={96} h={32} r={8} /></div>
+          </div>
+          <div className={accountStyles.profile}>
+            <div className={accountStyles.avatarCol}><Bone w={72} h={72} r={36} /></div>
+            <div className={accountStyles.fields}>
+              <FieldSkeleton labelW={72} hintW={230} />
+              <FieldSkeleton labelW={70} />
+            </div>
+          </div>
+          <div className={accountStyles.details}>
+            {[{ l: 96, h: 200, v: 150 }, { l: 34, h: 130, v: 70 }].map((r, i) => (
+              <div key={i} className={accountStyles.detailRow}>
+                <div>
+                  <Line lh={22} h={13} w={r.l} />
+                  <Line lh={18} h={11} w={r.h} />
                 </div>
-                <Bone w={160} h={34} r={8} />
+                <Bone w={r.v} h={13} r={4} />
               </div>
-            </Section>
-          ))}
-        </div>
+            ))}
+          </div>
+        </section>
 
+        <ChoiceCardSkeleton titleW={100} hintW={220} tiles={[{ titleW: 40 }, { titleW: 36 }, { titleW: 52 }]} />
+        <ChoiceCardSkeleton titleW={120} hintW={420} tiles={[{ titleW: 46 }, { titleW: 64 }, { titleW: 42, hintLines: 2 }]} />
       </div>
     </div>
   )

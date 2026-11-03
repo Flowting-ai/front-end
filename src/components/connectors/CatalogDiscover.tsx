@@ -4,13 +4,13 @@
 
 import React, { useEffect, useState } from 'react'
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { Button } from '@/components/ui/button'
+import { ArrowRightOneIcon } from '@strange-huge/icons'
 import { fetchRecommendations, type ConnectorPick } from '@/lib/api/recommendations'
 import { ConnectorCatalog } from '@/lib/api/connectors'
 import { connectorCategoriesQuery, connectorDetailQuery, connectorsPageQuery } from '@/lib/connectors/connector-queries'
 import { getQueryClient } from '@/lib/query-client'
 
-import { SPACE, CATALOG_GRID, CatalogSectionLabel, CatalogCell } from './connections-shared'
+import { CATALOG_GRID, CatalogSectionLabel, CatalogCell } from './connections-shared'
 
 export const DISCOVER_CATEGORY_COUNT = 6
 export const DISCOVER_SECTION_SIZE = 6
@@ -55,13 +55,18 @@ export function CategorySection({
     .slice(0, DISCOVER_SECTION_SIZE)
   if (shown.length === 0) return null
   return (
-    <div style={{ marginBottom: SPACE.section }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACE.md, marginBottom: SPACE.sm }}>
-        <CatalogSectionLabel label={category} flush />
-        <Button variant="ghost" size="sm" onClick={viewAll}>View all</Button>
-      </div>
+    <div style={{ marginBottom: 40 }}>
+      <CatalogSectionLabel
+        label={category}
+        action={(
+          // A plain text link with an arrow, not a boxed button: it leads on to the whole category.
+          <button type="button" className="group inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md border-0 bg-transparent px-1 py-0.5 text-[13px] font-medium leading-5 text-[var(--neutral-600)] transition-colors [font-family:var(--font-body)] hover:text-[var(--neutral-900)] focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]" onClick={viewAll} aria-label={`View all ${category} connectors`}>
+            View all <ArrowRightOneIcon size={14} className="transition-transform group-hover:translate-x-0.5" />
+          </button>
+        )}
+      />
       <div style={CATALOG_GRID}>
-        {shown.map(row => <CatalogCell key={row.slug} summary={row} select={select} pendingSlug={pendingSlug} category={category} />)}
+        {shown.map(row => <CatalogCell key={row.slug} summary={row} select={select} pendingSlug={pendingSlug} category={category} hideCategory />)}
       </div>
     </div>
   )

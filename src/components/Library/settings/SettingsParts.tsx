@@ -5,6 +5,7 @@ import { ArrowDownOneIcon, InformationCircleIcon } from '@strange-huge/icons'
 import { Dropdown } from '@/components/Dropdown'
 import { Switch } from '@/components/Switch'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/Skeleton'
 import { formatBytes, storageLabel, storageShare } from '@/lib/library/format'
 import type { Format, Storage } from '@/lib/library/schemas'
 import { FormatGlyph } from '../FormatGlyph'
@@ -199,5 +200,59 @@ export function StorageBlock({ storage, tip }: { storage: Storage; tip?: React.R
         ))}
       </div>
     </>
+  )
+}
+
+/* ---- Loading shapes. Each one uses the real row, card and storage classes so nothing moves when data lands. ---- */
+
+type ControlShape = 'select' | 'switch' | 'value' | 'none'
+
+/** A text line the height of its real line-height, with a bar the size of the glyphs inside it. */
+function LineSkeleton({ lineHeight, barHeight, width, marginTop }: { lineHeight: number | string; barHeight: number; width: number | string; marginTop?: number }) {
+  return (
+    <div style={{ height: lineHeight, marginTop, display: 'flex', alignItems: 'center' }}>
+      <Skeleton height={barHeight} radius={6} width={width} />
+    </div>
+  )
+}
+
+/** One SettingRow while loading: title (14/22), optional hint (13/1.4, 2px above), and the control on the right. */
+export function SettingRowSkeleton({ titleWidth = 140, hintWidth = 220, hint = false, control = 'none' }: { titleWidth?: number; hintWidth?: number; hint?: boolean; control?: ControlShape }) {
+  return (
+    <div className={styles.row} aria-hidden="true">
+      <div className={styles.grow}>
+        <LineSkeleton lineHeight={22} barHeight={14} width={titleWidth} />
+        {hint && <LineSkeleton lineHeight="calc(13px * 1.4)" barHeight={12} width={hintWidth} marginTop={2} />}
+      </div>
+      {control === 'select' && <Skeleton height={36} radius={10} width={100} />}
+      {control === 'switch' && <Skeleton height={20} radius={999} width={34} />}
+      {control === 'value' && <LineSkeleton lineHeight={22} barHeight={14} width={304} />}
+    </div>
+  )
+}
+
+/** A whole card of row skeletons, announced once as loading. */
+export function SettingsCardSkeleton({ rows }: { rows: React.ComponentProps<typeof SettingRowSkeleton>[] }) {
+  return (
+    <div className={styles.card} role="status" aria-busy="true" aria-label="Loading">
+      {rows.map((row, index) => <SettingRowSkeleton key={index} {...row} />)}
+    </div>
+  )
+}
+
+/** StorageBlock while loading: the "X of Y used" line, the bar, and the Files / Images / Audio card. */
+export function StorageBlockSkeleton() {
+  return (
+    <div role="status" aria-busy="true" aria-label="Loading">
+      <div className={styles.storageTitle} aria-hidden="true">
+        <LineSkeleton lineHeight={22} barHeight={14} width={140} />
+      </div>
+      <div className={styles.bar} aria-hidden="true" />
+      <div className={styles.card} style={{ marginTop: 0 }}>
+        <SettingRowSkeleton titleWidth={40} hintWidth={130} hint />
+        <SettingRowSkeleton titleWidth={56} hintWidth={130} hint />
+        <SettingRowSkeleton titleWidth={44} hintWidth={130} hint />
+      </div>
+    </div>
   )
 }

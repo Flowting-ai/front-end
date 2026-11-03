@@ -74,6 +74,7 @@ export function SubmitControls({
         <IconButton
           variant={showQueueButton ? "ghost" : "default"}
           size="md"
+          shine={!showQueueButton}
           aria-label={
             isStreaming
               ? "Stop generation"
@@ -172,6 +173,7 @@ export function SubmitControls({
               <IconButton
                 variant="default"
                 size="md"
+                shine
                 aria-label="Queue message"
                 icon={<ArrowUpTwoIcon size={20} animated triggered={isQueueHovered} />}
                 onClick={onQueue}
