@@ -89,6 +89,19 @@ export function Header({ title, subtitle, tools }: { title: string; subtitle?: s
   )
 }
 
+// Centred spinner + "Loading connectors" line, used wherever the catalogue is waiting on data.
+export function ConnectorsSpinner({ minHeight = 320 }: { minHeight?: number }) {
+  return (
+    <div role="status" aria-live="polite" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: SPACE.xl, minHeight, width: '100%' }}>
+      <svg width={40} height={40} viewBox="0 0 40 40" fill="none" aria-hidden className="animate-spin">
+        <circle cx="20" cy="20" r="16" stroke="var(--neutral-200)" strokeWidth="4" />
+        <path d="M36 20a16 16 0 0 0-16-16" stroke="var(--neutral-900)" strokeWidth="4" strokeLinecap="round" />
+      </svg>
+      <p style={{ margin: 0, color: 'var(--neutral-900)', fontFamily: 'var(--font-title)', fontSize: 24, fontWeight: 400, lineHeight: 1.2 }}>Loading connectors</p>
+    </div>
+  )
+}
+
 export const Search = React.forwardRef<HTMLInputElement, { value: string; onChange: (value: string) => void }>(function Search({ value, onChange }, ref) {
   return (
     <div style={{ width: 'min(280px, 70vw)' }}>

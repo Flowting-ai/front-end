@@ -30,36 +30,32 @@ export function AgentsListLoading() {
       <div style={{ height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', paddingTop: 36, paddingBottom: 24, boxSizing: 'border-box' }}>
         <div style={{ width: '100%', maxWidth: 991, padding: '0 12px', boxSizing: 'border-box', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 41 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* Tabs: My Agents / Super Links */}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Skeleton width={104} height={36} radius={10} />
-              <Skeleton width={104} height={36} radius={10} />
-            </div>
+            {/* Tabs: the My Agents / Super Links segmented control */}
+            <Skeleton width={191} height={36} radius={10} />
 
-            {/* Title row: "Agents" + New agent button */}
+            {/* Title row: "Agents" (24/32) + New agent button */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Skeleton width={120} height={32} radius={8} />
-              <Skeleton width={116} height={34} radius={10} />
+              <div style={{ height: 32, display: 'flex', alignItems: 'center' }}>
+                <Skeleton width={77} height={24} radius={6} />
+              </div>
+              <Skeleton width={115} height={36} radius={10} />
             </div>
 
             {/* Toolbar: 450px search on the left, sort + filter on the right */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Skeleton width={450} height={36} radius={10} style={{ maxWidth: '100%' }} />
               <div style={{ display: 'flex', gap: 8 }}>
-                <Skeleton width={96} height={34} radius={10} />
-                <Skeleton width={84} height={34} radius={10} />
+                <Skeleton width={132} height={36} radius={10} />
+                <Skeleton width={76} height={36} radius={10} />
               </div>
             </div>
           </div>
 
-          {/* Two rows of cards, up to three across (314px each) like the real grid */}
+          {/* Two rows of three cards, the same columns as AgentsGrid (up to 314px each) */}
           <div style={{
             display:             'grid',
-            gridTemplateColumns: `repeat(auto-fill, ${PERSONA_CARD_WIDTH}px)`,
+            gridTemplateColumns: `repeat(3, minmax(0, ${PERSONA_CARD_WIDTH}px))`,
             justifyContent:      'center',
-            maxWidth:            PERSONA_CARD_WIDTH * 3 + GRID_GAP * 2,
-            width:               '100%',
-            margin:              '0 auto',
             gap:                 GRID_GAP,
           }}>
             {Array.from({ length: 6 }).map((_, i) => <PersonaCardSkeleton key={i} />)}

@@ -1,4 +1,5 @@
 import type { GetModelsWithStatus } from '@/lib/api/models'
+import { rankByTitle } from '@/lib/search/text-match'
 
 /** The /settings/ai list logic, kept pure so it can be tested in Node. */
 
@@ -14,12 +15,14 @@ export function providersInOrder(models: readonly CatalogModel[]): string[] {
 /** Models visible for a tab and a search over name and provider. */
 export function filterModels<T extends CatalogModel>(models: readonly T[], tab: string, search: string): T[] {
   const q = search.toLowerCase().trim()
-  return models.filter(m => {
+  const matching = models.filter(m => {
     if (tab === 'enabled'  &&  m.blocked) return false
     if (tab === 'disabled' && !m.blocked) return false
     if (q && !m.model_name.toLowerCase().includes(q) && !m.model_provider.toLowerCase().includes(q)) return false
     return true
   })
+  // Best name matches first.
+  return rankByTitle(matching, search, m => [m.model_name, m.model_provider])
 }
 
 /** The list with one model's blocked flag set: used for the optimistic toggle,

@@ -11,6 +11,33 @@ import { PersonaCardSkeleton } from '@/components/PersonaCard/PersonaCardSkeleto
 
 const GRID_GAP = 16
 
+/**
+ * How many 314px cards fit across: 3 when there is room, fewer when the details panel (or a
+ * narrow window) squeezes the list. Measured from the page's scroll container so it reacts to the
+ * panel opening and closing; the grid, its loading skeleton and the page header all use it.
+ */
+export function useAgentGridColumns(scrollRef: React.RefObject<HTMLDivElement | null>): number {
+  // Only the column count is state: the panel's slide resizes the container every frame, and
+  // storing the width would re-render the whole page each frame. This changes once, at the threshold.
+  const [columns, setColumns] = useState(3)
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const measure = () => {
+      const width = el.clientWidth
+      if (width > 0) setColumns(Math.min(3, Math.max(1, Math.floor((width + GRID_GAP) / (PERSONA_CARD_WIDTH + GRID_GAP)))))
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [scrollRef])
+  return columns
+}
+
+/** The width `columns` cards and their gaps take up. */
+export const agentGridWidth = (columns: number) => columns * PERSONA_CARD_WIDTH + (columns - 1) * GRID_GAP
+
 export interface AgentsGridProps {
   /** The page's scroll container — measured for column count and used by the virtualizer. */
   scrollRef: React.RefObject<HTMLDivElement | null>
@@ -49,22 +76,7 @@ export function AgentsGrid({
   handleCopyAndEdit, handleUseTeamSharedInChat, handleUseInChat, handlePauseToggle,
   onOpenDetails, onEdit, onShare, onChangeModel, onDelete,
 }: AgentsGridProps) {
-  // How many 314px cards fit across: 3 when there is room, fewer when the details panel (or a
-  // narrow window) squeezes the list. Measured from the scroll container so it reacts to the panel
-  // opening and closing; the loading skeleton uses the same number.
-  const [gridWidth, setGridWidth] = useState(0)
-  useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    const measure = () => setGridWidth(el.clientWidth)
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [scrollRef])
-  const GRID_COLS = gridWidth === 0
-    ? 3
-    : Math.min(3, Math.max(1, Math.floor((gridWidth + GRID_GAP) / (PERSONA_CARD_WIDTH + GRID_GAP))))
+  const GRID_COLS = useAgentGridColumns(scrollRef)
   const gridRows = useMemo(() => {
     const rows: Persona[][] = []
     for (let i = 0; i < filtered.length; i += GRID_COLS) rows.push(filtered.slice(i, i + GRID_COLS))

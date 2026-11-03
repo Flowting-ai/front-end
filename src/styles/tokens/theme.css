@@ -328,6 +328,9 @@
   --surface-rgb: 28, 28, 28;
   --text-hover: #FFFFFF;
   --overlay-bg: rgba(0, 0, 0, 0.6);
+  --button-primary-bg-hover: rgba(0, 0, 0, 0.06);
+  --shadow-button-primary-outer: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.10);
+  --shadow-button-primary-outer-hover: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.18);
   --button-secondary-bg: #2E2E2E;
   --button-secondary-text: var(--neutral-900);
   --button-secondary-text-disabled: #828282;

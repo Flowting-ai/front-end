@@ -11,7 +11,7 @@ import { AGENTS_NEW_ROUTE, AGENT_EDIT_ROUTE } from '@/lib/routes'
 import Tabs from '@/components/Tabs'
 import { EMPTY_FILTERS } from './_hooks/use-agent-filters'
 import { AgentsToolbar } from './_components/AgentsToolbar'
-import { AgentsGrid } from './_components/AgentsGrid'
+import { AgentsGrid, agentGridWidth, useAgentGridColumns } from './_components/AgentsGrid'
 import { DeleteAgentDialog } from './_components/DeleteAgentDialog'
 import { SuperLinksTab } from './_components/SuperLinksTab'
 import { AgentDetailsSidebar } from '@/components/AgentEditor/AgentDetailsSidebar'
@@ -36,6 +36,11 @@ import { useAgentsPage } from './_hooks/use-agents-page'
 
 function PersonasPageInner() {
   const { push, viewer, activeTab, setActiveTab, detailsId, openDetails, closeDetails, queryClient, isLoading, personas, setPersonas, draftAvatarMap, draftTagsMap, deleteTarget, setDeleteTarget, changeModelTarget, setChangeModelTarget, fixModelsOpen, setFixModelsOpen, fixModelsMounted, selectedShareId, setSelectedShareId, shareTarget, setShareTarget, versionToPersona, shares, selectedDrawerLink, personaByRepoId, activeShareRepoIds, visibilityForPersona, createdByForPersona, resolveModelName, modelUnavailableReason, isDraftLike, visiblePersonas, unavailableAgents, personasScrollRef, dashboard, sharesLoading, dashboardRefreshing, handleRefreshDashboard, slRange, setSlRange, slDays, receivedShares, receivedLoading, search, setSearch, sort, setSort, filters, setFilters, activeFilterCount, toggleFilter, uniqueModelNames, filtered, pausingIds, handleDelete, handleCopyAndEdit, handleUseInChat, handleUseTeamSharedInChat, handleUseReceivedShareInChat, handlePauseToggle } = useAgentsPage()
+
+  // On My Agents the header spans exactly the card columns, so when the details panel drops the
+  // grid to fewer (centred) columns the tabs, title and toolbar line up with the cards' edges.
+  const gridColumns = useAgentGridColumns(personasScrollRef)
+  const contentMaxWidth = activeTab === 'my-personas' ? Math.min(991, agentGridWidth(gridColumns) + 24) : 991
 
   return (
     <>
@@ -67,7 +72,7 @@ function PersonasPageInner() {
             keeps the scrollbar flush with the card's edge. */}
         <div style={{
           width: '100%',
-          maxWidth: 991,
+          maxWidth: contentMaxWidth,
           padding: '0 12px',
           boxSizing: 'border-box',
           margin: '0 auto',

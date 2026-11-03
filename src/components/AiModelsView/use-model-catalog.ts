@@ -75,8 +75,11 @@ export function useModelCatalog() {
   const allProviders = useMemo(() => providersInOrder(models), [models])
   const filteredModels = useMemo(() => filterModels(models, tab, deferredSearch), [models, tab, deferredSearch])
   const visibleProviders = useMemo(
-    () => allProviders.filter(p => filteredModels.some(m => m.model_provider === p)),
-    [allProviders, filteredModels],
+    // While searching, providers follow their best match (filteredModels is ranked); otherwise the usual order.
+    () => deferredSearch.trim()
+      ? [...new Set(filteredModels.map(m => m.model_provider))]
+      : allProviders.filter(p => filteredModels.some(m => m.model_provider === p)),
+    [allProviders, filteredModels, deferredSearch],
   )
 
   return {

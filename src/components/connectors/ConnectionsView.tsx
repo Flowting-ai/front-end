@@ -10,7 +10,6 @@
 
 import React, { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
-import { ConnectorCatalogCard } from '@/components/ConnectorCatalogCard'
 import { type ConnectorPick } from '@/lib/api/recommendations'
 import { ConnectorCatalog } from '@/lib/api/connectors'
 
@@ -20,7 +19,7 @@ import {
   ConnectorsShell,
   Header,
   CatalogToolbar,
-  CATALOG_GRID,
+  ConnectorsSpinner,
 } from './connections-shared'
 import { Catalog } from './Catalog'
 
@@ -82,9 +81,7 @@ export function ConnectionsView({
   )
 }
 
-// Loading stand-in for the Discover view: the real toolbar (inert) and three
-// category sections — label row + "View all" (32px) over a 3-column grid of two
-// rows of loading cards — so the page is as tall as the loaded one.
+// Loading stand-in: the real toolbar (inert) over a centred spinner.
 function CatalogLoading() {
   const noop = () => {}
   return (
@@ -95,19 +92,7 @@ function CatalogLoading() {
         sort="name-asc" setSort={noop}
         categories={['All']} category="" setCategory={noop}
       />
-      {[0, 1, 2].map(section => (
-        <div key={section} aria-hidden style={{ marginBottom: SPACE.section, opacity: 1 - section * 0.2 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACE.md, marginBottom: SPACE.sm }}>
-            <div className="kaya-skeleton" style={{ width: 110, height: 12, borderRadius: 4 }} />
-            <div className="kaya-skeleton" style={{ width: 76, height: 32, borderRadius: 8 }} />
-          </div>
-          <div style={CATALOG_GRID}>
-            {Array.from({ length: 6 }).map((_, i) => (
-              <ConnectorCatalogCard key={i} name={`connector ${i + 1}`} density="detailed" state="loading" />
-            ))}
-          </div>
-        </div>
-      ))}
+      <ConnectorsSpinner minHeight={480} />
     </section>
   )
 }

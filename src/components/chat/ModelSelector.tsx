@@ -10,6 +10,7 @@ import { getModelLlmId } from "@/lib/model-icons";
 import { Badge, type BadgeColor } from "@/components/Badge";
 import { Tooltip } from "@/components/Tooltip";
 import { recordModelUsage } from "@/lib/model-usage";
+import { rankByTitle } from "@/lib/search/text-match";
 
 const TAG_PALETTE: BadgeColor[] = ["Green", "Blue", "Purple", "Brown", "Yellow"];
 function tagColor(tag: string): BadgeColor {
@@ -192,7 +193,7 @@ export function ModelSelector({
 }: ModelSelectorProps) {
   const [search, setSearch] = useState("");
 
-  const filteredModels = models.filter((model) => {
+  const matchingModels = models.filter((model) => {
     if (!search) return true;
     const query = search.toLowerCase();
     return (
@@ -200,6 +201,8 @@ export function ModelSelector({
       model.companyName.toLowerCase().includes(query)
     );
   });
+  // Best name matches first; providers then appear in the order of their best match.
+  const filteredModels = rankByTitle(matchingModels, search, (model) => [model.modelName, model.companyName]);
 
   // Group by provider
   const grouped = filteredModels.reduce<Record<string, AIModel[]>>(

@@ -15,6 +15,7 @@ import {
 } from '@strange-huge/icons'
 import { Dropdown } from '@/components/Dropdown'
 import { InputField } from '@/components/InputField'
+import { rankByTitle } from '@/lib/search/text-match'
 import { Tooltip } from '@/components/Tooltip'
 import {
   AccountTool,
@@ -166,7 +167,7 @@ export function PermissionsTab({
   const matches = (tool: AccountTool) =>
     !needle || tool.name.toLowerCase().includes(needle) || (tool.description ?? '').toLowerCase().includes(needle)
   const groups = groupTools(tools)
-    .map(group => ({ ...group, visible: group.tools.filter(matches) }))
+    .map(group => ({ ...group, visible: rankByTitle(group.tools.filter(matches), needle, tool => [tool.name]) }))
     .filter(group => group.visible.length > 0)
 
   async function file(next: AccountTool[], changed: { key: string; permission: ConnectorToolPermission }[], busyKey: string) {

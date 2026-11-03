@@ -6,11 +6,11 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
-import { ConnectorCatalogCard } from '@/components/ConnectorCatalogCard'
 import { Pagination } from '@/components/ConnectorBrowse'
 import { type ConnectorPick } from '@/lib/api/recommendations'
 import { ConnectorCatalog, listConnectors } from '@/lib/api/connectors'
 import { queryKeys } from '@/lib/query-keys'
+import { rankByTitle } from '@/lib/search/text-match'
 
 import {
   AVAILABLE_PAGE_SIZE,
@@ -25,6 +25,7 @@ import {
   CatalogSectionLabel,
   CatalogCell,
   PickSection,
+  ConnectorsSpinner,
 } from './connections-shared'
 import {
   DISCOVER_CATEGORY_COUNT,
@@ -33,6 +34,7 @@ import {
   rankCategories,
   useConnectorPicks,
   useConnectorCategories,
+  useCategorySections,
 } from './CatalogDiscover'
 
 const VIEWS: readonly CatalogView[] = ['discover', 'all', 'connected', 'not-connected']
@@ -40,6 +42,9 @@ const SORTS: readonly SortMode[] = ['name-asc', 'name-desc']
 
 /** How many pages past the loaded ones a URL ?page= may walk to before falling back to page 1. */
 const MAX_PAGE_WALK = 20
+
+/** A search fetches this many matches at once (the API's max) so they can be ranked before paging. */
+const SEARCH_LIMIT = 100
 
 /**
  * Shallow URL update (history.replaceState, which Next's useSearchParams follows) for the catalogue's
@@ -84,7 +89,7 @@ export function Catalog({
   const page = Math.max(1, Number.parseInt(searchParams.get('page') ?? '1', 10) || 1)
 
   const picks = useConnectorPicks()
-  const catalogCategories = useConnectorCategories()
+  const { categories: catalogCategories, loading: categoriesLoading } = useConnectorCategories()
   const linkedRows = catalog.filter(row => row.linked || row.connections.length > 0)
   const theirCategories = [...linkedRows, ...picks.sure, ...picks.maybe].map(row => row.categories)
   // Without GET /connectors/categories, the categories of the apps on screen.
@@ -110,6 +115,7 @@ export function Catalog({
   // Recommended, and Connected with no search term, show rows from the picks and `linkedRows` below,
   // so nothing is browse-fetched for them.
   const skipBrowse = view === 'discover' || (view === 'connected' && !debouncedQuery)
+  const searching = Boolean(debouncedQuery)
 
   // The browse pages for one search/category, as one infinite query: pages[n] is page n + 1, and each
   // page's nextCursor reaches the one after it. Pages seen before come from the cache (Previous is
@@ -117,26 +123,30 @@ export function Catalog({
   // View and sort are not in the key: neither changes the request (both filter/sort on screen).
   const browse = useInfiniteQuery({
     queryKey: queryKeys.connectors.catalog({ q: debouncedQuery, category }),
-    queryFn: ({ pageParam }) => listConnectors(browseQuery(debouncedQuery, category, pageParam)),
+    queryFn: ({ pageParam }) => listConnectors({
+      ...browseQuery(debouncedQuery, category, pageParam),
+      ...(searching && { limit: SEARCH_LIMIT }),
+    }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: last => (last.hasMore && last.nextCursor ? last.nextCursor : undefined),
     enabled: !skipBrowse,
     staleTime: PAGE_TTL_MS,
   })
   const loadedPages = browse.data?.pages.length ?? 0
-  const currentPage = skipBrowse ? undefined : browse.data?.pages[page - 1]
+  // A search is one ranked fetch, paged on screen below.
+  const currentPage = skipBrowse ? undefined : browse.data?.pages[searching ? 0 : page - 1]
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = browse
   const browseSettled = browse.isSuccess || browse.isError
 
   // Reach the page in the URL: fetch it when it is the next one, warm the one after the current page
   // (so Next is instant), and fall back to page 1 when the URL names a page no cursor reaches.
   useEffect(() => {
-    if (skipBrowse || !browseSettled || isFetchingNextPage || browse.isFetchNextPageError) return
+    if (skipBrowse || searching || !browseSettled || isFetchingNextPage || browse.isFetchNextPageError) return
     if (page <= loadedPages - 1) return
     // A deeper page (a reload on ?page=3) is reached by walking the cursors one page at a time, up to a cap.
     if (hasNextPage && page <= loadedPages + MAX_PAGE_WALK) void fetchNextPage()
     else if (page > loadedPages) writeCatalogParams({ page: null })
-  }, [skipBrowse, browseSettled, isFetchingNextPage, browse.isFetchNextPageError, page, loadedPages, hasNextPage, fetchNextPage])
+  }, [skipBrowse, searching, browseSettled, isFetchingNextPage, browse.isFetchNextPageError, page, loadedPages, hasNextPage, fetchNextPage])
 
   useEffect(() => {
     if (currentPage) onRows?.(currentPage.connectors)
@@ -144,7 +154,7 @@ export function Catalog({
 
   const browseFailed = browse.isError && (!browse.data || browse.isFetchNextPageError)
   const browseItems = currentPage?.connectors ?? []
-  const browseHasMore = currentPage?.hasMore ?? false
+  const browseHasMore = searching ? false : currentPage?.hasMore ?? false
 
   // Changing page keeps the scroll position, so the new connectors landed off-screen: bring the top of
   // the list back into view.
@@ -157,7 +167,6 @@ export function Catalog({
     sort === 'name-desc' ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name)
   const filed = (row: { categories: string[] }) => inCategory(row.categories, category)
 
-  const searching = Boolean(debouncedQuery)
   const source = (searching || view !== 'connected' ? browseItems : linkedRows).filter(filed)
   const pool = source.filter(summary => {
     const connected = summary.connections.length > 0 || summary.linked
@@ -165,7 +174,10 @@ export function Catalog({
     if (view === 'not-connected' && connected) return false
     return true
   })
-  const sorted = [...pool].sort(byName)
+  // A search ranks the closest names first ("shop" → Shopify before Workshop), then by the chosen sort.
+  const ranked = rankByTitle([...pool].sort(byName), debouncedQuery, row => [row.name])
+  const sorted = searching ? ranked.slice((page - 1) * AVAILABLE_PAGE_SIZE, page * AVAILABLE_PAGE_SIZE) : ranked
+  const searchHasMore = searching && ranked.length > page * AVAILABLE_PAGE_SIZE
   // The default "All" view's `pool` (unlike search results) is fetched with
   // `linked: false`, so it structurally never contains connected rows —
   // `sorted.filter(...connected)` would always be empty there. `linkedRows`
@@ -200,6 +212,13 @@ export function Catalog({
   const switchSort = (next: SortMode) => writeCatalogParams({ sort: next === 'name-asc' ? null : next })
   const viewCategory = (value: string) => writeCatalogParams({ category: value || null, view: 'all', page: null })
   const discoverSections = category ? [category] : categories.slice(0, DISCOVER_CATEGORY_COUNT)
+  // Discover waits for the picks, the category list and every section, then shows them all at once.
+  const sections = useCategorySections(discoverSections, view === 'discover' && !picks.loading && !categoriesLoading)
+  const discoverLoading = picks.loading || categoriesLoading || sections.loading
+  // `combine` output is structurally shared, so `sections.rows` only changes when the rows do.
+  useEffect(() => {
+    if (!sections.loading) sections.rows.forEach(rows => onRows?.(rows))
+  }, [sections.loading, sections.rows, onRows])
 
   const toolbar = (
     <CatalogToolbar
@@ -211,33 +230,29 @@ export function Catalog({
   )
 
   if (view === 'discover') {
-    const nothing = !picks.loading && sure.length + maybe.length === 0 && discoverSections.length === 0
+    const nothing = !discoverLoading && sure.length + maybe.length === 0 && discoverSections.length === 0
     return (
       <section id="all-connectors">
         {toolbar}
-        {picks.loading ? (
-          <div aria-hidden style={{ ...CATALOG_GRID, marginBottom: SPACE.section }}>
-            {Array.from({ length: 3 }).map((_, i) => (
-              <ConnectorCatalogCard key={i} name={`connector ${i + 1}`} density="detailed" state="loading" />
-            ))}
-          </div>
+        {discoverLoading ? (
+          <ConnectorsSpinner minHeight={480} />
         ) : (
           <>
             <PickSection label="Detected in your workspace" sub="Apps your Slack workspace already uses" picks={sure} select={select} pendingSlug={pendingSlug} category={category} />
             <PickSection label="Suggested for you" sub="Apps your work points to" picks={maybe} select={select} pendingSlug={pendingSlug} category={category} />
+            {discoverSections.map((name, i) => (
+              <CategorySection
+                key={name}
+                category={name}
+                rows={sections.rows[i]}
+                connectedSlugs={connectedSlugs}
+                select={select}
+                pendingSlug={pendingSlug}
+                viewAll={() => viewCategory(name)}
+              />
+            ))}
           </>
         )}
-        {discoverSections.map(name => (
-          <CategorySection
-            key={name}
-            category={name}
-            connectedSlugs={connectedSlugs}
-            select={select}
-            pendingSlug={pendingSlug}
-            onRows={onRows}
-            viewAll={() => viewCategory(name)}
-          />
-        ))}
         {nothing && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: SPACE.lg, padding: SPACE.section }}>
             <p style={{ ...muted, textAlign: 'center' }}>Nothing to recommend yet. Recommendations appear as Souvenir learns how you work.</p>
@@ -267,11 +282,7 @@ export function Catalog({
             <div>
               {showConnectedLabel && <CatalogSectionLabel label={category ? `All ${category}` : 'All connectors'} />}
               {loadingPage ? (
-                <div aria-busy aria-label="Loading connectors" style={CATALOG_GRID}>
-                  {Array.from({ length: AVAILABLE_PAGE_SIZE }).map((_, i) => (
-                    <ConnectorCatalogCard key={i} name={`connector ${i + 1}`} density="detailed" state="loading" />
-                  ))}
-                </div>
+                <ConnectorsSpinner />
               ) : (
                 <div style={CATALOG_GRID}>
                   {availableItems.map(summary => <CatalogCell key={summary.slug} summary={summary} select={select} highlight={debouncedQuery} pendingSlug={pendingSlug} category={category} />)}
@@ -279,7 +290,7 @@ export function Catalog({
               )}
               {/* Locked while a page is loading, so a double-click cannot skip a page. */}
               <div style={{ marginTop: SPACE.xl, pointerEvents: loadingPage ? 'none' : undefined, opacity: loadingPage ? 0.6 : 1 }}>
-                <Pagination page={page} hasMore={browseHasMore} onChange={changePage} />
+                <Pagination page={page} hasMore={browseHasMore || searchHasMore} onChange={changePage} />
               </div>
             </div>
           )}

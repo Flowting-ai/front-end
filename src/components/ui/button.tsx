@@ -9,7 +9,7 @@ import { Tooltip } from '@/components/Tooltip'
 import { Button as LegacyButton, type ButtonProps as LegacyButtonProps } from '@/components/Button'
 import { IconButton as LegacyIconButton, type IconButtonProps as LegacyIconButtonProps } from '@/components/IconButton'
 
-// Flat (2D) shadcn-style PRIMARY button: radius per size (md 10px, sm 8px, xs 6px) like the secondary button, solid fill with the secondary button's shadow, no gradient. Pure CSS.
+// PRIMARY button drawn as the black version of the secondary button: radius per size (md 10px, sm 8px, xs 6px), solid black fill with the secondary's ring + two-layer lift, a light wash and the secondary's hover shadow + lift on hover. Pure CSS.
 // Only the primary ("default" variant: black in light mode, light in dark mode) uses it. Every other
 // variant (ghost, outline, secondary, danger) still renders the legacy `@/components/Button` /
 // `@/components/IconButton`, so existing call sites keep one import path and behave as before.
@@ -29,14 +29,17 @@ const BASE =
 const HOVER_LAYER =
   'hover:[background-image:linear-gradient(var(--hv),var(--hv))] data-[active=true]:[background-image:linear-gradient(var(--hv),var(--hv))]'
 
-const PRIMARY_FLAT =
-  'bg-[var(--button-default-bg-to)] hover:bg-[var(--button-default-bg-from)] data-[active=true]:bg-[var(--button-default-bg-from)] ' +
-  'disabled:bg-[var(--button-default-bg-disabled-to)] ' +
-  'text-[var(--button-default-text)] disabled:text-[var(--button-default-text-disabled)] ' +
-  // Same outer shadow as the secondary button (no inner highlight).
-  'shadow-[var(--shadow-button-secondary-outer)] ' +
-  'hover:shadow-[var(--shadow-button-secondary-outer-hover)] ' +
-  'data-[active=true]:shadow-[var(--shadow-button-secondary-outer-hover)]'
+const PRIMARY_FLAT = cn(
+  'bg-[var(--button-default-bg-to)] disabled:bg-[var(--button-default-bg-disabled-to)]',
+  'text-[var(--button-default-text)] disabled:text-[var(--button-default-text-disabled)]',
+  HOVER_LAYER,
+  '[--hv:var(--button-primary-bg-hover)]',
+  // An arbitrary box-shadow property: Tailwind's shadow utility reads a bare var as a shadow colour.
+  '[box-shadow:var(--shadow-button-primary-outer)]',
+  'hover:[box-shadow:var(--shadow-button-primary-outer-hover)] data-[active=true]:[box-shadow:var(--shadow-button-primary-outer-hover)]',
+  'transition-[background-color,box-shadow,filter,transform,opacity]',
+  'hover:[filter:var(--shadow-button-subtle-outer-hover)] data-[active=true]:[filter:var(--shadow-button-subtle-outer-hover)]',
+)
 
 export const buttonVariants = cva(BASE, {
   variants: {

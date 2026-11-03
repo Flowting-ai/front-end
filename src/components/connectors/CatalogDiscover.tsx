@@ -1,10 +1,10 @@
 'use client'
 
-// The Discover view: recommended picks and category sections, each loaded when near the viewport.
+// The Discover view: recommended picks and category sections, all loaded together before any shows.
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
+import { useQueries, useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
-import { ConnectorCatalogCard } from '@/components/ConnectorCatalogCard'
 import { fetchRecommendations, type ConnectorPick } from '@/lib/api/recommendations'
 import { ConnectorCatalog } from '@/lib/api/connectors'
 import { connectorCategoriesQuery, connectorDetailQuery, connectorsPageQuery } from '@/lib/connectors/connector-queries'
@@ -25,58 +25,43 @@ export function inCategory(filed: string[], category: string): boolean {
   return !category || filed.includes(category)
 }
 
+/** The request behind one Discover category section. */
+export const categorySectionQuery = (category: string) =>
+  connectorsPageQuery({ q: category, category, linked: false, limit: DISCOVER_FETCH_SIZE })
+
+/** Every Discover section's rows, fetched together; `loading` until all have answered (a failed one reads as empty). */
+export function useCategorySections(categories: string[], enabled: boolean) {
+  return useQueries({
+    queries: categories.map(category => ({ ...categorySectionQuery(category), enabled })),
+    combine: results => ({
+      rows: results.map(result => result.data?.connectors ?? []),
+      loading: results.some(result => result.isPending && result.fetchStatus !== 'idle') || (!enabled && categories.length > 0),
+    }),
+  })
+}
+
 export function CategorySection({
-  category, connectedSlugs, select, pendingSlug, onRows, viewAll,
+  category, rows, connectedSlugs, select, pendingSlug, viewAll,
 }: {
   category: string
+  rows: ConnectorCatalog[]
   connectedSlugs: Set<string>
   select: (summary: ConnectorCatalog | ConnectorPick) => void
   pendingSlug?: string | null
-  onRows?: (rows: ConnectorCatalog[]) => void
   viewAll: () => void
 }) {
-  const [rows, setRows] = useState<ConnectorCatalog[] | null>(null)
-  // Fetch a section only once it is near the viewport, not all of them on page load.
-  const hostRef = useRef<HTMLDivElement>(null)
-  const [near, setNear] = useState(false)
-  useEffect(() => {
-    const el = hostRef.current
-    if (!el || typeof IntersectionObserver === 'undefined') { setNear(true); return }
-    const io = new IntersectionObserver(entries => {
-      if (entries.some(e => e.isIntersecting)) { setNear(true); io.disconnect() }
-    }, { rootMargin: '400px' })
-    io.observe(el)
-    return () => io.disconnect()
-  }, [])
-  useEffect(() => {
-    if (!near) return
-    let live = true
-    void getQueryClient().fetchQuery(connectorsPageQuery({ q: category, category, linked: false, limit: DISCOVER_FETCH_SIZE }))
-      .then(page => {
-        if (!live) return
-        setRows(page.connectors)
-        onRows?.(page.connectors)
-      })
-      .catch(() => { if (live) setRows([]) })
-    return () => { live = false }
-  }, [near, category, onRows])
-
   const shown = rows
-    ?.filter(row => inCategory(row.categories, category) && !connectedSlugs.has(row.slug))
+    .filter(row => inCategory(row.categories, category) && !connectedSlugs.has(row.slug))
     .slice(0, DISCOVER_SECTION_SIZE)
-  if (shown?.length === 0) return null
+  if (shown.length === 0) return null
   return (
-    <div ref={hostRef} style={{ marginBottom: SPACE.section }}>
+    <div style={{ marginBottom: SPACE.section }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: SPACE.md, marginBottom: SPACE.sm }}>
         <CatalogSectionLabel label={category} flush />
         <Button variant="ghost" size="sm" onClick={viewAll}>View all</Button>
       </div>
       <div style={CATALOG_GRID}>
-        {shown
-          ? shown.map(row => <CatalogCell key={row.slug} summary={row} select={select} pendingSlug={pendingSlug} category={category} />)
-          : Array.from({ length: 3 }).map((_, i) => (
-            <ConnectorCatalogCard key={i} name={`connector ${i + 1}`} density="detailed" state="loading" />
-          ))}
+        {shown.map(row => <CatalogCell key={row.slug} summary={row} select={select} pendingSlug={pendingSlug} category={category} />)}
       </div>
     </div>
   )
@@ -117,16 +102,9 @@ export function useConnectorPicks(): PicksState {
   return state
 }
 
-// Null until GET /connectors/categories answers, and for good if it fails.
-export function useConnectorCategories(): string[] | null {
-  const [categories, setCategories] = useState<string[] | null>(null)
-  useEffect(() => {
-    let live = true
-    void getQueryClient().fetchQuery(connectorCategoriesQuery())
-      .then(result => { if (live) setCategories(result) })
-      .catch(() => { /* derived from the rows on screen instead */ })
-    return () => { live = false }
-  }, [])
-  return categories
+// GET /connectors/categories: `categories` is null while it loads and for good if it fails.
+export function useConnectorCategories(): { categories: string[] | null; loading: boolean } {
+  const query = useQuery({ ...connectorCategoriesQuery(), retry: false })
+  return { categories: query.data ?? null, loading: query.isPending }
 }
 

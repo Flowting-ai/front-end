@@ -9,6 +9,7 @@ import { useAuth } from '@/context/auth-context'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/Switch'
 import { fetchProjects, type ApiProjectSummary } from '@/lib/api/projects'
+import { rankByTitle } from '@/lib/search/text-match'
 import {
   createSlackChannel,
   deleteProjectSlackChannel,
@@ -363,7 +364,7 @@ export function SlackWorkspaceConfig({ orgId, teamName }: { orgId: string; teamN
     [channels],
   )
   const unboundProjects = projects.filter(p => !channels.some(c => c.projectId === p.id))
-  const filtered = channels.filter(channel => channel.name.toLowerCase().includes(query.trim().toLowerCase()))
+  const filtered = rankByTitle(channels.filter(channel => channel.name.toLowerCase().includes(query.trim().toLowerCase())), query, channel => [channel.name])
   const selected = scope.kind === 'channel' ? channels.find(c => c.id === scope.id) : undefined
 
   const updateChannel = (id: string, patch: Partial<SlackWorkspaceChannel>) =>
