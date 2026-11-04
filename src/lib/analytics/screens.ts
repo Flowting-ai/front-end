@@ -70,6 +70,8 @@ export function routeToScreen(pathname: string): ScreenName | null {
       return "chat";
     case "chats":
       return "chat_history";
+    case "dashboard":
+      return "dashboard";
     case "schedules":
       return "brain"; // was /brain/schedules; Brain's chats are plain /chat now
     case "agent":

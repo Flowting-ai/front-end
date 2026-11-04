@@ -3,12 +3,12 @@
 import { usePathname } from "next/navigation";
 import { useGuardedRouter } from "@/context/nav-guard-context";
 import { CalendarThreeIcon, FolderLibraryIcon, LinkSixIcon, QuillWriteTwoIcon, UserAiIcon } from "@strange-huge/icons";
-import { House } from "lucide-react";
+import { House, LayoutDashboard } from "lucide-react";
 import { FlatSidebarRow, FlatSidebarSlackConnector } from "@/components/ui";
 import { useOrg } from "@/context/org-context";
-import { HOME_ROUTE, ORG_SOUVENIR_SLACK_ROUTE, AGENTS_ROUTE, SCHEDULES_ROUTE, LIBRARY_ROUTE, ORG_CONNECTORS_ROUTE } from "@/lib/routes";
+import { DASHBOARD_ROUTE, HOME_ROUTE, ORG_SOUVENIR_SLACK_ROUTE, AGENTS_ROUTE, SCHEDULES_ROUTE, LIBRARY_ROUTE, ORG_CONNECTORS_ROUTE } from "@/lib/routes";
 
-// -- FlatDestinations — Home / New / Agents / Schedules / Connectors / Slack ---------
+// -- FlatDestinations — Home / Dashboard / New / Agents / Schedules / Connectors / Slack ---------
 // Plain nav rows per the Figma scan (no expand arrows) — Agents/Schedules
 // navigate straight to their pages rather than expanding an inline tree; see
 // the open question in docs/features/sidebar-current-state-audit.md and the
@@ -32,6 +32,10 @@ export function FlatDestinations({ onNewChat, newChatSelected, collapsed = false
       <FlatSidebarRow
         collapsed={collapsed} variant="default" icon={<House size={20} strokeWidth={1.75} aria-hidden />} label="Home"
         selected={pathname === HOME_ROUTE} href={HOME_ROUTE} onClick={() => push(HOME_ROUTE)}
+      />
+      <FlatSidebarRow
+        collapsed={collapsed} variant="default" icon={<LayoutDashboard size={20} strokeWidth={1.75} aria-hidden />} label="Dashboard"
+        selected={pathname.startsWith(DASHBOARD_ROUTE)} href={DASHBOARD_ROUTE} onClick={() => push(DASHBOARD_ROUTE)}
       />
       <FlatSidebarRow collapsed={collapsed} variant="default" icon={<QuillWriteTwoIcon size={20} animated />} label="New" selected={newChatSelected} onClick={onNewChat} />
       <FlatSidebarRow

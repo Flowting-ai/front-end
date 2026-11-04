@@ -8,6 +8,7 @@
 export const ROOT_ROUTE = "/";
 export const CHAT_ROUTE = "/chat";
 export const HOME_ROUTE = "/home";
+export const DASHBOARD_ROUTE = "/dashboard";
 export const CHATS_ROUTE = "/chats";
 export const AGENTS_ROUTE = "/agents";
 export const AGENTS_TEMPLATES_ROUTE = "/agents/templates";

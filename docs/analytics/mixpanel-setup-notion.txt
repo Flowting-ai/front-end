@@ -213,6 +213,8 @@ Screen name
 chat / chat_history
 /brain
 brain
+/dashboard
+dashboard
 /agents
 agent_library
 /agent/configure

@@ -1,0 +1,289 @@
+/* Dashboard — the store workspace: metrics over a period, and the store tables. Every colour is a
+   token so dark mode follows the themed ramps; type uses the app scale, only the figures run larger. */
+
+.page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 28px 40px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  color: var(--neutral-900);
+  font-family: var(--font-body);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-heading);
+  letter-spacing: -0.01em;
+  color: var(--neutral-black);
+}
+
+.categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 9999px;
+  background: var(--neutral-50);
+  white-space: nowrap;
+}
+
+.statusDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: var(--neutral-400);
+}
+
+.pill[data-status='ready'] .statusDot { background: var(--success-500); }
+.pill[data-status='syncing'] .statusDot,
+.pill[data-status='building'] .statusDot { background: var(--warning-500, var(--neutral-500)); }
+.pill[data-status='failed'] .statusDot { background: var(--danger-600); }
+
+.pillName { text-transform: capitalize; }
+
+.pillMeta {
+  font-size: 12px;
+  color: var(--neutral-600);
+}
+
+/* ── Panels ─────────────────────────────────────────────────────────────── */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 16px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.toolbarMeta {
+  font-size: 12px;
+  color: var(--neutral-600);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Metric tiles ───────────────────────────────────────────────────────── */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  background: var(--neutral-50);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tile:hover { background: var(--neutral-100); }
+.tile[aria-pressed='true'] { border-color: var(--neutral-900); }
+.tile:disabled { cursor: default; color: var(--neutral-500); }
+
+.tileLabel {
+  font-size: var(--font-size-body);
+  color: var(--neutral-600);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tileValue {
+  font-size: clamp(22px, 2vw, 28px);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--neutral-black);
+  font-variant-numeric: tabular-nums;
+}
+
+.tile:disabled .tileValue { color: var(--neutral-500); }
+
+/* ── Chart ──────────────────────────────────────────────────────────────── */
+
+.chartCard {
+  padding: 16px;
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  background: var(--neutral-white);
+}
+
+.chartTitle {
+  margin-bottom: 8px;
+  font-size: var(--font-size-body);
+  color: var(--neutral-600);
+}
+
+.chart { width: 100%; }
+
+/* ── Tables ─────────────────────────────────────────────────────────────── */
+
+.tables {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 20px;
+  padding-top: 16px;
+}
+
+.tableList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tableRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  color: var(--neutral-800);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tableRow:hover { background: var(--neutral-100); }
+.tableRow[aria-current='true'] { background: var(--neutral-100); color: var(--neutral-black); }
+
+.tableName { font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px; }
+
+.tableCount {
+  font-size: 12px;
+  color: var(--neutral-500);
+  font-variant-numeric: tabular-nums;
+}
+
+.tableBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.pager { display: inline-flex; gap: 6px; }
+
+.pagerButton {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--neutral-white);
+  font: inherit;
+  font-size: 12px;
+  color: var(--neutral-800);
+  cursor: pointer;
+}
+
+.pagerButton:disabled { color: var(--neutral-400); cursor: default; }
+
+.gridViewport {
+  overflow: auto;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  background: var(--neutral-white);
+}
+
+.grid {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.grid th,
+.grid td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-default);
+  text-align: left;
+  white-space: nowrap;
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.grid th {
+  position: sticky;
+  top: 0;
+  background: var(--neutral-50);
+  font-weight: var(--font-weight-medium);
+  color: var(--neutral-700);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12px;
+}
+
+.grid tbody tr:last-child td { border-bottom: 0; }
+
+.cellEmpty { color: var(--neutral-400); }
+
+/* ── Empty ──────────────────────────────────────────────────────────────── */
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 560px;
+}
+
+.emptyText {
+  margin: 0;
+  color: var(--neutral-600);
+}
+
+@media (max-width: 720px) {
+  .page { padding: 20px 16px 40px; }
+  .tables { grid-template-columns: minmax(0, 1fr); }
+  .tableList { flex-direction: row; flex-wrap: wrap; }
+}

@@ -11,6 +11,7 @@ import { track } from "./mixpanel";
 export type ScreenName =
   | "chat"
   | "chat_history"
+  | "dashboard"
   | "brain"
   | "agent_library"
   | "agent_configure"
