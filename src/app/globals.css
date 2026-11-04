@@ -24,7 +24,7 @@ body {
   font-family: var(--font-body);
 }
 
-/* Search fields: pink ring while active (see components/SearchFieldRing). Same 2px --focus-ring outline
+/* Search fields: blue ring while active (see components/SearchFieldRing). Same 2px --focus-ring outline
    InputField draws, so a field that already has it is unchanged. !important beats InputField's inline
    outline, and this works for search boxes built from a raw <input> too.
 
@@ -906,7 +906,7 @@ body {
 
 /* ── Field focus ring ─────────────────────────────────────────────────────────
    Boxed text fields (a bordered wrapper around a bare <input>/<textarea>) get the same
-   pink focus ring as InputField: a 2px outline offset 3px outside the box, drawn when
+   blue focus ring as InputField: a 2px outline offset 3px outside the box, drawn when
    anything inside it has focus. Outlines paint outside layout, so nothing shifts. A
    scroll container that clips it needs ~6px of padding around the field. */
 .kaya-field {

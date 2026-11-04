@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 
 /**
- * Pink focus ring on EVERY search field while it is active.
+ * Blue focus ring on EVERY search field while it is active.
  *
  * `InputField` already draws the ring itself, but the app also has search boxes built from a raw
  * <input> (agents, models, pins, highlights, Slack panels, …). Rather than patching each one, this

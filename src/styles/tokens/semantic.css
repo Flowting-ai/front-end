@@ -397,7 +397,7 @@
   --divider-color: var(--neutral-800-15);  /* rgba(59,54,50,0.15) */
 
   /* ── Focus ring ───────────────────────────────────────────────────────────── */
-  --focus-ring: var(--color-focus-ring);  /* #F92064 */
+  --focus-ring: var(--color-focus-ring);  /* #0D6EB2 */
 
   /* ── Switch ────────────────────────────────────────────────────────────────── */
   --switch-track-bg-off:   var(--neutral-100);     /* #F5F5F5 */
@@ -834,7 +834,7 @@
 
 /* ── Shared focus-visible ring ───────────────────────────────────────────────
    Every interactive KDS component must show a 2px keyboard-focus ring using
-   `--focus-ring` (#F92064). Per-component class hooks below own the offset and
+   `--focus-ring` (#0D6EB2). Per-component class hooks below own the offset and
    radius to avoid clipping. Mouse / touch interactions never trigger it because
    `:focus-visible` is keyboard-driven. Defined per-class instead of via a
    shared utility so each component can tune the offset to its own border-radius

@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { m, useReducedMotion } from 'framer-motion'
 import { SettingsOneIcon } from '@strange-huge/icons'
+import { avatarTint } from '@/components/Avatar'
 
 // ── "Sidebar / Profile Row" (Figma 109:4650) ─────────────────────────────────
 // "50px, avatar centred by counter-axis alignment rather than vertical
@@ -44,11 +45,11 @@ export function FlatSidebarProfileRow({ name, sublabel, avatarSrc, planLabel, on
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onOpenSettingsClick() }}
         style={{ display: 'flex', justifyContent: 'center', width: '100%', cursor: 'pointer' }}
       >
-        <div style={{ width: 32, height: 32, borderRadius: '9999px', overflow: 'hidden', flexShrink: 0, position: 'relative', boxShadow: 'var(--shadow-sidebar-item-avatar)' }}>
+        <div style={{ width: 32, height: 32, borderRadius: 9, overflow: 'hidden', flexShrink: 0, position: 'relative', boxShadow: 'var(--shadow-sidebar-item-avatar)' }}>
           {avatarSrc ? (
             <img alt="" src={avatarSrc} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--neutral-white)', color: 'var(--sidebar-menu-item-text)', fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-caption)' }}>
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundImage: avatarTint(name).background, color: avatarTint(name).color, fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 'var(--font-size-caption)' }}>
               {name.charAt(0).toUpperCase()}
             </div>
           )}
@@ -79,11 +80,11 @@ export function FlatSidebarProfileRow({ name, sublabel, avatarSrc, planLabel, on
         transition: 'background-color 150ms, box-shadow 150ms',
       }}
     >
-      <div style={{ width: 32, height: 32, borderRadius: '9999px', overflow: 'hidden', flexShrink: 0, position: 'relative', boxShadow: 'var(--shadow-sidebar-item-avatar)' }}>
+      <div style={{ width: 32, height: 32, borderRadius: 9, overflow: 'hidden', flexShrink: 0, position: 'relative', boxShadow: 'var(--shadow-sidebar-item-avatar)' }}>
         {avatarSrc ? (
           <img alt="" src={avatarSrc} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--neutral-white)', color: 'var(--sidebar-menu-item-text)', fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-caption)' }}>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundImage: avatarTint(name).background, color: avatarTint(name).color, fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 'var(--font-size-caption)' }}>
             {name.charAt(0).toUpperCase()}
           </div>
         )}

@@ -1,8 +1,7 @@
 'use client'
 
 import React from 'react'
-import { CheckmarkCircleTwoIcon, FileTwoIcon, FolderLibraryIcon, LinkSixIcon, StarIcon, UserAiIcon } from '@strange-huge/icons'
-import { ChatBubbleIcon } from './empty-icon'
+import { BubbleChatIcon, CheckmarkCircleTwoIcon, FileTwoIcon, FolderLibraryIcon, LinkSixIcon, StarIcon, UserAiIcon } from '@strange-huge/icons'
 import styles from './EmptyOverview.module.css'
 
 // The six things the overview tracks, each with its own hue, placed evenly around the orbit.
@@ -31,7 +30,7 @@ export function EmptyOverview() {
             </span>
           ))}
         </div>
-        <span className={styles.core}><ChatBubbleIcon /></span>
+        <span className={styles.core}><BubbleChatIcon size={22} /></span>
       </div>
       <p className={styles.title}>Nothing here yet</p>
       <p className={styles.text}>Send a message and this fills in as Souvenir works.</p>

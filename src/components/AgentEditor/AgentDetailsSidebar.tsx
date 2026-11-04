@@ -176,7 +176,7 @@ export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string;
   // which supplies the header, close button, background and scrolling.
   return (
     <>
-      {/* 6px of padding all round: the pink focus ring extends ~5px and the panel's scroll area clips overflow. */}
+      {/* 6px of padding all round: the blue focus ring extends ~5px and the panel's scroll area clips overflow. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: 6 }}>
         {isLoading || (repo && record && !draft) ? (
           <div role="status" aria-live="polite" style={{ display: 'flex', justifyContent: 'center', paddingTop: 40 }}><Spinner size={22} /></div>

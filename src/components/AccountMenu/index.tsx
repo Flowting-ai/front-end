@@ -130,9 +130,9 @@ const ShortcutPill = ({ label }: { label: string }) => (
 const AccountHeader = ({ name, email, avatarSrc, roleLabel }: { name: string; email?: string; avatarSrc?: string; roleLabel?: string }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 8px 10px' }}>
     {avatarSrc ? (
-      <img alt="" src={avatarSrc} style={{ width: 36, height: 36, borderRadius: 999, objectFit: 'cover', flexShrink: 0 }} />
+      <img alt="" src={avatarSrc} style={{ width: 36, height: 36, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
     ) : (
-      <span style={{ flexShrink: 0, display: 'inline-flex' }}><Avatar name={name} size="lg" /></span>
+      <span style={{ flexShrink: 0, display: 'inline-flex' }}><Avatar name={name} size="lg" style={{ borderRadius: 10 }} /></span>
     )}
     <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
