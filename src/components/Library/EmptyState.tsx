@@ -17,7 +17,8 @@ export function EmptyState({ icon, title, text, children }: EmptyStateProps) {
       role="status"
       style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0,
-        padding: '96px 24px', textAlign: 'center', flex: '1 0 auto',
+        // More padding below than above: centred under the header, at the optical centre rather than low.
+        padding: '24px 24px 10vh', textAlign: 'center', flex: '1 0 auto',
       }}
     >
       <span

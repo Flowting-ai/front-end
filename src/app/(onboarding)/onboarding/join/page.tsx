@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import { deriveInitials } from "@/components/Avatar";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,7 @@ function AvatarStack({ members, count }: { members: InvitedMember[]; count: numb
     <div style={{ display: "flex", alignItems: "center" }}>
       <div style={{ display: "flex", alignItems: "center" }}>
         {shown.map((m, i) => {
-          const initials = m.initials || (m.name || m.email || "?").trim()[0]?.toUpperCase() || "?";
+          const initials = m.initials || deriveInitials(m.name || m.email || "?");
           return (
             <span
               key={m.userId || m.email || i}

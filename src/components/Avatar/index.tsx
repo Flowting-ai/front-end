@@ -3,6 +3,7 @@
 import React from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { cn } from '@/lib/utils'
+import { useOptionalAuthUser, userFullName } from '@/context/auth-context'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -31,7 +32,7 @@ const FONT_TOKEN: Record<AvatarSize, string> = {
   lg: 'var(--font-size-body)',
 }
 
-function deriveInitials(name: string): string {
+export function deriveInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return '?'
   if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase()
@@ -103,4 +104,47 @@ export function Avatar({ ref, name, color, size = 'md', initials, seed, asChild,
 }
 
 Avatar.displayName = 'Avatar'
+
+// ── The signed-in user's own avatar ───────────────────────────────────────────
+// One look everywhere the user sees themselves (sidebar profile row, account menu, Profile card):
+// a rounded square, their photo if they have one, else two initials on their tint.
+// Initials and tint come from the signed-in user's FULL name and id — not the `name` a caller shows
+// (the main sidebar labels you by first name only) — so every surface draws the same letters and colour.
+
+/** Corner radius for a user avatar of a given size — about 28%, so 32px gets 9px and 72px gets 20px. */
+export const userAvatarRadius = (size: number) => Math.round(size * 0.28)
+
+export function UserAvatar({ name, src, size, seed, initials }: {
+  /** Fallback for the initials when no user is signed in (tests, previews). */
+  name:  string
+  src?:  string | null
+  size:  number
+  /** Stable value the tint is picked from. Defaults to the user's id, else their full name. */
+  seed?: string
+  /** Override the initials (e.g. while a name is being typed). */
+  initials?: string
+}) {
+  const user = useOptionalAuthUser()
+  const fullName = userFullName(user) || name
+  const radius = userAvatarRadius(size)
+  if (src) {
+    // eslint-disable-next-line @next/next/no-img-element -- user-supplied avatar URL, not a static asset
+    return <img alt="" src={src} style={{ display: 'block', width: size, height: size, borderRadius: radius, objectFit: 'cover', flexShrink: 0 }} />
+  }
+  const tint = avatarTint(seed ?? (user?.id != null ? String(user.id) : fullName))
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        width: size, height: size, borderRadius: radius,
+        backgroundImage: tint.background, boxShadow: AVATAR_HAIRLINE, color: tint.color,
+        fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: Math.round(size * 0.38), lineHeight: 1,
+        userSelect: 'none',
+      }}
+    >
+      {(initials ?? deriveInitials(fullName)).slice(0, 2)}
+    </span>
+  )
+}
 export default Avatar

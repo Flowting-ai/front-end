@@ -15,7 +15,7 @@ import { EmptyState } from './EmptyState'
 import { FileDialogs, useFileActions } from './FileDialogs'
 import { FileTable } from './FileTable/FileTable'
 import { FileTableSkeleton } from './LibrarySkeletons'
-import { NoFilesYet } from './SuggestedView'
+import { NoFilesYet } from './NoFilesYet'
 
 const visuallyHidden: React.CSSProperties = { position: 'absolute', width: 1, height: 1, margin: -1, padding: 0, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }
 

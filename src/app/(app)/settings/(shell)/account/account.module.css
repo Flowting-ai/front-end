@@ -60,7 +60,7 @@
   height: 72px;
   padding: 0;
   border: none;
-  border-radius: 50%;
+  border-radius: 20px; /* userAvatarRadius(72) */
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -197,150 +197,70 @@
   }
 }
 
-/* Choice tiles: a radio group drawn as cards. Selected uses the design system's checkbox blue. */
-.choices {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  padding: 20px 24px 24px;
+/* A row's dropdown, pinned to the right like Email and Role's values. */
+.detailControl {
+  margin: 0;
+  flex: none;
 }
 
-@media (max-width: 720px) {
-  .choices {
-    grid-template-columns: 1fr;
-  }
-}
-
-.choice {
-  position: relative;
+/* Response style example: a sample question and the answer in the chosen tone, full width. */
+.example {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 12px;
-  border: 1px solid var(--border-default);
+  margin: 0 24px 20px;
+  padding: 12px 16px 16px;
   border-radius: 12px;
-  background: var(--card-bg);
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
-}
-
-.choice:hover:not([aria-checked='true']) {
   background: var(--neutral-50);
+  box-shadow: inset 0 0 0 1px var(--neutral-200);
 }
 
-.choice[aria-checked='true'] {
-  border-color: var(--checkbox-bg-on);
-  box-shadow: 0 0 0 1px var(--checkbox-bg-on);
-}
-
-.choice:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-}
-
-.choice:disabled {
-  cursor: progress;
-}
-
-.choiceHead {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.choiceTitle {
-  flex: 1;
+.exampleLabel {
   font-family: var(--font-body);
   font-weight: 500;
-  font-size: 14px;
-  line-height: 22px;
-  color: var(--neutral-900);
-}
-
-.choiceHint {
-  font-family: var(--font-body);
-  font-size: 12px;
-  line-height: 18px;
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   color: var(--neutral-600);
 }
 
-.radio {
-  flex: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 1.5px solid var(--neutral-300);
-  box-sizing: border-box;
-  transition: border 120ms ease;
-}
-
-.choice[aria-checked='true'] .radio {
-  border: 5px solid var(--checkbox-bg-on);
-}
-
-/* A tiny window sketch so each screen mode shows what it looks like. */
-.preview {
-  height: 72px;
-  border-radius: 8px;
-  overflow: hidden;
-  display: flex;
-  box-shadow: inset 0 0 0 1px var(--neutral-100);
-}
-
-.previewHalf {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  padding: 10px;
-}
-
-.previewHalf i {
-  display: block;
-  height: 6px;
-  border-radius: 3px;
-}
-
-.light {
-  background: #f9f8f5;
-}
-
-.light i {
-  background: #e3ded8;
-}
-
-.dark {
-  background: #232120;
-}
-
-.dark i {
-  background: #44403c;
-}
-
-/* Tone preview: the same 72px panel as the screen-mode sketch, holding a sample reply. */
-.bubblePreview {
-  height: 72px;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  padding: 10px;
-  border-radius: 8px;
-  background: var(--neutral-50);
-  box-shadow: inset 0 0 0 1px var(--neutral-100);
-}
-
-.bubble {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  padding: 6px 10px;
-  border-radius: 10px 10px 10px 4px;
-  background: var(--card-bg);
-  box-shadow: 0px 1px 2px rgba(82, 75, 71, 0.12), 0px 0px 0px 1px var(--neutral-100);
+/* The question is the chat's own user bubble (MessageBubble role=user): same tokens, shadow and corners. */
+.exampleQuestion {
+  align-self: flex-end;
+  max-width: 80%;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 14px 14px 4px 14px;
+  background: var(--message-bubble-user-bg);
+  box-shadow: var(--shadow-message-bubble-user);
   font-family: var(--font-body);
-  font-size: 11px;
-  line-height: 16px;
-  color: var(--neutral-700);
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--message-bubble-user-text);
+}
+
+/* The answer is the assistant bubble (MessageBubble role=assistant): grey fill, hairline edge, corners. */
+.exampleAnswer {
+  align-self: flex-start;
+  max-width: 80%;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 14px 14px 14px 4px;
+  background: var(--neutral-100);
+  box-shadow: 0px 1px 2px rgba(59, 54, 50, 0.08), 0px 0px 0px 1px var(--neutral-200);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--prose-text);
+  animation: example-in 220ms ease-out;
+}
+
+@keyframes example-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exampleAnswer { animation: none; }
 }

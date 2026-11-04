@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useRef } from 'react'
+import { UserAvatar, deriveInitials } from '@/components/Avatar'
 import { InputField } from '@/components/InputField'
 import { Button } from '@/components/ui/button'
 import styles from '../account.module.css'
@@ -18,7 +19,6 @@ export function ProfileCard({ form, role, email, fallbackName }: {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { values, isEditing, isSaving } = form
   const typedName = `${values.firstName} ${values.lastName}`.trim()
-  const initials = (typedName || fallbackName).split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('')
   const pickFile = () => fileInputRef.current?.click()
 
   return (
@@ -56,12 +56,8 @@ export function ProfileCard({ form, role, email, fallbackName }: {
         />
         <div className={styles.avatarCol}>
           <button type="button" className={styles.avatar} disabled={!isEditing} onClick={pickFile} aria-label="Change profile picture">
-            {values.avatar ? (
-              // eslint-disable-next-line @next/next/no-img-element -- user-supplied data-URL avatar, not a static asset
-              <img alt="" src={values.avatar} />
-            ) : (
-              <span>{initials || '?'}</span>
-            )}
+            {/* Same avatar as the sidebar and account menu; while a new name is typed, its initials preview here. */}
+            <UserAvatar name={fallbackName || '?'} initials={typedName ? deriveInitials(typedName) : undefined} src={values.avatar} size={72} />
             <span className={styles.avatarOverlay} aria-hidden="true">Change</span>
           </button>
           {isEditing && (

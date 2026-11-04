@@ -285,8 +285,14 @@ const overrides = [
   ['--color-interactive-primary-border', LIGHT_BTN_BORDER],
   ['--color-interactive-primary-border-disabled', '#5C5C5C'],
   ['--color-interactive-primary-text', LIGHT_BTN_TEXT],
-  // Focus ring: white instead of the brand pink.
-  ['--color-focus-ring', '#FFFFFF'],
+  // Focus ring and "on" controls: the signature pink in dark mode (light mode uses --blue-600).
+  ['--color-focus-ring', '#F92064'],
+  ['--switch-track-bg-on', '#F92064'],
+  ['--checkbox-bg-on', '#F92064'],
+  ['--effort-range-bg', '#F92064'],
+  ['--shadow-switch-track-on', '0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px rgba(249, 32, 100, 0.7), inset 0px 1px 0px 0px rgba(255, 255, 255, 0.25), inset 0px -1px 0px 0px rgba(0, 0, 0, 0.15)'],
+  ['--shadow-switch-thumb-on', '0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px rgba(249, 32, 100, 0.4), inset 0px -1px 0px 0px rgba(0, 0, 0, 0.15)'],
+  ['--shadow-checkbox-on', '0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px rgba(249, 32, 100, 0.7), inset 0px 1px 0px 0px rgba(255, 255, 255, 0.25), inset 0px -1px 0px 0px rgba(0, 0, 0, 0.15)'],
   ['--color-interactive-primary-text-disabled', '#BDBDBD'],
   // Disabled ghost / outline / icon-button content + outline borders: readable, still clearly dimmer than enabled (#C4C4C4).
   ['--color-interactive-subtle-text-disabled', '#A3A3A3'],
