@@ -1,4 +1,5 @@
-import { ArrowDown, ArrowUp } from 'lucide-react'
+import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react'
+import { CUSTOM_CATEGORY } from '@/lib/api/warehouse'
 import { deltaColor, deltaDirection, deltaLabel, formatDelta } from '@/lib/home/format'
 import { deltaOf, formatValue, type MetricTile } from '@/lib/warehouse/present'
 import styles from './Dashboard.module.css'
@@ -9,10 +10,12 @@ export interface MetricRowsProps {
   onSelect: (name: string) => void
   /** What the change is measured against, e.g. "previous 30 days". */
   against: string
+  /** Removes a metric this workspace added; library metrics have no remove. */
+  onRemove?: (tile: MetricTile) => void
 }
 
 /** Every metric as one row: what it is, its value, and its change; the selected one drives the chart. */
-export function MetricRows({ tiles, selected, onSelect, against }: MetricRowsProps) {
+export function MetricRows({ tiles, selected, onSelect, against, onRemove }: MetricRowsProps) {
   if (tiles.length === 0) return null
   return (
     <ul className={styles.rows} aria-label="All metrics">
@@ -20,7 +23,7 @@ export function MetricRows({ tiles, selected, onSelect, against }: MetricRowsPro
         const delta = deltaOf(tile.value, tile.previous)
         const dir = deltaDirection(delta)
         return (
-          <li key={tile.name}>
+          <li key={tile.name} className={styles.rowItem}>
             <button
               type="button"
               className={styles.row}
@@ -29,7 +32,10 @@ export function MetricRows({ tiles, selected, onSelect, against }: MetricRowsPro
               onClick={() => onSelect(tile.name)}
             >
               <span className={styles.rowText}>
-                <span className={styles.rowLabel}>{tile.label}</span>
+                <span className={styles.rowLabel}>
+                  {tile.label}
+                  {tile.category === CUSTOM_CATEGORY && <span className={styles.chip}>Yours</span>}
+                </span>
                 <span className={styles.rowDescription}>{tile.unavailable ?? tile.description}</span>
               </span>
               <span className={styles.rowValue}>
@@ -44,6 +50,11 @@ export function MetricRows({ tiles, selected, onSelect, against }: MetricRowsPro
                 )}
               </span>
             </button>
+            {tile.category === CUSTOM_CATEGORY && onRemove && (
+              <button type="button" className={styles.rowRemove} aria-label={`Remove ${tile.label}`} onClick={() => onRemove(tile)}>
+                <Trash2 size={14} strokeWidth={1.75} aria-hidden />
+              </button>
+            )}
           </li>
         )
       })}

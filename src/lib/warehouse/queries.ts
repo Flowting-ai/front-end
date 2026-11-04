@@ -1,11 +1,11 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useOrgIdentity } from '@/context/org-context'
 import { ApiError } from '@/lib/api/client'
 import {
-  fetchMetricCatalog, fetchRows, fetchTables, fetchWorkspace, measure,
-  type MeasureRequest,
+  deleteMetric, fetchMetricCatalog, fetchRows, fetchTables, fetchWorkspace, measure, putMetric,
+  type CustomMetric, type MeasureRequest,
 } from '@/lib/api/warehouse'
 import { orgScope, queryKeys } from '@/lib/query-keys'
 import { syncOf } from './present'
@@ -32,12 +32,31 @@ export function useWorkspace() {
 }
 
 export function useMetricCatalog(enabled: boolean) {
+  const { orgId } = useOrgIdentity()
   return useQuery({
-    queryKey: queryKeys.warehouse.catalog(),
+    queryKey: queryKeys.warehouse.catalog(orgScope(orgId)),
     queryFn: ({ signal }) => fetchMetricCatalog(signal),
     enabled,
-    staleTime: Infinity,
+    staleTime: 60_000,
   })
+}
+
+/** Adding or removing a metric changes the catalog and every measurement, so the whole warehouse scope refetches. */
+function useWarehouseMutation<Input>(run: (input: Input) => Promise<unknown>) {
+  const { orgId } = useOrgIdentity()
+  const client = useQueryClient()
+  return useMutation({
+    mutationFn: run,
+    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.warehouse.all(orgScope(orgId)) }),
+  })
+}
+
+export function usePutMetric() {
+  return useWarehouseMutation((metric: CustomMetric) => putMetric(metric))
+}
+
+export function useDeleteMetric() {
+  return useWarehouseMutation((name: string) => deleteMetric(name))
 }
 
 export function useMeasurement(request: MeasureRequest, enabled: boolean) {

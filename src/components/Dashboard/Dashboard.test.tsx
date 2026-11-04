@@ -3,15 +3,16 @@ import { describe, expect, it } from 'vitest'
 
 import { DataGrid, cellText } from './DataGrid'
 import { MetricRows } from './MetricRows'
+import { EMPTY_FORM, incomplete, metricNameOf, metricOf } from '@/lib/warehouse/editor'
 import {
   channelsOf, deltaOf, headlineFrom, periodFor, pointsFor, previousPeriodFor, syncOf, tilesFrom,
 } from '@/lib/warehouse/present'
 
 const catalog = [
-  { name: 'orders', label: 'Orders', unit: 'count' as const, description: 'Orders placed' },
-  { name: 'revenue', label: 'Revenue', unit: 'money' as const, description: 'What customers paid' },
-  { name: 'refund_rate', label: 'Refund rate', unit: 'ratio' as const, description: 'Refunds over revenue' },
-  { name: 'mer', label: 'MER', unit: 'ratio' as const, description: 'Revenue over ad spend' },
+  { name: 'orders', label: 'Orders', unit: 'count' as const, description: 'Orders placed', category: 'store' },
+  { name: 'revenue', label: 'Revenue', unit: 'money' as const, description: 'What customers paid', category: 'store' },
+  { name: 'refund_rate', label: 'Refund rate', unit: 'ratio' as const, description: 'Refunds over revenue', category: 'store' },
+  { name: 'mer', label: 'MER', unit: 'ratio' as const, description: 'Revenue over ad spend', category: 'ads' },
 ]
 const TODAY = new Date('2026-11-04T12:00:00Z')
 
@@ -83,10 +84,31 @@ describe('syncOf', () => {
     expect(syncOf(workspace([{ status: 'building', lastSyncedAt: null }])).state).toBe('building')
     expect(syncOf(workspace([{ status: 'failed', lastSyncedAt: null }])).state).toBe('failed')
   })
+  it('leaves out a category the store has nothing for', () => {
+    expect(syncOf(workspace([{ status: 'ready', lastSyncedAt: '2026-11-04T01:00:00Z' }, { status: 'not_applicable', lastSyncedAt: null }])).state).toBe('ready')
+  })
   it('then reads failed over syncing over ready, with the newest sync time', () => {
     expect(syncOf(workspace([{ status: 'ready', lastSyncedAt: '2026-11-04T01:00:00Z' }, { status: 'failed', lastSyncedAt: null }])).state).toBe('failed')
     expect(syncOf(workspace([{ status: 'ready', lastSyncedAt: '2026-11-04T01:00:00Z' }, { status: 'syncing', lastSyncedAt: '2026-11-04T02:00:00Z' }]))).toEqual({ state: 'syncing', lastSyncedAt: '2026-11-04T02:00:00Z' })
     expect(syncOf(workspace([{ status: 'ready', lastSyncedAt: '2026-11-04T01:00:00Z' }])).state).toBe('ready')
+  })
+})
+
+describe('metric editor', () => {
+  it('names the metric from its label', () => {
+    expect(metricNameOf('Shipping share of revenue')).toBe('shipping_share_of_revenue')
+    expect(metricNameOf('2nd order rate!')).toBe('m_2nd_order_rate')
+  })
+  it('builds a table figure or a formula, and says what is missing until then', () => {
+    expect(incomplete(EMPTY_FORM)).toBe('Give the metric a name')
+    const figure = { ...EMPTY_FORM, label: 'Shipping', table: 'orders', column: 'shipping_charged', day: 'placed_at', where: ' cancelled_at is null ' }
+    expect(incomplete(figure)).toBeNull()
+    expect(metricOf(figure).value).toEqual({ kind: 'sum', table: 'orders', column: 'shipping_charged', day: 'placed_at', where: 'cancelled_at is null' })
+    expect(metricOf({ ...figure, kind: 'count', where: '' }).value).toEqual({ kind: 'count', table: 'orders', column: null, day: 'placed_at', where: null })
+    const formula = { ...EMPTY_FORM, label: 'Shipping share', unit: 'ratio' as const, mode: 'formula' as const, left: 'shipping_revenue', op: 'ratio' as const, right: 'revenue' }
+    expect(metricOf(formula).value).toEqual({ op: 'ratio', numerator: 'shipping_revenue', denominator: 'revenue' })
+    expect(metricOf({ ...formula, op: 'multiply', right: ' 100 ' }).value).toEqual({ op: 'multiply', terms: ['shipping_revenue', 100] })
+    expect(metricOf({ ...formula, op: 'subtract', right: 'refunds' }).value).toEqual({ op: 'subtract', left: 'shipping_revenue', right: 'refunds' })
   })
 })
 

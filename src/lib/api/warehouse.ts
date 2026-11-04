@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { apiFetchJson } from './client'
+import { apiFetchJson, apiFetchVoid } from './client'
 import { API_BASE_URL } from '../config'
 
 const WAREHOUSE = `${API_BASE_URL}/warehouse`
@@ -27,7 +27,36 @@ const metricEntrySchema = z.object({
   label:       z.string(),
   unit:        metricUnitSchema,
   description: z.string(),
+  /** The library category, or "custom" for one this workspace added. */
+  category:    z.string(),
 })
+
+export const CUSTOM_CATEGORY = 'custom'
+
+/** A base figure: one table's rows summed on a column or counted, placed on days by `day`, optionally filtered. */
+export interface MetricAggregate {
+  kind: 'sum' | 'count'
+  table: string
+  column: string | null
+  day: string
+  where: string | null
+}
+
+export type MetricTerm = string | number | MetricExpression
+
+export type MetricExpression =
+  | { op: 'add'; terms: MetricTerm[] }
+  | { op: 'subtract'; left: MetricTerm; right: MetricTerm }
+  | { op: 'multiply'; terms: MetricTerm[] }
+  | { op: 'ratio'; numerator: MetricTerm; denominator: MetricTerm }
+
+export interface CustomMetric {
+  name: string
+  label: string
+  unit: MetricUnit
+  description: string
+  value: MetricAggregate | MetricExpression
+}
 
 export const grainSchema = z.enum(['day', 'week', 'month', 'total'])
 
@@ -86,6 +115,16 @@ export async function fetchWorkspace(signal?: AbortSignal): Promise<Workspace> {
 
 export async function fetchMetricCatalog(signal?: AbortSignal): Promise<MetricEntry[]> {
   return z.array(metricEntrySchema).parse(await apiFetchJson<unknown>(`${WAREHOUSE}/metrics`, { signal }))
+}
+
+export async function putMetric(metric: CustomMetric, signal?: AbortSignal): Promise<MetricEntry[]> {
+  return z.array(metricEntrySchema).parse(await apiFetchJson<unknown>(`${WAREHOUSE}/metrics`, {
+    method: 'PUT', body: JSON.stringify(metric), headers: { 'Content-Type': 'application/json' }, signal,
+  }))
+}
+
+export async function deleteMetric(name: string, signal?: AbortSignal): Promise<void> {
+  await apiFetchVoid(`${WAREHOUSE}/metrics/${encodeURIComponent(name)}`, { method: 'DELETE', signal })
 }
 
 export async function measure(request: MeasureRequest, signal?: AbortSignal): Promise<Measurement> {

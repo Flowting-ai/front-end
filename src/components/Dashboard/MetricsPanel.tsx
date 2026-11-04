@@ -1,15 +1,20 @@
 'use client'
 
 import React, { Suspense, useMemo, useState } from 'react'
+import { Plus } from 'lucide-react'
+import { toast } from 'sonner'
+import { Button } from '@/components/Button'
+import { ConfirmModal } from '@/components/ConfirmModal'
 import { MetricStrip } from '@/components/Home'
 import { Skeleton } from '@/components/Skeleton'
 import { useIsClient } from '@/hooks/use-is-client'
 import type { Workspace } from '@/lib/api/warehouse'
-import { useMeasurement, useMetricCatalog } from '@/lib/warehouse/queries'
+import { useDeleteMetric, useMeasurement, useMetricCatalog, useTables } from '@/lib/warehouse/queries'
 import {
   CHART_GRAIN, RANGE_OPTIONS, channelsOf, headlineFrom, periodFor, pointsFor, previousPeriodFor, tilesFrom,
-  type DashboardRange,
+  type DashboardRange, type MetricTile,
 } from '@/lib/warehouse/present'
+import { MetricEditor } from './MetricEditor'
 import { MetricRows } from './MetricRows'
 import styles from './Dashboard.module.css'
 
@@ -25,9 +30,13 @@ export interface MetricsPanelProps {
 /** The metric library over a range: the headline strip, a daily line for the chosen metric, and every metric as a row. */
 export function MetricsPanel({ workspace, range }: MetricsPanelProps) {
   const [selected, setSelected] = useState<string | null>(null)
+  const [adding, setAdding] = useState(false)
+  const [removing, setRemoving] = useState<MetricTile | null>(null)
   const period = useMemo(() => periodFor(range), [range])
   const before = useMemo(() => previousPeriodFor(range), [range])
   const catalog = useMetricCatalog(true)
+  const tables = useTables(adding)
+  const remove = useDeleteMetric()
   const names = useMemo(() => (catalog.data ?? []).map(entry => entry.name), [catalog.data])
   const total = useMeasurement({ metrics: names, ...period, grain: 'total' }, names.length > 0)
   const previous = useMeasurement({ metrics: names, ...before, grain: 'total' }, names.length > 0)
@@ -71,10 +80,30 @@ export function MetricsPanel({ workspace, range }: MetricsPanelProps) {
       <div>
         <div className={styles.sectionHead}>
           <h2 className={styles.sectionTitle}>All metrics</h2>
-          <span className={styles.sectionMeta}>{period.start} – {period.end}</span>
+          <span className={styles.sectionActions}>
+            <span className={styles.sectionMeta}>{period.start} – {period.end}</span>
+            <Button variant="secondary" size="sm" leftIcon={<Plus size={14} strokeWidth={1.75} aria-hidden />} onClick={() => setAdding(true)}>
+              Add metric
+            </Button>
+          </span>
         </div>
-        <MetricRows tiles={tiles} selected={chosen?.name ?? null} onSelect={setSelected} against={against} />
+        <MetricRows tiles={tiles} selected={chosen?.name ?? null} onSelect={setSelected} against={against} onRemove={setRemoving} />
       </div>
+      {adding && tables.data && (
+        <MetricEditor tables={tables.data} catalog={catalog.data} onClose={() => setAdding(false)} />
+      )}
+      {removing && (
+        <ConfirmModal
+          title={`Remove ${removing.label}?`}
+          description="It comes off the dashboard for everyone in the organization. Metrics built on it stop working."
+          confirmLabel="Remove"
+          onConfirm={async () => {
+            await remove.mutateAsync(removing.name)
+            toast.success(`${removing.label} removed`)
+          }}
+          onClose={() => setRemoving(null)}
+        />
+      )}
     </section>
   )
 }

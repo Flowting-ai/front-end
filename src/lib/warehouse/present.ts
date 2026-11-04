@@ -59,6 +59,7 @@ export interface MetricTile {
   label: string
   unit: MetricUnit
   description: string
+  category: string
   value: number | null
   previous: number | null
   /** Why the store cannot measure it, when it cannot. */
@@ -70,7 +71,7 @@ export function tilesFrom(catalog: MetricEntry[], total: Measurement | undefined
   const values = total?.periods[0]?.values ?? {}
   const before = previous?.periods[0]?.values ?? {}
   return catalog.map(entry => ({
-    name: entry.name, label: entry.label, unit: entry.unit, description: entry.description,
+    name: entry.name, label: entry.label, unit: entry.unit, description: entry.description, category: entry.category,
     value: values[entry.name] ?? null,
     previous: before[entry.name] ?? null,
     unavailable: total?.unavailable[entry.name] ?? null,
@@ -117,13 +118,17 @@ export interface Sync {
   lastSyncedAt: string | null
 }
 
-/** The workspace's sync as one state: building until any category has synced once, then failed, syncing or ready. */
+/**
+ * The workspace's sync as one state: building until any category has synced once, then failed, syncing or ready.
+ * A category the store has nothing for (no A/B tests, say) is not applicable and does not count.
+ */
 export function syncOf(workspace: Workspace): Sync {
-  const synced = workspace.categories.map(c => c.lastSyncedAt).filter((at): at is string => at !== null).sort()
+  const categories = workspace.categories.filter(c => c.status !== 'not_applicable')
+  const synced = categories.map(c => c.lastSyncedAt).filter((at): at is string => at !== null).sort()
   const lastSyncedAt = synced.at(-1) ?? null
-  if (lastSyncedAt === null) return { state: workspace.categories.every(c => c.status === 'failed') ? 'failed' : 'building', lastSyncedAt }
-  if (workspace.categories.some(c => c.status === 'failed')) return { state: 'failed', lastSyncedAt }
-  if (workspace.categories.some(c => c.status === 'syncing' || c.status === 'building')) return { state: 'syncing', lastSyncedAt }
+  if (lastSyncedAt === null) return { state: categories.length > 0 && categories.every(c => c.status === 'failed') ? 'failed' : 'building', lastSyncedAt }
+  if (categories.some(c => c.status === 'failed')) return { state: 'failed', lastSyncedAt }
+  if (categories.some(c => c.status === 'syncing' || c.status === 'building')) return { state: 'syncing', lastSyncedAt }
   return { state: 'ready', lastSyncedAt }
 }
 
