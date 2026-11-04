@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { DataGrid, cellText } from './DataGrid'
 import { MetricRows } from './MetricRows'
-import { EMPTY_FORM, incomplete, metricNameOf, metricOf } from '@/lib/warehouse/editor'
+import { metricNameOf, parseFormula, unitOf } from '@/lib/warehouse/editor'
 import {
   channelsOf, deltaOf, headlineFrom, periodFor, pointsFor, previousPeriodFor, syncOf, tilesFrom,
 } from '@/lib/warehouse/present'
@@ -99,16 +99,24 @@ describe('metric editor', () => {
     expect(metricNameOf('Shipping share of revenue')).toBe('shipping_share_of_revenue')
     expect(metricNameOf('2nd order rate!')).toBe('m_2nd_order_rate')
   })
-  it('builds a table figure or a formula, and says what is missing until then', () => {
-    expect(incomplete(EMPTY_FORM)).toBe('Give the metric a name')
-    const figure = { ...EMPTY_FORM, label: 'Shipping', table: 'orders', column: 'shipping_charged', day: 'placed_at', where: ' cancelled_at is null ' }
-    expect(incomplete(figure)).toBeNull()
-    expect(metricOf(figure).value).toEqual({ kind: 'sum', table: 'orders', column: 'shipping_charged', day: 'placed_at', where: 'cancelled_at is null' })
-    expect(metricOf({ ...figure, kind: 'count', where: '' }).value).toEqual({ kind: 'count', table: 'orders', column: null, day: 'placed_at', where: null })
-    const formula = { ...EMPTY_FORM, label: 'Shipping share', unit: 'ratio' as const, mode: 'formula' as const, left: 'shipping_revenue', op: 'ratio' as const, right: 'revenue' }
-    expect(metricOf(formula).value).toEqual({ op: 'ratio', numerator: 'shipping_revenue', denominator: 'revenue' })
-    expect(metricOf({ ...formula, op: 'multiply', right: ' 100 ' }).value).toEqual({ op: 'multiply', terms: ['shipping_revenue', 100] })
-    expect(metricOf({ ...formula, op: 'subtract', right: 'refunds' }).value).toEqual({ op: 'subtract', left: 'shipping_revenue', right: 'refunds' })
+  it('reads a formula over metrics and numbers into the warehouse shape', () => {
+    const names = ['shipping_revenue', 'revenue', 'refunds', 'net_sales']
+    expect(parseFormula('shipping_revenue / revenue', names, [])).toEqual({ op: 'ratio', numerator: 'shipping_revenue', denominator: 'revenue' })
+    expect(parseFormula('(revenue - refunds) * 0.3', names, [])).toEqual({ op: 'multiply', terms: [{ op: 'subtract', left: 'revenue', right: 'refunds' }, 0.3] })
+    expect(parseFormula('net_sales + refunds + 10', names, [])).toEqual({ op: 'add', terms: [{ op: 'add', terms: ['net_sales', 'refunds'] }, 10] })
+    expect(unitOf(parseFormula('refunds / revenue', names, []))).toBe('ratio')
+    expect(() => parseFormula('revenue / nope', names, [])).toThrow('No metric called nope')
+    expect(() => parseFormula('revenue +', names, [])).toThrow('ends early')
+    expect(() => parseFormula('revenue', names, [])).toThrow('already exists')
+  })
+  it('reads a sum or count over a store table, dated by its first date column', () => {
+    const tables = [{ name: 'orders', meaning: '', rows: 1, columns: [{ name: 'order_id', type: 'string' }, { name: 'placed_at', type: 'timestamp[us, tz=UTC]' }, { name: 'total', type: 'decimal128(18, 2)' }] }]
+    expect(parseFormula('sum(orders.total)', [], tables)).toEqual({ kind: 'sum', table: 'orders', column: 'total', day: 'placed_at', where: null })
+    expect(parseFormula('count(orders)', [], tables)).toEqual({ kind: 'count', table: 'orders', column: null, day: 'placed_at', where: null })
+    expect(unitOf(parseFormula('count(orders)', [], tables))).toBe('count')
+    expect(() => parseFormula('sum(orders.nope)', [], tables)).toThrow('no column nope')
+    expect(() => parseFormula('sum(orders.total) / 2', [], tables)).toThrow('stands alone')
+    expect(() => parseFormula('count(refunds)', [], tables)).toThrow('No table called refunds')
   })
 })
 

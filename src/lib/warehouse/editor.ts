@@ -1,33 +1,16 @@
-// The metric builder's form, and the metric it produces: a figure from one table, or a formula over metrics that exist.
+// The metric builder: one formula, typed the way you'd say it. "shipping_revenue / revenue", "net_sales * 0.3",
+// "sum(orders.shipping_charged)", "count(refunds)". Metric names and numbers combine with + - * / and brackets;
+// a sum or count is a metric of its own, so it stands alone.
 
-import type { CustomMetric, MetricAggregate, MetricExpression, MetricUnit, TableSummary } from '@/lib/api/warehouse'
-
-export type EditorMode = 'table' | 'formula'
-export type FormulaOp = MetricExpression['op']
+import type { CustomMetric, MetricAggregate, MetricExpression, MetricTerm, MetricUnit, TableSummary } from '@/lib/api/warehouse'
 
 export interface EditorForm {
   label: string
-  description: string
   unit: MetricUnit
-  mode: EditorMode
-  table: string
-  kind: MetricAggregate['kind']
-  column: string
-  day: string
-  where: string
-  left: string
-  op: FormulaOp
-  /** A metric name, or a number typed in. */
-  right: string
+  formula: string
 }
 
-export const OP_LABELS: Record<FormulaOp, string> = { add: '+', subtract: '−', multiply: '×', ratio: '÷' }
-
-export const EMPTY_FORM: EditorForm = {
-  label: '', description: '', unit: 'money', mode: 'table',
-  table: '', kind: 'sum', column: '', day: '', where: '',
-  left: '', op: 'ratio', right: '',
-}
+export const EMPTY_FORM: EditorForm = { label: '', unit: 'money', formula: '' }
 
 /** "Shipping share of revenue" → shipping_share_of_revenue; a name that cannot start with a letter gets one. */
 export function metricNameOf(label: string): string {
@@ -35,41 +18,119 @@ export function metricNameOf(label: string): string {
   return /^[a-z]/.test(slug) ? slug : `m_${slug}`.slice(0, 64)
 }
 
-const NUMERIC = /int|decimal|double|float/
 const DATED = /timestamp|date/
 
-export function numericColumns(table: TableSummary | undefined): string[] {
-  return (table?.columns ?? []).filter(c => NUMERIC.test(c.type)).map(c => c.name)
+export function dayColumnOf(table: TableSummary): string | undefined {
+  return table.columns.find(c => DATED.test(c.type))?.name
 }
 
-export function dayColumns(table: TableSummary | undefined): string[] {
-  return (table?.columns ?? []).filter(c => DATED.test(c.type)).map(c => c.name)
-}
+type Token = { kind: 'number'; text: string } | { kind: 'name'; text: string } | { kind: 'op'; text: string }
 
-function term(value: string): string | number {
-  const trimmed = value.trim()
-  return trimmed !== '' && !Number.isNaN(Number(trimmed)) ? Number(trimmed) : trimmed
-}
-
-/** What is still missing before the form is a metric; empty when it is one. */
-export function incomplete(form: EditorForm): string | null {
-  if (!form.label.trim()) return 'Give the metric a name'
-  if (form.mode === 'table') {
-    if (!form.table) return 'Pick a table'
-    if (form.kind === 'sum' && !form.column) return 'Pick the column to sum'
-    if (!form.day) return 'Pick the date column that places a row on a day'
-    return null
+function tokens(formula: string): Token[] {
+  const out: Token[] = []
+  const pattern = /\s*(?:(\d+(?:\.\d+)?)|([a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)?)|([-+*/()]))/giy
+  let at = 0
+  while (at < formula.length) {
+    pattern.lastIndex = at
+    const match = pattern.exec(formula)
+    if (match === null) {
+      if (formula.slice(at).trim() === '') break
+      throw new Error(`Can't read "${formula.slice(at).trim().slice(0, 12)}"`)
+    }
+    if (match[1] !== undefined) out.push({ kind: 'number', text: match[1] })
+    else if (match[2] !== undefined) out.push({ kind: 'name', text: match[2].toLowerCase() })
+    else out.push({ kind: 'op', text: match[3] })
+    at = pattern.lastIndex
   }
-  if (!form.left) return 'Pick the first metric'
-  if (!form.right.trim()) return 'Pick the second metric or type a number'
-  return null
+  return out
 }
 
-export function metricOf(form: EditorForm): CustomMetric {
-  const value: MetricAggregate | MetricExpression = form.mode === 'table'
-    ? { kind: form.kind, table: form.table, column: form.kind === 'sum' ? form.column : null, day: form.day, where: form.where.trim() || null }
-    : form.op === 'subtract' ? { op: 'subtract', left: form.left, right: term(form.right) }
-    : form.op === 'ratio' ? { op: 'ratio', numerator: form.left, denominator: term(form.right) }
-    : { op: form.op, terms: [form.left, term(form.right)] }
-  return { name: metricNameOf(form.label), label: form.label.trim(), unit: form.unit, description: form.description.trim(), value }
+/** Reads the formula into the warehouse's metric value, or throws with what to fix. */
+export function parseFormula(formula: string, metrics: string[], tables: TableSummary[]): MetricAggregate | MetricExpression {
+  const list = tokens(formula)
+  if (list.length === 0) throw new Error('Type a formula')
+  const known = new Set(metrics)
+  let at = 0
+  const peek = () => list[at]
+  const take = () => list[at++]
+
+  const aggregate = (): MetricAggregate => {
+    const fn = take()
+    if (take()?.text !== '(') throw new Error(`${fn.text} needs brackets, like ${fn.text}(orders${fn.text === 'sum' ? '.total' : ''})`)
+    const target = take()
+    if (target?.kind !== 'name') throw new Error(`${fn.text}() needs a table${fn.text === 'sum' ? '.column' : ''} inside`)
+    if (take()?.text !== ')') throw new Error(`Close the bracket after ${target.text}`)
+    const [tableName, column] = target.text.split('.')
+    const table = tables.find(t => t.name === tableName)
+    if (table === undefined) throw new Error(`No table called ${tableName}. Tables: ${tables.map(t => t.name).join(', ')}`)
+    const day = dayColumnOf(table)
+    if (day === undefined) throw new Error(`${tableName} has no date column to place rows on days`)
+    if (fn.text === 'count') {
+      if (column !== undefined) throw new Error('count() takes a table, like count(orders)')
+      return { kind: 'count', table: tableName, column: null, day, where: null }
+    }
+    if (column === undefined) throw new Error('sum() takes a table.column, like sum(orders.total)')
+    if (!table.columns.some(c => c.name === column)) throw new Error(`${tableName} has no column ${column}. Columns: ${table.columns.map(c => c.name).join(', ')}`)
+    return { kind: 'sum', table: tableName, column, day, where: null }
+  }
+
+  const factor = (): MetricTerm => {
+    const token = peek()
+    if (token === undefined) throw new Error('The formula ends early')
+    if (token.kind === 'number') { take(); return Number(token.text) }
+    if (token.kind === 'name') {
+      if (token.text === 'sum' || token.text === 'count') throw new Error(`Make ${token.text}() its own metric first, then use its name here`)
+      take()
+      if (!known.has(token.text)) throw new Error(`No metric called ${token.text}`)
+      return token.text
+    }
+    if (token.text === '(') {
+      take()
+      const inner = expression()
+      if (take()?.text !== ')') throw new Error('Close the bracket')
+      return inner
+    }
+    throw new Error(`Unexpected ${token.text}`)
+  }
+
+  const term = (): MetricTerm => {
+    let left = factor()
+    while (peek()?.kind === 'op' && (peek().text === '*' || peek().text === '/')) {
+      const op = take().text
+      const right = factor()
+      left = op === '*' ? { op: 'multiply', terms: [left, right] } : { op: 'ratio', numerator: left, denominator: right }
+    }
+    return left
+  }
+
+  const expression = (): MetricTerm => {
+    let left = term()
+    while (peek()?.kind === 'op' && (peek().text === '+' || peek().text === '-')) {
+      const op = take().text
+      const right = term()
+      left = op === '+' ? { op: 'add', terms: [left, right] } : { op: 'subtract', left, right }
+    }
+    return left
+  }
+
+  const first = peek()
+  if (first.kind === 'name' && (first.text === 'sum' || first.text === 'count')) {
+    const value = aggregate()
+    if (at < list.length) throw new Error(`A ${first.text}() stands alone; to combine it, save it first and use its name`)
+    return value
+  }
+  const value = expression()
+  if (at < list.length) throw new Error(`Unexpected ${list[at].text}`)
+  if (typeof value !== 'object') throw new Error(typeof value === 'number' ? 'A number on its own is not a metric' : 'That metric already exists; combine it with something')
+  return value
+}
+
+/** The unit a formula most likely wants: a division reads as a percent, a count as a count, the rest as money. */
+export function unitOf(value: MetricAggregate | MetricExpression): MetricUnit {
+  if ('kind' in value) return value.kind === 'count' ? 'count' : 'money'
+  return value.op === 'ratio' ? 'ratio' : 'money'
+}
+
+export function metricOf(form: EditorForm, value: MetricAggregate | MetricExpression): CustomMetric {
+  return { name: metricNameOf(form.label), label: form.label.trim(), unit: form.unit, description: form.formula.trim(), value }
 }

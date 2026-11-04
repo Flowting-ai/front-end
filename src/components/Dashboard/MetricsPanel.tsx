@@ -10,8 +10,9 @@ import { Skeleton } from '@/components/Skeleton'
 import { useIsClient } from '@/hooks/use-is-client'
 import type { Workspace } from '@/lib/api/warehouse'
 import { useDeleteMetric, useMeasurement, useMetricCatalog, useTables } from '@/lib/warehouse/queries'
+import { deltaColor, formatDelta } from '@/lib/home/format'
 import {
-  CHART_GRAIN, RANGE_OPTIONS, channelsOf, headlineFrom, periodFor, pointsFor, previousPeriodFor, tilesFrom,
+  CHART_GRAIN, RANGE_OPTIONS, channelsOf, deltaOf, formatValue, headlineFrom, periodFor, pointsFor, previousPeriodFor, tilesFrom,
   type DashboardRange, type MetricTile,
 } from '@/lib/warehouse/present'
 import { MetricEditor } from './MetricEditor'
@@ -20,7 +21,7 @@ import styles from './Dashboard.module.css'
 
 // The chart pulls in Recharts, so it is loaded the first time a metric is charted, not with the page.
 const MetricLineChart = React.lazy(() => import('./MetricLineChart').then(module => ({ default: module.MetricLineChart })))
-const CHART_HEIGHT = 220
+const CHART_HEIGHT = 200
 
 export interface MetricsPanelProps {
   workspace: Workspace
@@ -63,31 +64,40 @@ export function MetricsPanel({ workspace, range }: MetricsPanelProps) {
   return (
     <section className={styles.panel}>
       <MetricStrip metrics={headline} />
-      {chosen && (
-        <div className={styles.chartCard}>
-          <div className={styles.chartTitle}>{chosen.label} by day</div>
-          {daily.data === undefined || !isClient
-            ? chartPlaceholder
-            : (
-              <div className={styles.chart}>
-                <Suspense fallback={chartPlaceholder}>
-                  <MetricLineChart points={points} unit={chosen.unit} height={CHART_HEIGHT} />
-                </Suspense>
-              </div>
-            )}
-        </div>
-      )}
-      <div>
-        <div className={styles.sectionHead}>
-          <h2 className={styles.sectionTitle}>All metrics</h2>
-          <span className={styles.sectionActions}>
-            <span className={styles.sectionMeta}>{period.start} – {period.end}</span>
+      <div className={styles.feature}>
+        {chosen && (
+          <section className={styles.focus} aria-labelledby="dashboard-focus">
+            <div className={styles.focusTop}>
+              <h2 id="dashboard-focus" className={styles.focusEyebrow}>{chosen.label}</h2>
+              <span className={styles.sectionMeta}>by day</span>
+            </div>
+            <div className={styles.focusValue}>
+              <strong>{formatValue(chosen.value, chosen.unit)}</strong>
+              <span className={styles.delta} style={{ color: deltaColor(deltaOf(chosen.value, chosen.previous)) }}>
+                {formatDelta(deltaOf(chosen.value, chosen.previous))} vs {against}
+              </span>
+            </div>
+            <div className={styles.focusChart}>
+              {daily.data === undefined || !isClient
+                ? chartPlaceholder
+                : (
+                  <Suspense fallback={chartPlaceholder}>
+                    <MetricLineChart points={points} unit={chosen.unit} height={CHART_HEIGHT} />
+                  </Suspense>
+                )}
+            </div>
+            <p className={styles.focusDescription}>{chosen.description}</p>
+          </section>
+        )}
+        <div className={styles.list}>
+          <div className={styles.sectionHead}>
+            <h2 className={styles.sectionTitle}>All metrics</h2>
             <Button variant="secondary" size="sm" leftIcon={<Plus size={14} strokeWidth={1.75} aria-hidden />} onClick={() => setAdding(true)}>
               Add metric
             </Button>
-          </span>
+          </div>
+          <MetricRows tiles={tiles} selected={chosen?.name ?? null} onSelect={setSelected} against={against} onRemove={setRemoving} />
         </div>
-        <MetricRows tiles={tiles} selected={chosen?.name ?? null} onSelect={setSelected} against={against} onRemove={setRemoving} />
       </div>
       {adding && tables.data && (
         <MetricEditor tables={tables.data} catalog={catalog.data} onClose={() => setAdding(false)} />

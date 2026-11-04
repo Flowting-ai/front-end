@@ -1,22 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
 import { InputField } from '@/components/InputField'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import type { MetricEntry, MetricUnit, TableSummary } from '@/lib/api/warehouse'
-import {
-  EMPTY_FORM, OP_LABELS, dayColumns, incomplete, metricOf, numericColumns, type EditorForm, type EditorMode, type FormulaOp,
-} from '@/lib/warehouse/editor'
+import { EMPTY_FORM, metricNameOf, metricOf, parseFormula, unitOf, type EditorForm } from '@/lib/warehouse/editor'
 import { usePutMetric } from '@/lib/warehouse/queries'
 import styles from './Dashboard.module.css'
 
 const UNITS: ReadonlyArray<{ id: MetricUnit; label: string }> = [
   { id: 'money', label: 'Money' }, { id: 'count', label: 'Count' }, { id: 'ratio', label: 'Percent' },
-]
-const MODES: ReadonlyArray<{ id: EditorMode; label: string }> = [
-  { id: 'table', label: 'From a table' }, { id: 'formula', label: 'From other metrics' },
 ]
 
 export interface MetricEditorProps {
@@ -25,48 +20,34 @@ export interface MetricEditorProps {
   onClose: () => void
 }
 
-function Choice<T extends string>({ options, value, onChange, label }: {
-  options: ReadonlyArray<{ id: T; label: string }>; value: T; onChange: (id: T) => void; label: string
-}) {
-  return (
-    <div className={styles.choice} role="radiogroup" aria-label={label}>
-      {options.map(option => (
-        <button key={option.id} type="button" role="radio" aria-checked={option.id === value}
-          className={styles.choiceOption} onClick={() => onChange(option.id)}>
-          {option.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function Select({ label, value, onChange, options, placeholder }: {
-  label: string; value: string; onChange: (value: string) => void
-  options: ReadonlyArray<{ id: string; label: string }>; placeholder: string
-}) {
-  return (
-    <label className={styles.field}>
-      <span className={styles.fieldLabel}>{label}</span>
-      <select className={styles.select} value={value} onChange={event => onChange(event.target.value)}>
-        <option value="">{placeholder}</option>
-        {options.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
-      </select>
-    </label>
-  )
-}
-
-/** Builds one metric: a figure from a store table, or a formula over the metrics already there. */
+/** One formula over the metrics and tables the store has; the name and unit come along. */
 export function MetricEditor({ tables, catalog, onClose }: MetricEditorProps) {
   const [form, setForm] = useState<EditorForm>(EMPTY_FORM)
+  const [unitPicked, setUnitPicked] = useState(false)
   const put = usePutMetric()
-  const set = <K extends keyof EditorForm>(key: K, value: EditorForm[K]) => setForm(current => ({ ...current, [key]: value }))
-  const table = tables.find(t => t.name === form.table)
-  const missing = incomplete(form)
-  const metrics = catalog.map(entry => ({ id: entry.name, label: entry.label }))
+  const names = useMemo(() => catalog.map(entry => entry.name), [catalog])
+
+  const parsed = useMemo(() => {
+    try {
+      return { value: parseFormula(form.formula, names, tables), error: null }
+    } catch (error) {
+      return { value: null, error: error instanceof Error ? error.message : 'Try again' }
+    }
+  }, [form.formula, names, tables])
+  const unit = unitPicked || parsed.value === null ? form.unit : unitOf(parsed.value)
+  const ready = parsed.value !== null && form.label.trim() !== ''
+  const hint = form.formula.trim() === ''
+    ? 'Metric names, numbers, + − × ÷ and brackets. Or sum(orders.total), count(refunds).'
+    : parsed.error ?? `Saved as ${metricNameOf(form.label) || '…'}`
+
+  const insert = (name: string) => setForm(current => ({
+    ...current, formula: `${current.formula}${current.formula === '' || /[\s(]$/.test(current.formula) ? '' : ' '}${name}`,
+  }))
 
   const save = async () => {
+    if (parsed.value === null) return
     try {
-      await put.mutateAsync(metricOf(form))
+      await put.mutateAsync(metricOf({ ...form, unit }, parsed.value))
       toast.success(`${form.label.trim()} added`)
       onClose()
     } catch (error) {
@@ -80,63 +61,37 @@ export function MetricEditor({ tables, catalog, onClose }: MetricEditorProps) {
         <div>
           <DialogTitle>Add a metric</DialogTitle>
           <DialogDescription className={styles.emptyText} style={{ margin: '8px 0 0' }}>
-            A figure from one of your store tables, or a formula over metrics you already have. It shows up on the dashboard with the rest.
+            Write it like a sum: shipping_revenue / revenue.
           </DialogDescription>
         </div>
         <div className={styles.form}>
-          <InputField label="Name" value={form.label} onChange={value => set('label', value)} placeholder="Shipping share of revenue" fluid />
-          <InputField label="What it means" value={form.description} onChange={value => set('description', value)} placeholder="Optional" fluid />
+          <InputField label="Name" value={form.label} onChange={label => setForm(current => ({ ...current, label }))}
+            placeholder="Shipping share of revenue" fluid />
+          <InputField label="Formula" value={form.formula} onChange={formula => setForm(current => ({ ...current, formula }))}
+            placeholder="shipping_revenue / revenue" error={form.formula.trim() !== '' && parsed.error !== null} fluid />
+          <span className={styles.hint} aria-live="polite">{hint}</span>
+          <div className={styles.chips} aria-label="Metrics you can use">
+            {catalog.map(entry => (
+              <button key={entry.name} type="button" className={styles.chipButton} title={entry.description} onClick={() => insert(entry.name)}>
+                {entry.name}
+              </button>
+            ))}
+          </div>
           <div className={styles.field}>
             <span className={styles.fieldLabel}>Shown as</span>
-            <Choice options={UNITS} value={form.unit} onChange={unit => set('unit', unit)} label="Unit" />
-          </div>
-          <div className={styles.field}>
-            <span className={styles.fieldLabel}>Built</span>
-            <Choice options={MODES} value={form.mode} onChange={mode => set('mode', mode)} label="How the metric is built" />
-          </div>
-          {form.mode === 'table' ? (
-            <>
-              <Select label="Table" value={form.table} placeholder="Pick a table" options={tables.map(t => ({ id: t.name, label: t.name.replace(/_/g, ' ') }))}
-                onChange={value => setForm(current => ({ ...current, table: value, column: '', day: dayColumns(tables.find(t => t.name === value))[0] ?? '' }))} />
-              <div className={styles.field}>
-                <span className={styles.fieldLabel}>Figure</span>
-                <Choice options={[{ id: 'sum', label: 'Sum of a column' }, { id: 'count', label: 'Count of rows' }]}
-                  value={form.kind} onChange={kind => set('kind', kind)} label="Figure" />
-              </div>
-              {form.kind === 'sum' && (
-                <Select label="Column" value={form.column} placeholder="Pick a column" onChange={value => set('column', value)}
-                  options={numericColumns(table).map(name => ({ id: name, label: name }))} />
-              )}
-              <Select label="Dated by" value={form.day} placeholder="Pick a date column" onChange={value => set('day', value)}
-                options={dayColumns(table).map(name => ({ id: name, label: name }))} />
-              <InputField label="Only rows where" value={form.where} onChange={value => set('where', value)}
-                placeholder="Optional, e.g. cancelled_at is null" fluid />
-            </>
-          ) : (
-            <div className={styles.formula}>
-              <Select label="First" value={form.left} placeholder="Pick a metric" options={metrics} onChange={value => set('left', value)} />
-              <div className={styles.field}>
-                <span className={styles.fieldLabel}>Then</span>
-                <Choice options={(Object.keys(OP_LABELS) as FormulaOp[]).map(op => ({ id: op, label: OP_LABELS[op] }))}
-                  value={form.op} onChange={op => set('op', op)} label="Operation" />
-              </div>
-              <label className={styles.field}>
-                <span className={styles.fieldLabel}>Second</span>
-                <input className={styles.select} list="metric-editor-metrics" value={form.right}
-                  onChange={event => set('right', event.target.value)} placeholder="A metric, or a number" />
-                <datalist id="metric-editor-metrics">
-                  {metrics.map(metric => <option key={metric.id} value={metric.id}>{metric.label}</option>)}
-                </datalist>
-              </label>
+            <div className={styles.choice} role="radiogroup" aria-label="Unit">
+              {UNITS.map(option => (
+                <button key={option.id} type="button" role="radio" aria-checked={option.id === unit} className={styles.choiceOption}
+                  onClick={() => { setUnitPicked(true); setForm(current => ({ ...current, unit: option.id })) }}>
+                  {option.label}
+                </button>
+              ))}
             </div>
-          )}
+          </div>
         </div>
         <div className={styles.formFooter}>
-          <span className={styles.toolbarMeta}>{missing ?? `Saved as ${metricOf(form).name}`}</span>
-          <span className={styles.pager}>
-            <Button variant="secondary" disabled={put.isPending} onClick={onClose}>Cancel</Button>
-            <Button disabled={missing !== null} loading={put.isPending} onClick={() => { void save() }}>Add metric</Button>
-          </span>
+          <Button variant="secondary" disabled={put.isPending} onClick={onClose}>Cancel</Button>
+          <Button disabled={!ready} loading={put.isPending} onClick={() => { void save() }}>Add metric</Button>
         </div>
       </DialogContent>
     </Dialog>
