@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { DashboardHeader, MetricsPanel, TablesPanel, WorkspaceEmpty } from '@/components/Dashboard'
+import { DashboardHeader, MetricsPanel, TablesPanel, WorkspaceBuilding, WorkspaceEmpty } from '@/components/Dashboard'
 import styles from '@/components/Dashboard/Dashboard.module.css'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/Tabs'
 import { Skeleton } from '@/components/Skeleton'
 import { ApiError } from '@/lib/api/client'
+import { syncOf, type DashboardRange } from '@/lib/warehouse/present'
 import { useWorkspace } from '@/lib/warehouse/queries'
 
 type View = 'metrics' | 'tables'
@@ -13,6 +14,7 @@ type View = 'metrics' | 'tables'
 /** The store workspace: its metrics over a period, and the store tables the warehouse keeps for it. */
 export function DashboardScreen() {
   const [view, setView] = useState<View>('metrics')
+  const [range, setRange] = useState<DashboardRange>('30d')
   const workspace = useWorkspace()
 
   if (workspace.isError && workspace.error instanceof ApiError && workspace.error.status === 404) {
@@ -34,17 +36,25 @@ export function DashboardScreen() {
       </div>
     )
   }
+  const building = syncOf(workspace.data).state === 'building'
   return (
-    <div className={styles.page}>
-      <DashboardHeader workspace={workspace.data} />
-      <Tabs value={view} onValueChange={value => setView(value as View)}>
-        <TabsList size="small" aria-label="Dashboard view">
-          <TabsTrigger value="metrics">Metrics</TabsTrigger>
-          <TabsTrigger value="tables">Tables</TabsTrigger>
-        </TabsList>
-        <TabsContent value="metrics"><MetricsPanel /></TabsContent>
-        <TabsContent value="tables"><TablesPanel /></TabsContent>
-      </Tabs>
-    </div>
+    <Tabs value={view} onValueChange={value => setView(value as View)}>
+      <div className={styles.page}>
+        <DashboardHeader workspace={workspace.data} range={range} onRangeChange={setRange}>
+          <TabsList size="small" aria-label="Dashboard view">
+            <TabsTrigger value="metrics">Metrics</TabsTrigger>
+            <TabsTrigger value="tables">Tables</TabsTrigger>
+          </TabsList>
+        </DashboardHeader>
+        {building
+          ? <WorkspaceBuilding />
+          : (
+            <>
+              <TabsContent value="metrics"><MetricsPanel workspace={workspace.data} range={range} /></TabsContent>
+              <TabsContent value="tables"><TablesPanel /></TabsContent>
+            </>
+          )}
+      </div>
+    </Tabs>
   )
 }

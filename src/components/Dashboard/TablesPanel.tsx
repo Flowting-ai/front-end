@@ -30,7 +30,7 @@ export function TablesPanel() {
             title={table.meaning}
             onClick={() => { setPicked(table.name); setPage(0) }}
           >
-            <span className={styles.tableName}>{table.name}</span>
+            <span className={styles.tableName}>{table.name.replace(/_/g, ' ')}</span>
             <span className={styles.tableCount}>{formatCount(table.rows)}</span>
           </button>
         ))}

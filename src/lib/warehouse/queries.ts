@@ -8,8 +8,10 @@ import {
   type MeasureRequest,
 } from '@/lib/api/warehouse'
 import { orgScope, queryKeys } from '@/lib/query-keys'
+import { syncOf } from './present'
 
 export const ROWS_PER_PAGE = 50
+const BUILDING_POLL_MS = 5_000
 
 /** A 404 is the workspace not existing yet, which is a state the page shows, not an error to retry. */
 function retryUnlessMissing(count: number, error: unknown): boolean {
@@ -24,6 +26,8 @@ export function useWorkspace() {
     enabled: orgIdReady,
     retry: retryUnlessMissing,
     staleTime: 60_000,
+    // A first sync is minutes; the page watches for it to land instead of asking for a reload.
+    refetchInterval: query => (query.state.data && syncOf(query.state.data).state === 'building' ? BUILDING_POLL_MS : false),
   })
 }
 

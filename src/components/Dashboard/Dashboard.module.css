@@ -1,5 +1,6 @@
-/* Dashboard — the store workspace: metrics over a period, and the store tables. Every colour is a
-   token so dark mode follows the themed ramps; type uses the app scale, only the figures run larger. */
+/* Dashboard — the store workspace in Home's language: a header with the sync pill and period picker,
+   the headline strip, a chart, every metric as a row, and the store tables. Every colour is a token
+   so dark mode follows the themed ramps; type uses the app scale, only the figures run larger. */
 
 .page {
   box-sizing: border-box;
@@ -9,7 +10,7 @@
   padding: 28px 40px 48px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
   color: var(--neutral-900);
   font-family: var(--font-body);
   font-size: var(--font-size-body);
@@ -19,11 +20,10 @@
 /* ── Header ─────────────────────────────────────────────────────────────── */
 
 .header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px 24px;
+  gap: 16px;
 }
 
 .title {
@@ -34,46 +34,74 @@
   line-height: var(--line-height-heading);
   letter-spacing: -0.01em;
   color: var(--neutral-black);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.categories {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.pill {
+.statusPill {
+  justify-self: center;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 32px;
-  padding: 0 12px;
+  height: 36px;
+  box-sizing: border-box;
+  padding: 0 4px 0 12px;
   border: 1px solid var(--border-default);
   border-radius: 9999px;
   background: var(--neutral-50);
+  color: var(--neutral-900);
   white-space: nowrap;
 }
 
 .statusDot {
   width: 7px;
   height: 7px;
+  margin-right: 7px;
   border-radius: 9999px;
   background: var(--neutral-400);
 }
 
-.pill[data-status='ready'] .statusDot { background: var(--success-500); }
-.pill[data-status='syncing'] .statusDot,
-.pill[data-status='building'] .statusDot { background: var(--warning-500, var(--neutral-500)); }
-.pill[data-status='failed'] .statusDot { background: var(--danger-600); }
+.statusPill[data-state='ready'] .statusDot {
+  background: var(--success-500);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success-500) 20%, transparent);
+}
 
-.pillName { text-transform: capitalize; }
+.statusPill[data-state='syncing'] .statusDot,
+.statusPill[data-state='building'] .statusDot {
+  background: var(--warning-500, var(--neutral-500));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning-500, var(--neutral-500)) 20%, transparent);
+}
 
-.pillMeta {
-  font-size: 12px;
-  color: var(--neutral-600);
+.statusPill[data-state='failed'] .statusDot { background: var(--danger-600); }
+
+.pillDivider {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px 0 12px;
+  background: var(--border-default);
+}
+
+.rangeTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.rangeTrigger:hover,
+.rangeTrigger[data-state='open'] {
+  background: var(--neutral-100);
+}
+
+.headerEnd {
+  justify-self: end;
 }
 
 /* ── Panels ─────────────────────────────────────────────────────────────── */
@@ -81,8 +109,190 @@
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding-top: 16px;
+  gap: 32px;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 6px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: var(--font-size-body-lg);
+  line-height: var(--line-height-body-lg);
+  font-weight: var(--font-weight-medium);
+  color: var(--neutral-800);
+}
+
+.sectionMeta {
+  font-size: var(--font-size-body);
+  color: var(--neutral-600);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Chart ──────────────────────────────────────────────────────────────── */
+
+.chartCard {
+  padding: 16px;
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  background: var(--neutral-50);
+}
+
+.chartTitle {
+  margin-bottom: 8px;
+  font-size: var(--font-size-body);
+  color: var(--neutral-600);
+}
+
+.chart { width: 100%; }
+
+/* ── Metric rows ────────────────────────────────────────────────────────── */
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rows > li + li {
+  border-top: 1px solid var(--border-default);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  width: calc(100% + 20px);
+  margin: 0 -10px;
+  padding: 14px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.row:hover { background: var(--neutral-100-60, var(--neutral-100)); }
+.row[aria-pressed='true'] { background: var(--neutral-100); }
+.row:disabled { cursor: default; color: var(--neutral-500); }
+
+.row:focus-visible,
+.rangeTrigger:focus-visible,
+.tableRow:focus-visible,
+.action:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rowLabel {
+  font-size: var(--font-size-body-lg);
+  line-height: var(--line-height-body-lg);
+  font-weight: var(--font-weight-medium);
+  color: var(--neutral-black);
+}
+
+.row:disabled .rowLabel { color: var(--neutral-500); }
+
+.rowDescription {
+  font-size: var(--font-size-body);
+  color: var(--neutral-600);
+}
+
+.rowValue {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  text-align: right;
+}
+
+.rowValue strong {
+  font-size: 26px;
+  font-weight: var(--font-weight-regular);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--neutral-black);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.row:disabled .rowValue strong { color: var(--neutral-500); }
+
+.delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── Tables ─────────────────────────────────────────────────────────────── */
+
+.tables {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 24px;
+}
+
+.tableList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tableRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  font: inherit;
+  color: var(--neutral-800);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.tableRow:hover { background: var(--neutral-100-60, var(--neutral-100)); }
+.tableRow[aria-current='true'] { background: var(--neutral-100); color: var(--neutral-black); }
+
+.tableName {
+  font-weight: var(--font-weight-medium);
+  text-transform: capitalize;
+}
+
+.tableCount {
+  font-size: 12px;
+  color: var(--neutral-500);
+  font-variant-numeric: tabular-nums;
+}
+
+.tableBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
 }
 
 .toolbar {
@@ -98,127 +308,13 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Metric tiles ───────────────────────────────────────────────────────── */
-
-.tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.tile {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
-  box-sizing: border-box;
-  padding: 14px 16px;
-  border: 1px solid var(--border-default);
-  border-radius: 12px;
-  background: var(--neutral-50);
-  font: inherit;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.tile:hover { background: var(--neutral-100); }
-.tile[aria-pressed='true'] { border-color: var(--neutral-900); }
-.tile:disabled { cursor: default; color: var(--neutral-500); }
-
-.tileLabel {
-  font-size: var(--font-size-body);
-  color: var(--neutral-600);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tileValue {
-  font-size: clamp(22px, 2vw, 28px);
-  line-height: 1.1;
-  letter-spacing: -0.03em;
-  color: var(--neutral-black);
-  font-variant-numeric: tabular-nums;
-}
-
-.tile:disabled .tileValue { color: var(--neutral-500); }
-
-/* ── Chart ──────────────────────────────────────────────────────────────── */
-
-.chartCard {
-  padding: 16px;
-  border: 1px solid var(--border-default);
-  border-radius: 16px;
-  background: var(--neutral-white);
-}
-
-.chartTitle {
-  margin-bottom: 8px;
-  font-size: var(--font-size-body);
-  color: var(--neutral-600);
-}
-
-.chart { width: 100%; }
-
-/* ── Tables ─────────────────────────────────────────────────────────────── */
-
-.tables {
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 20px;
-  padding-top: 16px;
-}
-
-.tableList {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.tableRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 10px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  font: inherit;
-  color: var(--neutral-800);
-  text-align: left;
-  cursor: pointer;
-}
-
-.tableRow:hover { background: var(--neutral-100); }
-.tableRow[aria-current='true'] { background: var(--neutral-100); color: var(--neutral-black); }
-
-.tableName { font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px; }
-
-.tableCount {
-  font-size: 12px;
-  color: var(--neutral-500);
-  font-variant-numeric: tabular-nums;
-}
-
-.tableBody {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-}
-
 .pager { display: inline-flex; gap: 6px; }
 
 .pagerButton {
   height: 28px;
-  padding: 0 10px;
+  padding: 0 12px;
   border: 1px solid var(--border-default);
-  border-radius: 8px;
+  border-radius: 9999px;
   background: var(--neutral-white);
   font: inherit;
   font-size: 12px;
@@ -226,12 +322,13 @@
   cursor: pointer;
 }
 
+.pagerButton:hover:not(:disabled) { background: var(--neutral-50); }
 .pagerButton:disabled { color: var(--neutral-400); cursor: default; }
 
 .gridViewport {
   overflow: auto;
   border: 1px solid var(--border-default);
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--neutral-white);
 }
 
@@ -268,12 +365,13 @@
 
 .cellEmpty { color: var(--neutral-400); }
 
-/* ── Empty ──────────────────────────────────────────────────────────────── */
+/* ── Empty / building ───────────────────────────────────────────────────── */
 
 .empty {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  align-items: flex-start;
+  gap: 16px;
   max-width: 560px;
 }
 
@@ -282,8 +380,38 @@
   color: var(--neutral-600);
 }
 
-@media (max-width: 720px) {
-  .page { padding: 20px 16px 40px; }
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px 0 14px;
+  border: 1px solid var(--border-default);
+  border-radius: 9999px;
+  background: var(--neutral-white);
+  color: var(--neutral-black);
+  text-decoration: none;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.action:hover {
+  background: var(--neutral-50);
+  border-color: var(--neutral-300, var(--border-default));
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 760px) {
+  .page { padding: 20px 16px 32px; gap: 24px; }
+  .header { grid-template-columns: 1fr auto; row-gap: 12px; }
+  .statusPill { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
   .tables { grid-template-columns: minmax(0, 1fr); }
   .tableList { flex-direction: row; flex-wrap: wrap; }
+  .row { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .rowValue { flex-direction: row; align-items: baseline; gap: 8px; }
+  .rowValue strong { font-size: 22px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row, .tableRow, .action { transition: none; }
 }

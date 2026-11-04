@@ -15,6 +15,8 @@ const workspaceSchema = z.object({
   name:       z.string(),
   slug:       z.string(),
   timezone:   z.string(),
+  /** Connector slugs feeding the workspace. */
+  connectors: z.array(z.string()),
   categories: z.array(categoryStateSchema),
 })
 
