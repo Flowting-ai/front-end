@@ -2,7 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { AlertCircleIcon, BubbleChatIcon, FolderLibraryIcon } from '@strange-huge/icons'
+import { AlertCircleIcon } from '@strange-huge/icons'
 import { Button } from '@/components/ui/button'
 import { activityLine } from '@/lib/library/format'
 import { MESSAGES } from '@/lib/library/messages'
@@ -10,8 +10,9 @@ import { DEFAULT_QUERY, toLibraryHref } from '@/lib/library/query-params'
 import type { LibraryFile } from '@/lib/library/file'
 import { isSuggestedEmpty, selectSuggested, tileLine } from '@/lib/library/suggested'
 import { useSuggested } from '@/lib/library/queries'
-import { CHAT_ROUTE, LIBRARY_FILE_ROUTE, LIBRARY_ROUTE } from '@/lib/routes'
+import { LIBRARY_FILE_ROUTE, LIBRARY_ROUTE } from '@/lib/routes'
 import { EmptyState } from './EmptyState'
+import { NoFilesYet } from './NoFilesYet'
 import { FormatGlyph } from './FormatGlyph'
 import { FileThumb } from './FileThumb'
 import { UnreadDot } from './FileMarks'
@@ -35,17 +36,6 @@ function SeeAll({ href, label }: { href: string; label: string }) {
 }
 
 /** No files at all (Suggested and All files): "No files yet", one line, and a way to start a chat. */
-export function NoFilesYet() {
-  return (
-    <EmptyState icon={<FolderLibraryIcon size={20} />} title={MESSAGES.noFilesYetTitle} text={MESSAGES.noFilesYetText}>
-      <LinkButton href={CHAT_ROUTE}>
-        <BubbleChatIcon size={14} />
-        {MESSAGES.newChat}
-      </LinkButton>
-    </EmptyState>
-  )
-}
-
 type MenuProps ={ onAction: (action: RowAction, file: LibraryFile) => void }
 
 /** Menu width for cards and tiles: fits the owner-only explanation without cutting it off. */

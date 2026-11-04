@@ -4,7 +4,7 @@ import React from 'react'
 import { useAuth } from '@/context/auth-context'
 import { roleDisplayLabel, toneDisplayLabel } from '@/lib/api/user'
 import { AccountSkeleton } from '../SettingsSkeleton'
-import { AppearanceCard, DangerZoneCard, ResponseStyleCard, SHOW_DANGER_ZONE } from './_components/AccountCards'
+import { DangerZoneCard, PreferencesCard, SHOW_DANGER_ZONE } from './_components/AccountCards'
 import { ProfileCard } from './_components/ProfileCard'
 import { useProfileForm } from './_components/use-profile-form'
 
@@ -44,8 +44,7 @@ function AccountPageContent({ user, refreshUser }: { user: AuthUser; refreshUser
           email={user.email ?? ''}
           fallbackName={`${base.firstName} ${base.lastName}`.trim()}
         />
-        <AppearanceCard />
-        <ResponseStyleCard savedTone={toneDisplayLabel(user.onboardingTone)} refreshUser={refreshUser} />
+        <PreferencesCard savedTone={toneDisplayLabel(user.onboardingTone)} refreshUser={refreshUser} />
         {SHOW_DANGER_ZONE && <DangerZoneCard />}
       </div>
     </div>

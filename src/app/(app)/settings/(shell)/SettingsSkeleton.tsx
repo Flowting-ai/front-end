@@ -198,40 +198,6 @@ function FieldSkeleton({ labelW, hintW }: { labelW: number; hintW?: number }) {
   )
 }
 
-/** Choice tile: 72px preview, icon + title + radio row, hint (1 or 2 lines). */
-function ChoiceTileSkeleton({ titleW, hintLines = 1 }: { titleW: number; hintLines?: number }) {
-  return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', gap: 10, padding: 12,
-      border: '1px solid var(--border-default)', borderRadius: 12, background: 'var(--card-bg)',
-    }}>
-      <Bone w="100%" h={72} r={8} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, height: 22 }}>
-        <Bone w={16} h={16} r={4} />
-        <div style={{ flex: 1 }}><Bone w={titleW} h={13} r={4} /></div>
-        <Bone w={16} h={16} r={8} />
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {Array.from({ length: hintLines }, (_, i) => <Line key={i} lh={18} h={11} w={i === 0 ? '80%' : '45%'} />)}
-      </div>
-    </div>
-  )
-}
-
-function ChoiceCardSkeleton({ titleW, hintW, tiles }: { titleW: number; hintW: number; tiles: { titleW: number; hintLines?: number }[] }) {
-  return (
-    <section className={accountStyles.card}>
-      <div className={accountStyles.cardHead}>
-        <Line lh={22} h={16} w={titleW} />
-        <div style={{ marginTop: 2 }}><Line lh={20} h={12} w={hintW} /></div>
-      </div>
-      <div className={accountStyles.choices}>
-        {tiles.map((t, i) => <ChoiceTileSkeleton key={i} {...t} />)}
-      </div>
-    </section>
-  )
-}
-
 export function AccountSkeleton() {
   return (
     <div className="kaya-scrollbar" style={ACCOUNT_OUTER} aria-busy="true">
@@ -251,7 +217,7 @@ export function AccountSkeleton() {
             <div className={accountStyles.actions}><Bone w={96} h={32} r={8} /></div>
           </div>
           <div className={accountStyles.profile}>
-            <div className={accountStyles.avatarCol}><Bone w={72} h={72} r={36} /></div>
+            <div className={accountStyles.avatarCol}><Bone w={72} h={72} r={20} /></div>
             <div className={accountStyles.fields}>
               <FieldSkeleton labelW={72} hintW={230} />
               <FieldSkeleton labelW={70} />
@@ -270,8 +236,25 @@ export function AccountSkeleton() {
           </div>
         </section>
 
-        <ChoiceCardSkeleton titleW={100} hintW={220} tiles={[{ titleW: 40 }, { titleW: 36 }, { titleW: 52 }]} />
-        <ChoiceCardSkeleton titleW={120} hintW={420} tiles={[{ titleW: 46 }, { titleW: 64 }, { titleW: 42, hintLines: 2 }]} />
+        {/* Appearance / Response style rows with a dropdown each, then the full-width example */}
+        <section className={accountStyles.card}>
+          <div className={accountStyles.details}>
+            {[{ l: 84, h: 190 }, { l: 104, h: 230 }].map((r, i) => (
+              <div key={i} className={accountStyles.detailRow}>
+                <div>
+                  <Line lh={22} h={13} w={r.l} />
+                  <Line lh={18} h={11} w={r.h} />
+                </div>
+                <Bone w={110} h={32} r={8} />
+              </div>
+            ))}
+          </div>
+          <div className={accountStyles.example}>
+            <Line lh={16} h={10} w={110} />
+            <div style={{ alignSelf: 'flex-end' }}><Bone w={210} h={38} r={14} /></div>
+            <Bone w="70%" h={38} r={14} />
+          </div>
+        </section>
       </div>
     </div>
   )

@@ -1,0 +1,128 @@
+/* The empty Library. Centred in the space under the header, nudged up a little (more padding below
+   than above) so it sits at the optical centre rather than low on the page. */
+.wrap {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 24px 10vh;
+  text-align: center;
+}
+
+/* Three file cards fanned out; the middle one sits on top. */
+.fan {
+  position: relative;
+  width: 168px;
+  height: 92px;
+  margin-bottom: 20px;
+}
+
+.card {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 80px;
+  margin-left: -36px;
+  border-radius: 14px;
+  background: var(--card-bg);
+  box-shadow: 0 1px 2px rgba(38, 33, 30, 0.06), 0 6px 16px -6px rgba(38, 33, 30, 0.18), 0 0 0 1px var(--neutral-100);
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.left { transform: translateX(-44px) rotate(-10deg); }
+.right { transform: translateX(44px) rotate(10deg); }
+.middle { top: 0; z-index: 1; }
+
+/* The fan opens a touch when the empty state is hovered. */
+.wrap:hover .left { transform: translateX(-52px) rotate(-14deg); }
+.wrap:hover .right { transform: translateX(52px) rotate(14deg); }
+.wrap:hover .middle { transform: translateY(-3px); }
+
+.title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 30px;
+  color: var(--neutral-900);
+}
+
+.text {
+  margin: 6px 0 0;
+  max-width: 400px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-600);
+}
+
+.actions {
+  margin-top: 20px;
+  display: flex;
+  gap: 8px;
+}
+
+/* How files get here: three short columns in one quiet tray. */
+.ways {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  width: 100%;
+  max-width: 600px;
+  margin: 36px 0 0;
+  padding: 6px;
+  list-style: none;
+  border-radius: 14px;
+  background: var(--neutral-50);
+  box-shadow: inset 0 0 0 1px var(--neutral-100);
+}
+
+.way {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 14px 12px;
+  border-radius: 10px;
+}
+
+.wayIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  background: var(--card-bg);
+  box-shadow: 0 0 0 1px var(--neutral-100);
+  color: var(--neutral-700);
+}
+
+.wayTitle {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--neutral-900);
+}
+
+.wayText {
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--neutral-600);
+}
+
+@media (max-width: 640px) {
+  .ways { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card { transition: none; }
+}

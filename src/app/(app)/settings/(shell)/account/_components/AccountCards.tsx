@@ -10,7 +10,6 @@ import FlashIcon from '@hugeicons/core-free-icons/FlashIcon'
 import BalanceScaleIcon from '@hugeicons/core-free-icons/BalanceScaleIcon'
 import SmileIcon from '@hugeicons/core-free-icons/SmileIcon'
 import { Badge } from '@/components/Badge'
-import { Spinner } from '@/components/Spinner'
 import { useTheme } from '@/context/theme-context'
 import { trackBrowserEvent } from '@/lib/analytics/events'
 import { saveTone } from '@/lib/api/user'
@@ -18,6 +17,7 @@ import { PINS_ENABLED } from '@/lib/feature-flags'
 import styles from '../account.module.css'
 import { CardSection, SettingsCard, SettingsRow } from './SettingsCard'
 import { DefaultModelPicker } from './DefaultModelPicker'
+import { PillSelect } from './PillSelect'
 
 // The three tones the backend accepts (TONE_API_MAP in lib/api/user.ts).
 const TONE_OPTIONS = ['Direct', 'Balanced', 'Warm'] as const
@@ -65,63 +65,30 @@ const TONE_ICONS: Record<typeof TONE_OPTIONS[number], React.ReactElement> = {
 const SHOW_DEFAULT_MODEL_ROW = false
 export const SHOW_DANGER_ZONE = false
 
-/** Light, dark or system, as picture tiles. With theming off it is a local, non-functional choice (default System), as on Preferences. */
-export function AppearanceCard() {
+type Tone = typeof TONE_OPTIONS[number]
+
+// The question the Response style example answers in each tone.
+const TONE_SAMPLE_QUESTION = 'How did sales do this month?'
+
+/**
+ * Appearance and Response style as rows, like Email and Role above: label and hint on the left, a
+ * dropdown on the right. Under Response style, a full-width example shows an answer in the chosen tone.
+ * The tone saves as soon as it is picked, reverting on failure. With theming off, screen mode is a
+ * local, non-functional choice (default System), as on Preferences.
+ */
+export function PreferencesCard({ savedTone, refreshUser }: { savedTone: string; refreshUser: () => Promise<void> }) {
   const theme = useTheme()
   const [localScreenMode, setLocalScreenMode] = useState<ScreenModeLabel>('System')
   const screenMode: ScreenModeLabel = theme.enabled ? SCREEN_MODE_LABEL[theme.mode] : localScreenMode
   const handleScreenModeChange = (label: ScreenModeLabel) => {
+    if (label === screenMode) return
     if (theme.enabled) {
       theme.setMode(SCREEN_MODE_VALUE[label])
       trackBrowserEvent('theme_changed', { mode: SCREEN_MODE_VALUE[label] })
     } else setLocalScreenMode(label)
+    toast.success(label === 'System' ? 'Appearance now matches your device' : `Switched to ${label.toLowerCase()} mode`)
   }
 
-  return (
-    <section className={styles.card} aria-labelledby="appearance-title">
-      <div className={styles.cardHead}>
-        <h2 id="appearance-title" className={styles.cardTitle}>Appearance</h2>
-        <p className={styles.cardHint}>Light, dark, or match your device.</p>
-      </div>
-      <div className={styles.choices} role="radiogroup" aria-labelledby="appearance-title">
-        {SCREEN_MODE_OPTIONS.map((mode) => (
-          <button
-            key={mode}
-            type="button"
-            role="radio"
-            aria-checked={screenMode === mode}
-            className={styles.choice}
-            onClick={() => handleScreenModeChange(mode)}
-          >
-            <span className={styles.preview} aria-hidden="true">
-              {mode !== 'Dark' && (
-                <span className={`${styles.previewHalf} ${styles.light}`}>
-                  <i style={{ width: '70%' }} /><i style={{ width: '90%' }} /><i style={{ width: '50%' }} />
-                </span>
-              )}
-              {mode !== 'Light' && (
-                <span className={`${styles.previewHalf} ${styles.dark}`}>
-                  <i style={{ width: '70%' }} /><i style={{ width: '90%' }} /><i style={{ width: '50%' }} />
-                </span>
-              )}
-            </span>
-            <span className={styles.choiceHead}>
-              <span style={{ display: 'inline-flex', color: 'var(--neutral-600)' }}>{SCREEN_MODE_ICONS[mode]}</span>
-              <span className={styles.choiceTitle}>{mode}</span>
-              <span className={styles.radio} aria-hidden="true" />
-            </span>
-            <span className={styles.choiceHint}>{SCREEN_MODE_DESCRIPTIONS[mode]}</span>
-          </button>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-type Tone = typeof TONE_OPTIONS[number]
-
-/** The three response tones, each with a sample answer. Saves as soon as one is picked, reverting on failure. */
-export function ResponseStyleCard({ savedTone, refreshUser }: { savedTone: string; refreshUser: () => Promise<void> }) {
   const [tone, setToneState] = useState(savedTone)
   const [tonePending, setTonePending] = useState(false)
   // A new saved tone (after a refresh) becomes the selection, without fighting a pick in flight.
@@ -130,6 +97,7 @@ export function ResponseStyleCard({ savedTone, refreshUser }: { savedTone: strin
     setSyncedTone(savedTone)
     setToneState(savedTone)
   }
+  const currentTone: Tone = (TONE_OPTIONS as readonly string[]).includes(tone) ? tone as Tone : 'Balanced'
 
   const handleToneChange = async (next: Tone) => {
     if (next === tone || tonePending) return
@@ -139,6 +107,7 @@ export function ResponseStyleCard({ savedTone, refreshUser }: { savedTone: strin
     try {
       await saveTone(next)
       trackBrowserEvent('tone_changed', { tone: next.toLowerCase() })
+      toast.success(`Response style set to ${next}`)
       await refreshUser()
     } catch {
       toast.error('Failed to save style — please try again')
@@ -149,34 +118,50 @@ export function ResponseStyleCard({ savedTone, refreshUser }: { savedTone: strin
   }
 
   return (
-    <section className={styles.card} aria-labelledby="style-title">
-      <div className={styles.cardHead}>
-        <h2 id="style-title" className={styles.cardTitle}>Response style</h2>
-        <p className={styles.cardHint}>How Souvenir writes its answers to you. Saves as soon as you pick one.</p>
+    <section className={styles.card} aria-label="Appearance and response style">
+      <dl className={styles.details}>
+        <div className={styles.detailRow}>
+          <dt>
+            <span className={styles.detailLabel}>Appearance</span>
+            <span className={styles.detailHint}>Light, dark, or match your device</span>
+          </dt>
+          <dd className={styles.detailControl}>
+            <PillSelect
+              label="Appearance"
+              value={screenMode}
+              options={SCREEN_MODE_OPTIONS}
+              onChange={handleScreenModeChange}
+              descriptions={SCREEN_MODE_DESCRIPTIONS}
+              icons={SCREEN_MODE_ICONS}
+            />
+          </dd>
+        </div>
+        <div className={styles.detailRow}>
+          <dt>
+            <span className={styles.detailLabel}>Response style</span>
+            <span className={styles.detailHint}>How Souvenir writes its answers to you</span>
+          </dt>
+          <dd className={styles.detailControl}>
+            <PillSelect
+              label="Response style"
+              value={currentTone}
+              options={TONE_OPTIONS}
+              onChange={next => void handleToneChange(next)}
+              descriptions={TONE_DESCRIPTIONS}
+              icons={TONE_ICONS}
+              pending={tonePending}
+            />
+          </dd>
+        </div>
+      </dl>
+
+      {/* The chosen tone, shown: a sample question and the answer in that tone. */}
+      <div className={styles.example} aria-live="polite">
+        <span className={styles.exampleLabel}>Example · {currentTone}</span>
+        <p className={styles.exampleQuestion}>{TONE_SAMPLE_QUESTION}</p>
+        <p key={currentTone} className={styles.exampleAnswer}>{TONE_SAMPLES[currentTone]}</p>
       </div>
-      <div className={styles.choices} role="radiogroup" aria-labelledby="style-title" aria-busy={tonePending}>
-        {TONE_OPTIONS.map((option) => (
-          <button
-            key={option}
-            type="button"
-            role="radio"
-            aria-checked={tone === option}
-            className={styles.choice}
-            disabled={tonePending}
-            onClick={() => void handleToneChange(option)}
-          >
-            <span className={styles.bubblePreview} aria-hidden="true">
-              <span className={styles.bubble}>{TONE_SAMPLES[option]}</span>
-            </span>
-            <span className={styles.choiceHead}>
-              <span style={{ display: 'inline-flex', color: 'var(--neutral-600)' }}>{TONE_ICONS[option]}</span>
-              <span className={styles.choiceTitle}>{option}</span>
-              {tonePending && tone === option ? <Spinner size={14} /> : <span className={styles.radio} aria-hidden="true" />}
-            </span>
-            <span className={styles.choiceHint}>{TONE_DESCRIPTIONS[option]}</span>
-          </button>
-        ))}
-      </div>
+
       {SHOW_DEFAULT_MODEL_ROW && (
         <SettingsRow title="Default Model" subtitle="Model selected by default for new work">
           <DefaultModelPicker />

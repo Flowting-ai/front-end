@@ -460,6 +460,17 @@ export function useAuth() {
   return context;
 }
 
+/** The signed-in user, or null — also outside an AuthProvider (tests, isolated previews), where useAuth throws. */
+export function useOptionalAuthUser(): AuthUser | null {
+  return use(AuthContext)?.user ?? null;
+}
+
+/** The user's full name for display and initials: first + last, else the account name, else ''. */
+export function userFullName(user: AuthUser | null | undefined): string {
+  if (!user) return "";
+  return `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.name?.trim() || "";
+}
+
 /**
  * Auth is settled enough to fetch: hydrated and holding an access token.
  * Gate authenticated requests (and show a skeleton until then) with this

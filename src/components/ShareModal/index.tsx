@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useCallback } from 'react'
+import { deriveInitials } from '@/components/Avatar'
 import Image from 'next/image'
 import { Slot } from '@radix-ui/react-slot'
 import {
@@ -27,12 +28,8 @@ const SHADOW_INPUT    = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px 
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-}
+// Same initials rule as every avatar in the app.
+const getInitials = deriveInitials
 
 // ── Permission config ─────────────────────────────────────────────────────────
 

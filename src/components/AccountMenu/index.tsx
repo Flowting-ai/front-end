@@ -13,7 +13,7 @@ import {
 } from '@strange-huge/icons'
 import { Dropdown, type DropdownPlacement } from '@/components/Dropdown'
 import { Button } from '@/components/ui/button'
-import { Avatar } from '@/components/Avatar'
+import { UserAvatar } from '@/components/Avatar'
 import { Divider } from '@/components/Divider'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { ThemeModeSwitcher } from '@/components/ThemeModeSwitcher'
@@ -129,11 +129,7 @@ const ShortcutPill = ({ label }: { label: string }) => (
 
 const AccountHeader = ({ name, email, avatarSrc, roleLabel }: { name: string; email?: string; avatarSrc?: string; roleLabel?: string }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 8px 10px' }}>
-    {avatarSrc ? (
-      <img alt="" src={avatarSrc} style={{ width: 36, height: 36, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
-    ) : (
-      <span style={{ flexShrink: 0, display: 'inline-flex' }}><Avatar name={name} size="lg" style={{ borderRadius: 10 }} /></span>
-    )}
+    <UserAvatar name={name} src={avatarSrc} size={36} />
     <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
         <p style={{ margin: 0, minWidth: 0, fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)', color: 'var(--neutral-900)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
