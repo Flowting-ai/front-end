@@ -11,7 +11,7 @@ import { inviteMembers } from "@/lib/api/teams";
 import { listOrganizations } from "@/lib/api/organization";
 import { ApiError } from "@/lib/api/client";
 import { toast } from "sonner";
-import { Badge } from "@/components/Badge";
+import { Badge, type BadgeColor } from "@/components/Badge";
 import { Button } from "@/components/ui/button";
 import { StepCanvas, StepHeader, StepFooter, FieldLabel, useLeaveGuard, LeaveGuardModal } from "../_components/step-shell";
 import { ONBOARDING_PROFILE_ROUTE, WELCOME_ROUTE } from "@/lib/routes";
@@ -22,6 +22,8 @@ import { isValidEmail, suggestEmail } from "@/lib/email/check";
 // What can sit between addresses in a typed or pasted list: commas, semicolons (Outlook), line
 // breaks and tabs (a spreadsheet column or row), spaces.
 const SEPARATORS = /[\s,;]+/;
+// Chip colours cycle in order, so no two neighbouring chips share a colour.
+const CHIP_COLORS: BadgeColor[] = ["Blue", "Green", "Purple", "Yellow", "Red", "Brown"];
 
 type EmailProblem =
   | { kind: "invalid" | "duplicate"; message: string }
@@ -268,7 +270,7 @@ export default function OnboardingInvitePage() {
             overscrollBehaviorY: "contain",
             padding: "7px 10px",
             borderRadius: 10,
-            backgroundColor: "var(--neutral-white)",
+            backgroundColor: "#FFFFFF",
             boxShadow: problem?.kind === "invalid"
               ? "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--red-500)"
               : problem?.kind === "suggest"
@@ -281,7 +283,7 @@ export default function OnboardingInvitePage() {
           }}
         >
           <AnimatePresence initial={false}>
-            {emailList.map((email) => (
+            {emailList.map((email, i) => (
               <m.div
                 key={email}
                 initial={{ opacity: 0, scale: 0.85 }}
@@ -290,7 +292,7 @@ export default function OnboardingInvitePage() {
                 transition={{ duration: 0.12 }}
                 style={{ display: "flex", alignItems: "center", gap: 2 }}
               >
-                <Badge label={email} color="Neutral" />
+                <Badge label={email} color={CHIP_COLORS[i % CHIP_COLORS.length]} />
                 <button
                   type="button"
                   onClick={() => removeEmail(email)}
@@ -380,8 +382,8 @@ export default function OnboardingInvitePage() {
         skipDisabled={submitting}
         skipLoading={submittingAction === "skip"}
         onNext={() => void handleNext()}
-        nextLabel={`Send ${emailList.length} ${emailList.length === 1 ? "Invite" : "Invites"}`}
-        nextDisabled={submitting || (emailList.length === 0 && emailInput.trim().length === 0)}
+        nextLabel={emailList.length === 0 ? "Send Invite" : `Send ${emailList.length} ${emailList.length === 1 ? "Invite" : "Invites"}`}
+        nextDisabled={submitting || emailList.length === 0}
         nextLoading={submittingAction === "send"}
       />
       <LeaveGuardModal open={leaveGuard.open} onStay={leaveGuard.stay} onLeave={leaveGuard.leave} />

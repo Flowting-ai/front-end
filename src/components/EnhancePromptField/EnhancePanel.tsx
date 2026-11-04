@@ -92,7 +92,7 @@ export default function EnhancePanel({ flow, value }: { flow: EnhanceFlow; value
                   flexDirection:       'column',
                   gap:                 16,
                   // This scroll area clips overflow, which cut off the left edge of the custom input and
-                  // its pink focus ring. 8px of padding gives the ring room; the matching negative
+                  // its blue focus ring. 8px of padding gives the ring room; the matching negative
                   // margin eats into the panel's own 20px padding, so nothing shifts.
                   padding:             8,
                   margin:              -8,

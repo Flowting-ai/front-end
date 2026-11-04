@@ -91,7 +91,7 @@ function PurposeStep({
     <Centered>
       <Heading title="What should this agent do?" subtitle="One sentence is enough — we’ll set up the name, model and instructions for you." />
       <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: 684, gap: 12 }}>
-        {/* kaya-field: the signature pink focus ring. A stronger edge than the other cards so the box reads in both themes. */}
+        {/* kaya-field: the signature blue focus ring. A stronger edge than the other cards so the box reads in both themes. */}
         <div
           className="kaya-field"
           style={{

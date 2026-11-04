@@ -7,7 +7,7 @@ import { MESSAGES } from '@/lib/library/messages'
 import type { LibraryFile } from '@/lib/library/file'
 
 /**
- * The signature pink dot (fixed, so it stays pink in every theme). A dot plus a heavier file name means
+ * The unread dot, in the focus-ring colour (blue in light mode, pink in dark). A dot plus a heavier file name means
  * unread; the dot also carries a label and an "Unread" tooltip, so it is not colour alone.
  */
 export function UnreadDot() {
@@ -17,7 +17,7 @@ export function UnreadDot() {
         role="img"
         aria-label={MESSAGES.unread}
         // Above a row's stretched link, so hovering the dot shows "Unread" (a click on it still opens the file).
-        style={{ position: 'relative', zIndex: 1, display: 'inline-block', flexShrink: 0, width: 8, height: 8, borderRadius: '50%', background: '#F92064' }}
+        style={{ position: 'relative', zIndex: 1, display: 'inline-block', flexShrink: 0, width: 8, height: 8, borderRadius: '50%', background: 'var(--color-focus-ring)' }}
       />
     </Tooltip>
   )
