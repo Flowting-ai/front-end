@@ -198,9 +198,9 @@
 
 .bestSeller {
   position: relative;
-  /* The photo slot keeps the design proportions whatever the opportunities column does beside it. */
-  align-self: start;
-  aspect-ratio: 370 / 474;
+  /* Without a photo the panel runs the height of the findings beside it; a photo gets its own proportions. */
+  align-self: stretch;
+  min-height: 240px;
   box-sizing: border-box;
   border: 1px solid var(--border-default);
   border-radius: 16px;
@@ -212,6 +212,8 @@
 
 /* With a photo the text sits on it, so it stays white in both themes. */
 .bestSeller[data-photo] {
+  align-self: start;
+  aspect-ratio: 370 / 474;
   border-color: transparent;
   background: var(--neutral-200);
   color: #fff;
@@ -424,8 +426,9 @@
 
 .opportunityArrow {
   position: absolute;
-  top: 16px;
+  top: 50%;
   right: 10px;
+  margin-top: -8px;
   color: var(--neutral-500);
   transition: transform 150ms ease, color 150ms ease;
 }
@@ -515,7 +518,8 @@
   .metric { padding: 0; }
   .metric + .metric { border-left: 0; border-top: 1px solid var(--border-default); padding-top: 16px; }
   .feature { grid-template-columns: minmax(0, 1fr); }
-  .bestSeller { width: 100%; max-width: 360px; }
+  .bestSeller { width: 100%; max-width: 360px; min-height: 0; }
+  .bestSellerInner { position: static; gap: 24px; }
   .opportunity { grid-template-columns: minmax(0, 1fr); gap: 8px; padding-right: 36px; }
   .opportunityValue { flex-direction: row; align-items: baseline; gap: 8px; }
   .opportunityValue strong { font-size: 22px; }
