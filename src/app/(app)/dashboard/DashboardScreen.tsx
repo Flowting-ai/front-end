@@ -18,6 +18,14 @@ export function DashboardScreen() {
   if (workspace.isError && workspace.error instanceof ApiError && workspace.error.status === 404) {
     return <div className={styles.page}><WorkspaceEmpty /></div>
   }
+  if (workspace.isError) {
+    return (
+      <div className={styles.page}>
+        <h1 className={styles.title}>Dashboard</h1>
+        <p className={styles.emptyText}>The warehouse didn&apos;t answer. Try again in a minute.</p>
+      </div>
+    )
+  }
   if (workspace.data === undefined) {
     return (
       <div className={styles.page} aria-busy>
