@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Dropdown } from '@/components/Dropdown'
 import type { Workspace } from '@/lib/api/warehouse'
@@ -11,12 +11,10 @@ export interface DashboardHeaderProps {
   workspace: Workspace
   range: DashboardRange
   onRangeChange: (range: DashboardRange) => void
-  /** What sits at the right edge: the view switch. */
-  children?: ReactNode
 }
 
-/** The store's name, its sync state with the period picker, and the view switch. */
-export function DashboardHeader({ workspace, range, onRangeChange, children }: DashboardHeaderProps) {
+/** The store's name and its sync state with the period picker. */
+export function DashboardHeader({ workspace, range, onRangeChange }: DashboardHeaderProps) {
   const [open, setOpen] = useState(false)
   const sync = syncOf(workspace)
   const rangeLabel = RANGE_OPTIONS.find(o => o.id === range)?.label ?? range
@@ -53,7 +51,6 @@ export function DashboardHeader({ workspace, range, onRangeChange, children }: D
           </Dropdown>
         </Dropdown.Float>
       </div>
-      <div className={styles.headerEnd}>{children}</div>
     </header>
   )
 }

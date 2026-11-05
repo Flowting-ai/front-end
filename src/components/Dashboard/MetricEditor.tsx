@@ -1,54 +1,53 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/Button'
-import { InputField } from '@/components/InputField'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
-import type { MetricEntry, MetricUnit, TableSummary } from '@/lib/api/warehouse'
-import { EMPTY_FORM, metricNameOf, metricOf, parseFormula, unitOf, type EditorForm } from '@/lib/warehouse/editor'
-import { usePutMetric } from '@/lib/warehouse/queries'
+import type { CustomMetric, MetricChatMessage, MetricUnit } from '@/lib/api/warehouse'
+import { useDraftMetric, usePutMetric } from '@/lib/warehouse/queries'
 import styles from './Dashboard.module.css'
 
-const UNITS: ReadonlyArray<{ id: MetricUnit; label: string }> = [
-  { id: 'money', label: 'Money' }, { id: 'count', label: 'Count' }, { id: 'ratio', label: 'Percent' },
-]
+const UNIT_LABELS: Record<MetricUnit, string> = { money: 'Money', count: 'Count', ratio: 'Percent' }
 
 export interface MetricEditorProps {
-  tables: TableSummary[]
-  catalog: MetricEntry[]
   onClose: () => void
 }
 
-/** One formula over the metrics and tables the store has; the name and unit come along. */
-export function MetricEditor({ tables, catalog, onClose }: MetricEditorProps) {
-  const [form, setForm] = useState<EditorForm>(EMPTY_FORM)
-  const [unitPicked, setUnitPicked] = useState(false)
+/** A one-off conversation: say what to measure, answer what Souvenir asks, add the metric it proposes. */
+export function MetricEditor({ onClose }: MetricEditorProps) {
+  const [messages, setMessages] = useState<MetricChatMessage[]>([])
+  const [text, setText] = useState('')
+  const [proposal, setProposal] = useState<CustomMetric | null>(null)
+  const draft = useDraftMetric()
   const put = usePutMetric()
-  const names = useMemo(() => catalog.map(entry => entry.name), [catalog])
+  const logEnd = useRef<HTMLDivElement>(null)
+  const busy = draft.isPending || put.isPending
 
-  const parsed = useMemo(() => {
+  useEffect(() => { logEnd.current?.scrollIntoView({ block: 'end' }) }, [messages, proposal])
+
+  const send = async () => {
+    const content = text.trim()
+    if (content === '' || busy) return
+    const next = [...messages, { role: 'user' as const, content }]
+    setMessages(next)
+    setText('')
     try {
-      return { value: parseFormula(form.formula, names, tables), error: null }
+      const answer = await draft.mutateAsync(next)
+      setMessages([...next, { role: 'assistant', content: answer.reply }])
+      setProposal(answer.metric)
     } catch (error) {
-      return { value: null, error: error instanceof Error ? error.message : 'Try again' }
+      setMessages(messages)
+      setText(content)
+      toast.error(error instanceof Error ? error.message : 'Souvenir did not answer')
     }
-  }, [form.formula, names, tables])
-  const unit = unitPicked || parsed.value === null ? form.unit : unitOf(parsed.value)
-  const ready = parsed.value !== null && form.label.trim() !== ''
-  const hint = form.formula.trim() === ''
-    ? 'Metric names, numbers, + − × ÷ and brackets. Or sum(orders.total), count(refunds).'
-    : parsed.error ?? `Saved as ${metricNameOf(form.label) || '…'}`
+  }
 
-  const insert = (name: string) => setForm(current => ({
-    ...current, formula: `${current.formula}${current.formula === '' || /[\s(]$/.test(current.formula) ? '' : ' '}${name}`,
-  }))
-
-  const save = async () => {
-    if (parsed.value === null) return
+  const add = async () => {
+    if (proposal === null) return
     try {
-      await put.mutateAsync(metricOf({ ...form, unit }, parsed.value))
-      toast.success(`${form.label.trim()} added`)
+      await put.mutateAsync(proposal)
+      toast.success(`${proposal.label} added`)
       onClose()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'The warehouse refused the metric')
@@ -56,42 +55,49 @@ export function MetricEditor({ tables, catalog, onClose }: MetricEditorProps) {
   }
 
   return (
-    <Dialog open onOpenChange={next => { if (!next && !put.isPending) onClose() }}>
+    <Dialog open onOpenChange={next => { if (!next && !busy) onClose() }}>
       <DialogContent size="md" style={{ padding: 24, gap: 20 }}>
         <div>
           <DialogTitle>Add a metric</DialogTitle>
           <DialogDescription className={styles.emptyText} style={{ margin: '8px 0 0' }}>
-            Write it like a sum: shipping_revenue / revenue.
+            Say what you want to measure. Souvenir asks when it needs to, then proposes the metric.
           </DialogDescription>
         </div>
-        <div className={styles.form}>
-          <InputField label="Name" value={form.label} onChange={label => setForm(current => ({ ...current, label }))}
-            placeholder="Shipping share of revenue" fluid />
-          <InputField label="Formula" value={form.formula} onChange={formula => setForm(current => ({ ...current, formula }))}
-            placeholder="shipping_revenue / revenue" error={form.formula.trim() !== '' && parsed.error !== null} fluid />
-          <span className={styles.hint} aria-live="polite">{hint}</span>
-          <div className={styles.chips} aria-label="Metrics you can use">
-            {catalog.map(entry => (
-              <button key={entry.name} type="button" className={styles.chipButton} title={entry.description} onClick={() => insert(entry.name)}>
-                {entry.name}
-              </button>
+        {(messages.length > 0 || proposal) && (
+          <div className={styles.chat} role="log" aria-live="polite">
+            {messages.map((message, index) => (
+              <div key={index} className={styles.chatTurn} data-role={message.role}>{message.content}</div>
             ))}
+            {proposal && (
+              <div className={styles.proposal}>
+                <div className={styles.proposalTop}>
+                  <span className={styles.proposalLabel}>{proposal.label}</span>
+                  <span className={styles.proposalMeta}>{UNIT_LABELS[proposal.unit]} · {proposal.name}</span>
+                </div>
+                <span className={styles.emptyText}>{proposal.description}</span>
+                <pre className={styles.proposalValue}>{JSON.stringify(proposal.value)}</pre>
+              </div>
+            )}
+            <div ref={logEnd} />
           </div>
-          <div className={styles.field}>
-            <span className={styles.fieldLabel}>Shown as</span>
-            <div className={styles.choice} role="radiogroup" aria-label="Unit">
-              {UNITS.map(option => (
-                <button key={option.id} type="button" role="radio" aria-checked={option.id === unit} className={styles.choiceOption}
-                  onClick={() => { setUnitPicked(true); setForm(current => ({ ...current, unit: option.id })) }}>
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
+        )}
+        <div className={styles.composer}>
+          <textarea
+            className={styles.composerInput}
+            value={text}
+            rows={1}
+            autoFocus
+            placeholder={messages.length === 0 ? 'Shipping as a share of revenue' : 'Reply, or ask for a change'}
+            aria-label="Describe the metric"
+            disabled={busy}
+            onChange={event => setText(event.target.value)}
+            onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send() } }}
+          />
+          <Button variant="secondary" loading={draft.isPending} disabled={text.trim() === '' || busy} onClick={() => { void send() }}>Send</Button>
         </div>
         <div className={styles.formFooter}>
-          <Button variant="secondary" disabled={put.isPending} onClick={onClose}>Cancel</Button>
-          <Button disabled={!ready} loading={put.isPending} onClick={() => { void save() }}>Add metric</Button>
+          <Button variant="secondary" disabled={busy} onClick={onClose}>Cancel</Button>
+          <Button disabled={proposal === null || busy} loading={put.isPending} onClick={() => { void add() }}>Add metric</Button>
         </div>
       </DialogContent>
     </Dialog>

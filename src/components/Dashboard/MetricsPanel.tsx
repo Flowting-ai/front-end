@@ -9,7 +9,7 @@ import { MetricStrip } from '@/components/Home'
 import { Skeleton } from '@/components/Skeleton'
 import { useIsClient } from '@/hooks/use-is-client'
 import type { Workspace } from '@/lib/api/warehouse'
-import { useDeleteMetric, useMeasurement, useMetricCatalog, useTables } from '@/lib/warehouse/queries'
+import { useDeleteMetric, useMeasurement, useMetricCatalog } from '@/lib/warehouse/queries'
 import { deltaColor, formatDelta } from '@/lib/home/format'
 import {
   CHART_GRAIN, RANGE_OPTIONS, channelsOf, deltaOf, formatValue, headlineFrom, periodFor, pointsFor, previousPeriodFor, tilesFrom,
@@ -36,7 +36,6 @@ export function MetricsPanel({ workspace, range }: MetricsPanelProps) {
   const period = useMemo(() => periodFor(range), [range])
   const before = useMemo(() => previousPeriodFor(range), [range])
   const catalog = useMetricCatalog(true)
-  const tables = useTables(adding)
   const remove = useDeleteMetric()
   const names = useMemo(() => (catalog.data ?? []).map(entry => entry.name), [catalog.data])
   const total = useMeasurement({ metrics: names, ...period, grain: 'total' }, names.length > 0)
@@ -99,9 +98,7 @@ export function MetricsPanel({ workspace, range }: MetricsPanelProps) {
           <MetricRows tiles={tiles} selected={chosen?.name ?? null} onSelect={setSelected} against={against} onRemove={setRemoving} />
         </div>
       </div>
-      {adding && tables.data && (
-        <MetricEditor tables={tables.data} catalog={catalog.data} onClose={() => setAdding(false)} />
-      )}
+      {adding && <MetricEditor onClose={() => setAdding(false)} />}
       {removing && (
         <ConfirmModal
           title={`Remove ${removing.label}?`}

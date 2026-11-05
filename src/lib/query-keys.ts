@@ -110,13 +110,11 @@ export const queryKeys = {
     slackStatus: (org: string) => [...queryKeys.orgs.all(org), "slack-status"] as const,
   },
 
-  /** The org's store workspace (GET /warehouse), its metrics and store tables. */
+  /** The org's store workspace (GET /warehouse) and its metrics. */
   warehouse: {
     all: (org: string) => ["warehouse", org] as const,
     workspace: (org: string) => [...queryKeys.warehouse.all(org), "workspace"] as const,
     catalog: (org: string) => [...queryKeys.warehouse.all(org), "catalog"] as const,
     measure: (org: string, request: object) => [...queryKeys.warehouse.all(org), "measure", request] as const,
-    tables: (org: string) => [...queryKeys.warehouse.all(org), "tables"] as const,
-    rows: (org: string, table: string, page: number) => [...queryKeys.warehouse.all(org), "rows", table, page] as const,
   },
 } as const;

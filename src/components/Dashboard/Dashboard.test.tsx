@@ -1,9 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 
-import { DataGrid, cellText } from './DataGrid'
 import { MetricRows } from './MetricRows'
-import { metricNameOf, parseFormula, unitOf } from '@/lib/warehouse/editor'
 import {
   channelsOf, deltaOf, headlineFrom, periodFor, pointsFor, previousPeriodFor, syncOf, tilesFrom,
 } from '@/lib/warehouse/present'
@@ -94,32 +92,6 @@ describe('syncOf', () => {
   })
 })
 
-describe('metric editor', () => {
-  it('names the metric from its label', () => {
-    expect(metricNameOf('Shipping share of revenue')).toBe('shipping_share_of_revenue')
-    expect(metricNameOf('2nd order rate!')).toBe('m_2nd_order_rate')
-  })
-  it('reads a formula over metrics and numbers into the warehouse shape', () => {
-    const names = ['shipping_revenue', 'revenue', 'refunds', 'net_sales']
-    expect(parseFormula('shipping_revenue / revenue', names, [])).toEqual({ op: 'ratio', numerator: 'shipping_revenue', denominator: 'revenue' })
-    expect(parseFormula('(revenue - refunds) * 0.3', names, [])).toEqual({ op: 'multiply', terms: [{ op: 'subtract', left: 'revenue', right: 'refunds' }, 0.3] })
-    expect(parseFormula('net_sales + refunds + 10', names, [])).toEqual({ op: 'add', terms: [{ op: 'add', terms: ['net_sales', 'refunds'] }, 10] })
-    expect(unitOf(parseFormula('refunds / revenue', names, []))).toBe('ratio')
-    expect(() => parseFormula('revenue / nope', names, [])).toThrow('No metric called nope')
-    expect(() => parseFormula('revenue +', names, [])).toThrow('ends early')
-    expect(() => parseFormula('revenue', names, [])).toThrow('already exists')
-  })
-  it('reads a sum or count over a store table, dated by its first date column', () => {
-    const tables = [{ name: 'orders', meaning: '', rows: 1, columns: [{ name: 'order_id', type: 'string' }, { name: 'placed_at', type: 'timestamp[us, tz=UTC]' }, { name: 'total', type: 'decimal128(18, 2)' }] }]
-    expect(parseFormula('sum(orders.total)', [], tables)).toEqual({ kind: 'sum', table: 'orders', column: 'total', day: 'placed_at', where: null })
-    expect(parseFormula('count(orders)', [], tables)).toEqual({ kind: 'count', table: 'orders', column: null, day: 'placed_at', where: null })
-    expect(unitOf(parseFormula('count(orders)', [], tables))).toBe('count')
-    expect(() => parseFormula('sum(orders.nope)', [], tables)).toThrow('no column nope')
-    expect(() => parseFormula('sum(orders.total) / 2', [], tables)).toThrow('stands alone')
-    expect(() => parseFormula('count(refunds)', [], tables)).toThrow('No table called refunds')
-  })
-})
-
 describe('pointsFor', () => {
   it('reads one metric out of every daily period', () => {
     const daily = {
@@ -140,24 +112,5 @@ describe('MetricRows', () => {
     expect(html).toContain('disabled=""')
     expect(html).toContain('n/a')
     expect(html).toContain('needs ad_daily')
-  })
-})
-
-describe('DataGrid', () => {
-  it('prints scalars as text, nested values as JSON, and nothing for null', () => {
-    expect(cellText('a')).toBe('a')
-    expect(cellText(12.5)).toBe('12.5')
-    expect(cellText(null)).toBe('')
-    expect(cellText({ k: 1 })).toBe('{"k":1}')
-    expect(cellText(['BF25'])).toBe('["BF25"]')
-  })
-  it('renders one column per schema column', () => {
-    const html = renderToStaticMarkup(
-      <DataGrid caption="orders" columns={[{ name: 'order_id', type: 'string' }, { name: 'total', type: 'decimal' }]}
-        rows={[{ order_id: '6123', total: null }]} />,
-    )
-    expect(html).toContain('order_id')
-    expect(html).toContain('6123')
-    expect(html).toContain('—')
   })
 })
