@@ -127,7 +127,8 @@ export function ModelMenu({ onClose }: ModelMenuProps = {}) {
   const sortedModels = sortModels(models).filter(
     (model) => !isAutoRoutingModelName(model.modelName),
   )
-  const hasDirectSelection = !algorithm && !!selectedModel
+  // What "Select a Model" shows as chosen: an Auto Routing tier or a model.
+  const currentLabel = algorithm ? ALGORITHM_LABELS[algorithm] : selectedModel?.modelName
 
   const renderModelItem = (model: AIModel) => {
     const selected = isSameModel(selectedModel, model)
@@ -180,23 +181,20 @@ export function ModelMenu({ onClose }: ModelMenuProps = {}) {
   return (
     // maxHeight={false} opts out of Popover's own ScrollArea — same pattern
     // AccountMenu uses (src/components/AccountMenu/index.tsx). This menu's
-    // own content (2 algorithm rows + 1 submenu trigger + 1 reasoning row)
-    // never needs to scroll; the full catalog lives one level down in the
-    // "Select a Model" submenu instead, which enforces its own explicit
-    // 5-row cap (see MODEL_LIST_MAX_HEIGHT + the Dropdown.Submenu below).
+    // own content (the "Select a Model" row + the thinking slider) never needs
+    // to scroll; the Auto Routing tiers and the full catalog live one level down
+    // in the "Select a Model" submenu, whose model list keeps its own 5-row cap
+    // (see MODEL_LIST_MAX_HEIGHT + the Dropdown.Submenu below).
     <Dropdown size="md" maxHeight={false}>
-      <Dropdown.Section label="Auto Routing" fluid>
-        {renderAlgorithmItem('pro')}
-        {renderAlgorithmItem('base')}
-      </Dropdown.Section>
-      <Dropdown.Section label="Models" fluid divider>
+      <Dropdown.Section label="Model" fluid>
         <Dropdown.Submenu
           trigger={
             <Dropdown.Item
               fluid
-              label="Select a Model"
-              subLabel={hasDirectSelection ? selectedModel!.modelName : undefined}
-              selected={hasDirectSelection}
+              // Says what it does now: pick one, or change the one already picked (shown under it).
+              label={currentLabel ? 'Change model' : 'Select a model'}
+              subLabel={currentLabel}
+              selected={!!currentLabel}
               rightIcon={<ArrowRightOneIcon />}
             />
           }
@@ -210,7 +208,13 @@ export function ModelMenu({ onClose }: ModelMenuProps = {}) {
               (same pattern chat/ModelMenu.tsx used for its "Select model"
               section before this redesign — see MODEL_LIST_MAX_HEIGHT). */}
           <Dropdown size="md" maxHeight={false}>
-            <Dropdown.Section fluid>
+            {/* Auto Routing tiers first, Standard before Pro (lighter to stronger). */}
+            {/* "Automatic": Souvenir picks the model for each message. */}
+            <Dropdown.Section label="Automatic" fluid>
+              {renderAlgorithmItem('base')}
+              {renderAlgorithmItem('pro')}
+            </Dropdown.Section>
+            <Dropdown.Section label="Models" fluid divider>
               {/* Two nested divs, not one — the OUTER is the plain-block
                   scroll container (maxHeight + overflow, no display:flex of
                   its own); the INNER is the flex column that stacks the

@@ -87,7 +87,7 @@ export function ProjectMembersPanel({ projectId, ownerUserId, canManage, onAddMe
       {/* Scrollable member list — same flush region + kaya-scrollbar treatment
           the sibling Agents panel uses for its own list. */}
       <div style={{ position: 'relative', flex: '1 1 0', minHeight: 0 }}>
-        <div className="kaya-scrollbar" style={{ position: 'absolute', inset: 0, overflowY: 'auto', overflowX: 'hidden', padding: 3 }}>
+        <div className="kaya-scrollbar" style={{ position: 'absolute', inset: -3, overflowY: 'auto', overflowX: 'hidden', padding: 3 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {loading ? (
               Array.from({ length: 3 }).map((_, i) => <MemberRowSkeleton key={i} />)

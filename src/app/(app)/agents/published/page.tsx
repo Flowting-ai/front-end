@@ -121,7 +121,7 @@ function PersonaPublishedContent() {
         style={{
           backgroundColor: 'var(--color-surface-container)',
           border: '1px solid var(--border-default)',
-          borderRadius: 22,
+          borderRadius: 'var(--layout-radius)',
           display: 'flex',
           flexDirection: 'column',
           gap: 2,

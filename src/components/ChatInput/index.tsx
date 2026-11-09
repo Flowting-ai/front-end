@@ -1334,6 +1334,8 @@ export function ChatInput({
               <IconButton
                 variant="default"
                 size="md"
+                // 16px icons, the size of the model selector's logo; the button stays 36px.
+                iconSize={16}
                 shine
                 aria-label={isRecording ? 'Stop recording' : value ? 'Send message' : 'Start recording'}
                 icon={
@@ -1356,11 +1358,11 @@ export function ChatInput({
                         >
                           {isRecording
                             ? isMicHovered
-                              ? <StopCircleIcon size={20} />
-                              : <AudioWaveDisplay analyser={analyser} size={20} />
+                              ? <StopCircleIcon size={16} />
+                              : <AudioWaveDisplay analyser={analyser} size={16} />
                             : value
-                              ? <ArrowUpTwoIcon size={20} animated triggered={isMicHovered} />
-                              : <MicTwoIcon size={20} />
+                              ? <ArrowUpTwoIcon size={16} animated triggered={isMicHovered} />
+                              : <MicTwoIcon size={16} />
                           }
                         </m.span>
                       )

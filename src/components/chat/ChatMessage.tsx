@@ -21,7 +21,6 @@ import { StandaloneActivitiesBlock } from "./message/StandaloneActivitiesBlock";
 import { StreamingTextContent } from "./message/StreamingTextContent";
 import { ErrorNotice } from "./message/ErrorNotice";
 import { UserMessageBody } from "./message/UserMessageBody";
-import { AssistantModelHeader, ModelLoadingLabel, resolveModelDisplayName } from "./message/AssistantModelHeader";
 import { AssistantPrompts } from "./message/AssistantPrompts";
 import { GeneratedFilesList } from "./message/GeneratedFilesList";
 import { MessageActionBar } from "./message/MessageActionBar";
@@ -110,9 +109,7 @@ export function ChatMessage({
   const [copied, setCopied] = useState(false);
   // The "Copied" reset is cleared if the row unmounts first.
   const later = useUnmountTimeouts();
-  const [justModelSelected, setJustModelSelected] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
-  const prevModelKeyRef = useRef<string | undefined>(undefined);
   const { addPin, removePinByMessage, open: openPinboard, close: closePinboard } = usePinboardActions();
   const { addHighlight, open: openHighlightPanel, close: closeHighlightPanel, highlights } = useHighlight();
 
@@ -216,20 +213,6 @@ export function ChatMessage({
 
   const retry = onRetry ?? onRegenerate;
 
-  const modelDisplayName = resolveModelDisplayName(message)
-
-  // Trigger a glow burst when model metadata first becomes available.
-  const currentModelKey = message.modelMeta?.modelName || message.modelName || message.model_name || message.model
-  useEffect(() => {
-    if (!isNewMessage) return
-    if (currentModelKey && currentModelKey !== prevModelKeyRef.current) {
-      prevModelKeyRef.current = currentModelKey
-      setJustModelSelected(true)
-      const t = setTimeout(() => setJustModelSelected(false), 1200)
-      return () => clearTimeout(t)
-    }
-  }, [currentModelKey, isNewMessage])
-
   // Selection popover + highlight marks; its effects run after the ones above.
   const { selectionOpen, selectionAnchor, handleHighlight, handleCopySelection } = useMessageSelection({
     messageId: message.id,
@@ -309,7 +292,7 @@ export function ChatMessage({
         /* ── Assistant message: left-aligned, no bubble ── */
         <div style={assistantColumnStyle}>
 
-        <AssistantModelHeader message={message} modelDisplayName={modelDisplayName} justModelSelected={justModelSelected} />
+        {/* No model name/logo row: answers no longer say which model wrote them. */}
 
         {/* Activities summary line — shown when there are activities but
             ReasoningBlock isn't the one rendering them (no thinking data, or
@@ -318,12 +301,6 @@ export function ChatMessage({
             summary + chevron underneath it, on its own line. */}
         {!showReasoningBlock && message.activities && message.activities.length > 0 && (
           <StandaloneActivitiesBlock activities={message.activities} />
-        )}
-
-        {/* Loading state - shows shimmer label only before model identity is known. */}
-        {message.isLoading && !message.content && !message.thinking && !(message.activities && message.activities.length > 0) &&
-         !message.modelMeta && !(message.modelName || message.model_name || message.model) && (
-          <ModelLoadingLabel message={message} modelDisplayName={modelDisplayName} />
         )}
 
         {/* Waiting indicator — shown while loading before any content or thinking arrives */}

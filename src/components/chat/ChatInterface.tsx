@@ -598,6 +598,7 @@ export function ChatInterface({
             personaConfigLoading,
             queuedCount: queuedMessages.length,
             sendQueues,
+            hasMessages: messages.length > 0,
           })}
           onMentionChange={hidePinActions ? undefined : handleMentionChange}
           isPinDropdownOpen={hidePinActions ? false : showPinDropdown}

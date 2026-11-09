@@ -155,3 +155,15 @@ describe('preprocessMarkdown streaming option', () => {
     expect(preprocessMarkdown('Add `15g')).toBe('Add `15g')
   })
 })
+
+describe('preprocessMarkdown display math', () => {
+  it('turns a line that is exactly $$...$$ into a display block', () => {
+    const out = preprocessMarkdown('Before.\n\n$$\int_0^1 x^2\,dx = \tfrac13$$\n\nAfter.')
+    expect(out).toContain('\n$$\n\int_0^1 x^2\,dx = \tfrac13\n$$\n')
+  })
+
+  it('leaves $$...$$ inside a sentence inline', () => {
+    const out = preprocessMarkdown('The value $$x+1$$ is shown inline.')
+    expect(out).toContain('The value $$x+1$$ is shown inline.')
+  })
+})

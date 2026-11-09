@@ -212,13 +212,16 @@ TabItem.displayName = 'TabItem'
 // Count badges, sized to the tab's text line so they never change the tab's height: 20px with 12px
 // numbers on medium tabs (22px line), 16px with 10px numbers on small tabs (16px line). Medium tabs use
 // Tabs 08's colours (dark on the active tab, muted otherwise); small tabs use Tabs 04 - With Count's
-// (dark on every tab). Both pop when the number changes and widen into a pill for 2+ digits.
+// (dark on every tab). Both pop when the number changes and widen into a pill for 2+ digits. A count
+// of 0 shows nothing.
 function TabCount({ count, active, small }: { count: number | string; active: boolean; small: boolean }) {
   const size = small ? 16 : 20
   const dark = small || active
+  // A zero count shows no badge; it springs in once the count reaches 1 and out again at 0.
+  const shown = typeof count === 'number' ? count >= 1 : count.trim() !== '' && count.trim() !== '0'
   return (
     <AnimatePresence mode="popLayout" initial={false}>
-      <motion.span
+      {shown && <motion.span
         key={count}
         initial={{ opacity: 0, scale: 0.5, y: -6 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -245,7 +248,7 @@ function TabCount({ count, active, small }: { count: number | string; active: bo
         }}
       >
         {count}
-      </motion.span>
+      </motion.span>}
     </AnimatePresence>
   )
 }

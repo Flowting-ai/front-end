@@ -50,9 +50,10 @@ export function DefaultModelPicker() {
       }}
       descriptions={descriptions}
       icons={icons}
-      // The same "Auto Routing" / "Models" groups as the composer's ModelMenu.
+      // The same "Automatic" / "Models" groups as the composer's ModelMenu.
       sections={[
-        { label: 'Auto Routing', options: names.filter(isAutoRoutingModelName) },
+        // Standard before Pro, as in the composer menu.
+        { label: 'Automatic', options: names.filter(isAutoRoutingModelName).sort((x, y) => Number(/pro/i.test(x)) - Number(/pro/i.test(y))) },
         { label: 'Models', options: names.filter(name => !isAutoRoutingModelName(name)) },
       ]}
     />

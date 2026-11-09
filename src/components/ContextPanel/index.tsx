@@ -31,7 +31,7 @@ export function ContextPanelContent({ inProject = false, agentsDisabled = false 
   return (
     // Full panel height, so Agents (which sizes its own scrolling list to its box) gets the space
     // under the tab bar; Context and Browser just flow and let the panel scroll.
-    <Tabs value={tab} onValueChange={value => setChatPanelTab(value as ChatPanelTab)} style={{ display: 'flex', flexDirection: 'column', gap: 10, height: '100%' }}>
+    <Tabs value={tab} onValueChange={value => setChatPanelTab(value as ChatPanelTab)} style={{ display: 'flex', flexDirection: 'column', gap: 12, height: '100%' }}>
       <TabsList fluid size="small" aria-label="Chat panel views">
         <TabsTrigger value="context">Context</TabsTrigger>
         <TabsTrigger value="browser">

@@ -39,7 +39,8 @@ export function ProjectListRow({
         gap:             12,
         padding:         '10px 16px',
         borderRadius:    12,
-        backgroundColor: hovered || menuOpen ? 'var(--neutral-50)' : 'var(--neutral-white)',
+        // White like the grid view's cards (--card-bg); --neutral-white is the cream page colour.
+        backgroundColor: hovered || menuOpen ? 'var(--neutral-50)' : 'var(--card-bg)',
         boxShadow:       '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
         transition:      'background-color 120ms ease',
         width:           '100%',

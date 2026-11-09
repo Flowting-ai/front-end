@@ -245,7 +245,7 @@ export const TeamSwitcher = React.forwardRef<HTMLDivElement, TeamSwitcherProps>(
                   />
                 </div>
 
-                <Divider decorative style={{ margin: '4px 0', backgroundColor: 'rgba(59,54,50,0.1)' }} />
+                <Divider decorative style={{ margin: '4px 0', borderColor: 'rgba(59,54,50,0.1)' }} />
 
                 {/* Teams section header */}
                 <p style={{

@@ -6,14 +6,14 @@ import { AnimatePresence, m } from 'framer-motion'
 import { ChatInterface }                                   from '@/components/chat/ChatInterface'
 import { ChatMessagesSkeleton }                            from '@/components/chat/ChatMessagesSkeleton'
 import { ChatInput }                                       from '@/components/chat/ChatInput'
-import { ModelMenu }                                        from '@/components/chat/ModelMenu'
+import { ModelMenu, useModelButtonIcon, useModelButtonLabel } from '@/components/chat/ModelMenu'
 import { AttachmentManager, type PendingAttachment }       from '@/components/chat/AttachmentManager'
 import { InitialPrompts }                                  from '@/components/chat/InitialPrompts'
 import { ModelSwitchDialog }                               from '@/components/chat/ModelSwitchDialog'
 import { PinMentionDropdown }                              from '@/components/chat/PinMentionDropdown'
 import { ChatShareOverlay }                                from '@/components/chat/ChatShareOverlay'
 import { useModelSelectorContext }                         from '@/context/model-selector-context'
-import { modelIconSource, pickDefaultModel }               from '@/lib/ai-models'
+import { pickDefaultModel }         from '@/lib/ai-models'
 import { useWorkspaceCreditNotice }                        from '@/hooks/use-workspace-credit-notice'
 import { InlineCreditNotice }                              from '@/components/InlineCreditNotice'
 import { useProjects }                                     from '@/context/projects-context'
@@ -312,8 +312,9 @@ function ProjectChatPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const modelButtonLabel = selectedModel?.modelName
-  const modelButtonIcon = selectedModel ? modelIconSource(selectedModel) : null
+  // The shared hooks: an Auto Routing tier shows its own name, not the "Souvenir" fallback.
+  const modelButtonLabel = useModelButtonLabel()
+  const modelButtonIcon = useModelButtonIcon()
 
   const handleModelClick = (e: React.MouseEvent<HTMLButtonElement>) => { if (selectedPersona) return; openModelSelector(e.currentTarget) }
 

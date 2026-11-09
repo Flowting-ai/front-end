@@ -22,7 +22,7 @@ const ModelSwitchDialog = dynamic(() => import("@/components/chat/ModelSwitchDia
 import { PinMentionDropdown } from "@/components/chat/PinMentionDropdown";
 import { PinChipStrip } from "@/components/chat/PinChipStrip";
 import { useModelSelectorContext } from "@/context/model-selector-context";
-import { modelIconSource, pickDefaultModel } from "@/lib/ai-models";
+import { pickDefaultModel } from "@/lib/ai-models";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { emitChatCreated, useSidebarEvents } from "@/hooks/use-sidebar-events";
 import { AGENT_SELECT_EVENT } from "@/components/AgentsPanel";
@@ -49,7 +49,7 @@ import { ChatAddMenu, type SelectedPersonaInfo } from "@/components/chat/AddMenu
 import { USE_STYLE_OPTIONS } from "@/lib/tone-options";
 import { ChatShareOverlay } from "@/components/chat/ChatShareOverlay";
 import { getVersion } from "@/lib/api/personas";
-import { ModelMenu } from "@/components/chat/ModelMenu";
+import { ModelMenu, useModelButtonIcon, useModelButtonLabel } from "@/components/chat/ModelMenu";
 import { toast } from "sonner";
 import { useCreditStatus } from "@/hooks/use-credit-status";
 import { useWorkspaceCreditNotice } from "@/hooks/use-workspace-credit-notice";
@@ -571,8 +571,9 @@ function ChatPageInner({ leftChatId }: { leftChatId?: string }) {
     return () => { cancelled = true }
   }, [selectedPersona, models])
 
-  const modelButtonLabel = selectedModel?.modelName;
-  const modelButtonIcon = selectedModel ? modelIconSource(selectedModel) : null;
+  // The shared hooks: an Auto Routing tier shows its own name ("Souvenir Standard" / "Souvenir Pro"), not the "Souvenir" fallback.
+  const modelButtonLabel = useModelButtonLabel();
+  const modelButtonIcon = useModelButtonIcon();
 
   const { chats: chatHistory, renameLocal, addOptimistic, moveToTop, refreshChatTitle } = useChatHistoryContext();
   const activeChatRecord = activeChatId

@@ -56,13 +56,15 @@ export function getQueueStatus({ pausedReason, waitingOnReply, queuedCount, aski
 }
 
 /** The composer's placeholder, from the most to the least blocking state. */
-export function getComposerPlaceholder({ readOnly, poolPaused, creditsBlocked, personaConfigLoading, queuedCount, sendQueues }: {
+export function getComposerPlaceholder({ readOnly, poolPaused, creditsBlocked, personaConfigLoading, queuedCount, sendQueues, hasMessages = false }: {
   readOnly: boolean;
   poolPaused: boolean;
   creditsBlocked: boolean;
   personaConfigLoading: boolean;
   queuedCount: number;
   sendQueues: boolean;
+  /** The chat already has a reply: the opening greeting gives way to a generic follow-up prompt. */
+  hasMessages?: boolean;
 }): string {
   return readOnly
     ? 'Create your own copy to continue this chat.'
@@ -76,5 +78,7 @@ export function getComposerPlaceholder({ readOnly, poolPaused, creditsBlocked, p
           ? 'Queue another message…'
           : sendQueues
             ? 'Queue a follow-up…'
-            : 'How can I help you today?';
+            : hasMessages
+              ? 'Ask a follow-up…'
+              : 'How can I help you today?';
 }

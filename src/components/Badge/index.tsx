@@ -38,11 +38,13 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   color?: BadgeColor
   /** Optional leading icon (e.g. a small provider/model logo) rendered before the label. */
   icon?: React.ReactNode
+  /** `md` is a slightly larger label (13px) for badges that stand alone, e.g. a page header. Default `sm`. */
+  size?: 'sm' | 'md'
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export function Badge({ ref, label = 'Label', color = 'Blue', icon, className, style, ...props }: BadgeProps & { ref?: React.Ref<HTMLSpanElement> }) {
+export function Badge({ ref, label = 'Label', color = 'Blue', icon, size = 'sm', className, style, ...props }: BadgeProps & { ref?: React.Ref<HTMLSpanElement> }) {
     const cfg = COLOR_CONFIG[color]
 
     return (
@@ -59,7 +61,7 @@ export function Badge({ ref, label = 'Label', color = 'Blue', icon, className, s
           // 2px padding top/bottom) so an icon badge sitting next to a
           // plain-label one — e.g. the persona card footer — always lines up
           // instead of the icon's own box nudging it a couple px taller.
-          minHeight:       20,
+          minHeight:       size === 'md' ? 24 : 20,
           padding:         '2px',
           borderRadius:    '6px',
           backgroundColor: cfg.bg,
@@ -96,8 +98,8 @@ export function Badge({ ref, label = 'Label', color = 'Blue', icon, className, s
             padding:    '0 2px',
             fontFamily: 'var(--font-body)',
             fontWeight: 'var(--font-weight-medium)',
-            fontSize:   'var(--font-size-caption)',
-            lineHeight: 'var(--line-height-caption)',
+            fontSize:   size === 'md' ? 13 : 'var(--font-size-caption)',
+            lineHeight: size === 'md' ? '18px' : 'var(--line-height-caption)',
             color:      cfg.text,
             whiteSpace: 'nowrap',
             position:   'relative',

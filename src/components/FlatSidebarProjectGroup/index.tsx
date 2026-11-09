@@ -231,7 +231,9 @@ export const FlatSidebarProjectGroup = React.forwardRef<HTMLDivElement, FlatSide
               animate="open"
               exit="closed"
               variants={heightVariants}
-              style={{ overflow }}
+              // 2px of room each side (taken back with a negative margin, so rows keep their place): the
+              // rows' 1px hover/selected ring sits just outside them and was clipped on the right.
+              style={{ overflow, margin: '0 -2px', padding: '0 2px' }}
               onAnimationStart={(def) => { if (def === 'closed') setOverflow('hidden') }}
               onAnimationComplete={(def) => { if (def === 'open') setOverflow('visible') }}
             >

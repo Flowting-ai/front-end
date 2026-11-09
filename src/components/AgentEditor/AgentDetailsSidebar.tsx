@@ -65,7 +65,7 @@ function ReadOnlyRow({ label, children }: { label: string; children: React.React
  * says how many changes it will save. Always white and black (not themed), so it reads the
  * same on the light and dark panel.
  */
-function SaveChanges({ count, onClick, loading }: { count: number; onClick: () => void; loading?: boolean }) {
+export function SaveChanges({ count, onClick, loading }: { count: number; onClick: () => void; loading?: boolean }) {
   return (
     <AnimatePresence initial={false}>
       {count > 0 && (
@@ -176,8 +176,8 @@ export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string;
   // which supplies the header, close button, background and scrolling.
   return (
     <>
-      {/* 6px of padding all round: the blue focus ring extends ~5px and the panel's scroll area clips overflow. */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: 6 }}>
+      {/* 6px of padding all round: the blue focus ring extends ~5px and the panel's scroll area clips overflow. The -6px margin hands the space back, so fields line up with the other panels' 8px edge. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: 6, margin: -6 }}>
         {isLoading || (repo && record && !draft) ? (
           <div role="status" aria-live="polite" style={{ display: 'flex', justifyContent: 'center', paddingTop: 40 }}><Spinner size={22} /></div>
         ) : !repo || !record || !draft || !baseline ? (
@@ -297,7 +297,6 @@ export function AgentDetailsSidebar({ repoId, canEdit, onClose }: AgentDetailsSi
     if (!repoId) { setPanel(null); return }
     setPanel({
       title: 'Agent details',
-      sidePadding: 20,
       onClose: () => onCloseRef.current(),
       content: <AgentDetailsBody key={repoId} repoId={repoId} canEdit={canEdit} onClose={() => onCloseRef.current()} />,
     })

@@ -9,6 +9,7 @@ import { Button, IconButton } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { trackFeature } from '@/lib/analytics/events'
+import { TopBarPortal } from '@/components/layout/TopBarSlots'
 
 // ── Top-right chat overlay: Share button + modal for chat owners, ──────────
 // "Create a copy" button for viewers of a chat shared/published to them. ────
@@ -59,7 +60,8 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
 
   return (
     <>
-      <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+      {/* Share and the side panel toggle, at the right end of the TopBar. */}
+      <TopBarPortal side="right">
       {chatId && canManage && !!orgId && (
         // With the side panel open the chat column is narrower, so Share drops to its icon.
         chatPanel.isOpen ? (
@@ -98,7 +100,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
           icon={<SidebarRightIcon size={18} />}
           onClick={chatPanel.toggle}
         />
-      </div>
+      </TopBarPortal>
 
       <Dialog open={chatShareOpen} onOpenChange={setChatShareOpen}>
         <DialogContent

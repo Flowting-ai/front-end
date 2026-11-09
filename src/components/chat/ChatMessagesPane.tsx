@@ -73,7 +73,13 @@ export function ChatMessagesPane({
           flex: 1,
           overflowY: "auto",
           paddingTop: "24px",
-          paddingBottom: "24px",
+          // Matches the 40px fade, so the last message ends clear of it when scrolled to the bottom.
+          paddingBottom: "40px",
+          // Messages fade out over the last 40px as they near the composer instead of stopping at a
+          // hard edge. A mask (not a coloured overlay) reveals whatever is behind, so it matches the
+          // translucent card in both themes.
+          maskImage: "linear-gradient(to bottom, #000 calc(100% - 40px), transparent)",
+          WebkitMaskImage: "linear-gradient(to bottom, #000 calc(100% - 40px), transparent)",
           paddingRight: "2px",
           display: "flex",
           flexDirection: "column",

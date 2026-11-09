@@ -74,6 +74,8 @@ export function SubmitControls({
         <IconButton
           variant={showQueueButton ? "ghost" : "default"}
           size="md"
+          // 16px icons, the size of the model selector's logo beside it; the button stays 36px.
+          iconSize={16}
           shine={!showQueueButton}
           aria-label={
             isStreaming
@@ -118,21 +120,21 @@ export function SubmitControls({
                     }}
                   >
                     {isStreaming ? (
-                      <StopCircleIcon size={20} />
+                      <StopCircleIcon size={16} />
                     ) : isRecording ? (
                       isMicHovered ? (
-                        <StopCircleIcon size={20} />
+                        <StopCircleIcon size={16} />
                       ) : (
-                        <AudioWaveDisplay analyser={analyser} size={20} />
+                        <AudioWaveDisplay analyser={analyser} size={16} />
                       )
                     ) : value ? (
                       <ArrowUpTwoIcon
-                        size={20}
+                        size={16}
                         animated
                         triggered={isMicHovered}
                       />
                     ) : (
-                      <MicTwoIcon size={20} />
+                      <MicTwoIcon size={16} />
                     )}
                   </m.span>
                 );
@@ -175,7 +177,8 @@ export function SubmitControls({
                 size="md"
                 shine
                 aria-label="Queue message"
-                icon={<ArrowUpTwoIcon size={20} animated triggered={isQueueHovered} />}
+                iconSize={16}
+                icon={<ArrowUpTwoIcon size={16} animated triggered={isQueueHovered} />}
                 onClick={onQueue}
                 disabled={disabled}
               />

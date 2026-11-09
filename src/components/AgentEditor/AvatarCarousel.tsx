@@ -140,7 +140,7 @@ export function AvatarCarousel({
               style={{
                 position: 'relative', width: TILE, height: TILE, padding: 0, border: 'none', borderRadius: '50%',
                 background: 'none',
-                cursor: disabled ? 'default' : 'pointer',
+                cursor: disabled ? 'not-allowed' : 'pointer',
                 opacity: disabled && !isSelected ? 0.5 : 1,
                 // The selected tile: a ring in its own colour, offset by a gap of the tray colour.
                 boxShadow: isSelected

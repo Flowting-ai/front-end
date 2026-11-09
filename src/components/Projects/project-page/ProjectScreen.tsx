@@ -3,7 +3,9 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ArrowLeftOneIcon } from '@strange-huge/icons'
+import { ShareOneIcon } from '@strange-huge/icons'
+import { PageBackButton } from '@/components/PageBackButton'
+import { IconButton } from '@/components/ui/button'
 import { ProjectNotFound } from '@/components/Projects/ProjectRouteStates'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
@@ -49,7 +51,17 @@ export function ProjectScreen({ projectId }: { projectId: string }) {
   const composer = useProjectComposer(projectId)
   const [openInstructions] = useState(() => () => setDialog('instructions'))
   const [openShare] = useState(() => () => setDialog('share'))
-  const panels = useProjectPanels({ project, canEdit, canManageMembers, onOpenInstructions: openInstructions, onAddMember: openShare })
+  const panels = useProjectPanels({
+    project, canEdit, canManageMembers, onOpenInstructions: openInstructions, onAddMember: openShare,
+    settings: {
+      ownerName: project && (project.ownerUserId === viewerId ? 'you' : members.find(m => m.id === project.ownerUserId)?.name),
+      canLeave: canProject('leave', project, orgId),
+      canDelete: canProject('delete', project, orgId),
+      onEdit: () => setDialog('edit'),
+      onLeave: () => setDialog('leave'),
+      onDelete: () => setDialog('delete'),
+    },
+  })
 
   if (!project) return projectsLoading || loading ? <ProjectPageSkeleton /> : <ProjectNotFound />
 
@@ -80,15 +92,14 @@ export function ProjectScreen({ projectId }: { projectId: string }) {
     <ProjectFrame
       overlay={
         <>
-          {/* Back, in the TopBar zone. */}
-          <button
+          {/* Back, level with the sidebar toggle. This page uses AppLayout's tight 3px card. */}
+          <PageBackButton
+            label="Back to Projects"
             onClick={() => push(PROJECTS_ROUTE)}
-            style={{ position: 'absolute', top: 6, left: 8, zIndex: 10, display: 'flex', alignItems: 'center', background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: '10px', flexShrink: 0 }}
-            aria-label="Back to Projects"
-          >
-            <ArrowLeftOneIcon style={{ width: 20, height: 20, color: 'var(--neutral-700)' }} />
-          </button>
-          <ProjectToolsMenu panels={panels} showMembers={shared} />
+            // Sharing at the right end of the Back row (shared and workspace projects only), the same ghost size as Back.
+            trailing={shared ? <IconButton variant="ghost" size="sm" icon={<ShareOneIcon size={20} animated />} aria-label="Sharing" title="Sharing" onClick={openShare} /> : undefined}
+          />
+          <ProjectToolsMenu panels={panels} />
           <ProjectModals
             project={project}
             dialog={dialog}
@@ -109,17 +120,7 @@ export function ProjectScreen({ projectId }: { projectId: string }) {
         </>
       }
     >
-      <ProjectHeader
-        project={project}
-        ownerName={members.find(m => m.id === project.ownerUserId)?.name}
-        canEdit={canEdit}
-        canLeave={canProject('leave', project, orgId)}
-        canDelete={canProject('delete', project, orgId)}
-        onEdit={() => setDialog('edit')}
-        onLeave={() => setDialog('leave')}
-        onDelete={() => setDialog('delete')}
-        onShare={openShare}
-      />
+      <ProjectHeader project={project} />
       <ProjectComposer composer={composer} onOpenAgents={() => panels.show('agents')} />
       <ProjectChatList project={project} viewerId={viewerId} members={members} canPublish={canPublish} team={teamChats} />
     </ProjectFrame>

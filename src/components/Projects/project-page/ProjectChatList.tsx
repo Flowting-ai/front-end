@@ -104,8 +104,9 @@ export function ProjectChatList({ project, viewerId, members, canPublish, team }
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 4px', justifyContent: 'center' }}>
           <div style={{ width: 32, flexShrink: 0 }} aria-hidden />
           <TabsList size="small">
-            <TabsTrigger value="personal">Your chats</TabsTrigger>
-            <TabsTrigger value="publish" count={publishedChats.length > 0 ? publishedChats.length : undefined}>{publishedTabLabel}</TabsTrigger>
+            {/* Both tabs show their chat count (0 included) once the list has loaded. */}
+            <TabsTrigger value="personal" count={team.loading ? undefined : team.teamChats.length}>Your chats</TabsTrigger>
+            <TabsTrigger value="publish" count={team.loading ? undefined : publishedChats.length}>{publishedTabLabel}</TabsTrigger>
           </TabsList>
           <Tooltip
             side="left"

@@ -32,32 +32,30 @@ const BASE =
   'text-[length:var(--font-size-body)] leading-[var(--line-height-body)] ' +
   'transition-[background-color,border-color,box-shadow,filter,translate,scale,opacity] duration-200 ' +
   'cursor-pointer outline-none focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-[var(--focus-ring)] ' +
-  'active:scale-[0.98] disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-70 ' +
+  'active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 ' +
+  // Disabled: no hover wash, lift or press (pointer events stay on so the not-allowed cursor shows).
+  'disabled:hover:[background-image:none] disabled:data-[active=true]:[background-image:none] disabled:hover:[filter:none] disabled:active:scale-100 disabled:hover:scale-100 ' +
   'aria-busy:cursor-progress [&_svg]:pointer-events-none [&_svg]:shrink-0'
 
 // A flat hover colour layered over the base fill (so a translucent token still shows it). Set `[--hv:<token>]` per variant.
 const HOVER_LAYER =
   'hover:[background-image:linear-gradient(var(--hv),var(--hv))] data-[active=true]:[background-image:linear-gradient(var(--hv),var(--hv))]'
 
-// The secondary's soft lift shadow on hover (drop-shadow filter).
-const SUBTLE_LIFT = 'hover:[filter:var(--shadow-button-subtle-outer-hover)] data-[active=true]:[filter:var(--shadow-button-subtle-outer-hover)]'
-
-const PRIMARY_FLAT = cn(
-  'bg-[var(--button-default-bg-to)] disabled:bg-[var(--button-default-bg-disabled-to)]',
-  'text-[var(--button-default-text)] disabled:text-[var(--button-default-text-disabled)]',
-  HOVER_LAYER,
-  '[--hv:var(--button-primary-bg-hover)]',
-  // An arbitrary box-shadow property: Tailwind's shadow utility reads a bare var as a shadow colour.
-  '[box-shadow:var(--shadow-button-primary-outer)]',
-  'hover:[box-shadow:var(--shadow-button-primary-outer-hover)] data-[active=true]:[box-shadow:var(--shadow-button-primary-outer-hover)]',
-  SUBTLE_LIFT,
-)
 
 // Solid colour buttons (danger / save / cancel / reject): white text, a slightly darker fill on hover.
 // Class names are written out in full — Tailwind only generates classes it can read in the source.
 const SOLID = '[box-shadow:0_1px_2px_rgba(0,0,0,0.12)]'
+// The dark default button: a flat fill with the same small shadow as the solid buttons (no 3D bevel,
+// ring or hover lift), so it sits at the same visual weight and size as danger / cancel.
+const PRIMARY_FLAT = cn(
+  SOLID,
+  'bg-[var(--button-default-bg-to)] disabled:bg-[var(--button-default-bg-disabled-to)]',
+  'text-[var(--button-default-text)] disabled:text-[var(--button-default-text-disabled)]',
+  HOVER_LAYER,
+  '[--hv:var(--button-primary-bg-hover)]',
+)
 // Red reads the danger text tokens (white by default), so a caller can invert it to red-on-white.
-const RED = cn(SOLID, 'text-[var(--button-danger-text)] disabled:text-[var(--button-danger-text-disabled)]', 'bg-[var(--button-danger-bg)] hover:bg-[var(--button-danger-bg-hover)] data-[active=true]:bg-[var(--button-danger-bg-hover)]')
+const RED = cn(SOLID, 'text-[var(--button-danger-text)] disabled:text-[var(--button-danger-text-disabled)]', 'bg-[var(--button-danger-bg)] hover:bg-[var(--button-danger-bg-hover)] data-[active=true]:bg-[var(--button-danger-bg-hover)] disabled:hover:bg-[var(--button-danger-bg)]')
 
 export const buttonVariants = cva(BASE, {
   variants: {
@@ -68,6 +66,7 @@ export const buttonVariants = cva(BASE, {
         HOVER_LAYER,
         '[--hv:var(--button-ghost-bg-hover)]',
         'hover:border-[var(--button-subtle-border-hover)] data-[active=true]:border-[var(--button-subtle-border-hover)]',
+        'disabled:hover:border-transparent',
       ),
       outline: cn(
         'bg-[var(--field-surface)] border-[var(--button-outline-border)] disabled:border-[var(--button-outline-border-disabled)]',
@@ -75,14 +74,16 @@ export const buttonVariants = cva(BASE, {
         HOVER_LAYER,
         '[--hv:var(--button-outline-bg-hover)]',
         'hover:border-[var(--button-subtle-border-hover)] data-[active=true]:border-[var(--button-subtle-border-hover)]',
+        'disabled:hover:border-[var(--button-outline-border-disabled)]',
       ),
+      // One crisp 1px edge, no drop shadow: the old near-white inner ring plus a soft 3px shadow
+      // read as a double border.
       secondary: cn(
         'bg-[var(--button-secondary-bg)] text-[var(--button-secondary-text)] disabled:text-[var(--button-secondary-text-disabled)]',
         HOVER_LAYER,
         '[--hv:var(--button-secondary-bg-hover)]',
-        '[box-shadow:var(--shadow-button-secondary-outer)]',
-        'hover:[box-shadow:var(--shadow-button-secondary-outer-hover)] data-[active=true]:[box-shadow:var(--shadow-button-secondary-outer-hover)]',
-        SUBTLE_LIFT,
+        'border-[var(--button-outline-border)] disabled:border-[var(--button-outline-border-disabled)]',
+        'hover:border-[var(--button-subtle-border-hover)] data-[active=true]:border-[var(--button-subtle-border-hover)] disabled:hover:border-[var(--button-outline-border-disabled)]',
       ),
       danger: RED,
       save:   PRIMARY_FLAT,
@@ -90,7 +91,7 @@ export const buttonVariants = cva(BASE, {
       reject: cn(RED, 'kaya-btn-perm hover:scale-[1.02]'),
       approve: cn(
         'bg-[var(--button-approve-bg)] text-[var(--button-approve-text)]',
-        'hover:bg-[var(--button-approve-bg-hover)] data-[active=true]:bg-[var(--button-approve-bg-hover)]',
+        'hover:bg-[var(--button-approve-bg-hover)] data-[active=true]:bg-[var(--button-approve-bg-hover)] disabled:hover:bg-[var(--button-approve-bg)]',
         'kaya-btn-perm hover:scale-[1.02]',
       ),
       // Text-only action.
@@ -273,6 +274,8 @@ export type IconButtonProps =
     shine?: boolean
     /** Button 04 - Heartbeat: a pulsing ring for something that needs attention. */
     attention?: boolean
+    /** Size (px) of the icon box. Defaults by size: 14 / 18 / 20 for xs / sm / md. The button's own size is unchanged. */
+    iconSize?: number
   }
 
 const iconButtonVariants = cva(BASE + ' p-0', {
@@ -319,13 +322,14 @@ export function IconButton({
   shiny = false,
   shine = false,
   attention = false,
+  iconSize,
   type,
   title,
   className,
   ...props
 }: IconButtonProps & { ref?: React.Ref<HTMLButtonElement> }) {
   const Comp = asChild ? Slot : 'button'
-  const px = size === 'xs' ? 14 : size === 'sm' ? 18 : 20
+  const px = iconSize ?? (size === 'xs' ? 14 : size === 'sm' ? 18 : 20)
   const resolvedIcon = icon ?? <PlusSignIcon size={px} />
 
   return (

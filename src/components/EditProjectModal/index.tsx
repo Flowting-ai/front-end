@@ -4,7 +4,8 @@ import React, { useEffect, useRef, useState } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { AnimatePresence, m } from 'framer-motion'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { CancelOneIcon } from '@strange-huge/icons'
+import { ArrowDownOneIcon, CancelOneIcon, TickTwoIcon } from '@strange-huge/icons'
+import { Dropdown } from '@/components/Dropdown'
 import { IconButton, Button } from '@/components/ui/button'
 import { Badge } from '@/components/Badge'
 import { ChipInput } from '@/components/ChipInput'
@@ -53,7 +54,7 @@ function RequiredMark() {
 
 // What a visibility change does to the people who have access now. The
 // backend clears whichever people list stops applying (Project.setVisibility).
-function accessChangeNote(from: ProjectVisibility, to: ProjectVisibility): { text: string; losesAccess: boolean } | null {
+export function accessChangeNote(from: ProjectVisibility, to: ProjectVisibility): { text: string; losesAccess: boolean } | null {
   if (from === to) return null
   if (to === 'personal') {
     return { text: 'Only you will have access. Everyone else loses it.', losesAccess: from !== 'personal' }
@@ -97,6 +98,7 @@ export function EditProjectModal({
   const visibilityNote = accessChangeNote(visibility, draft.visibility)
   const [tagInput,  setTagInput]    = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [visibilityOpen, setVisibilityOpen] = useState(false)
   const prevOpenRef = useRef(false)
 
   useEffect(() => {
@@ -190,9 +192,19 @@ export function EditProjectModal({
               lineHeight: '32px',
               color:      'var(--legacy-1a1714)',
               margin:     0,
+              minWidth:   0,
+              overflow:   'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
             }}
+            title={creating ? undefined : name}
           >
-            {creating ? 'New project' : 'Edit'}
+            {creating ? 'New project' : (
+              <>
+                Edit{' '}
+                <span style={{ color: 'var(--neutral-500)' }}>“{name}”</span>
+              </>
+            )}
           </p>
           </DialogPrimitive.Title>
           <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" onClick={onClose} disabled={submitting} />
@@ -244,51 +256,38 @@ export function EditProjectModal({
           {visibilityOptions.length > 1 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <span id="edit-project-visibility" style={LABEL_STYLE}>Who can see this</span>
-              <div role="radiogroup" aria-labelledby="edit-project-visibility" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                {visibilityOptions.map(opt => {
-                  const selected = draft.visibility === opt.value
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      onClick={() => setField('visibility', opt.value)}
-                      style={{
-                        display:         'flex',
-                        alignItems:      'center',
-                        gap:             '10px',
-                        width:           '100%',
-                        padding:         '8px 12px',
-                        borderRadius:    '10px',
-                        border:          selected ? '1px solid var(--blue-400)' : '1px solid var(--border-default)',
-                        background:      selected ? 'color-mix(in srgb, var(--info-500) 6%, transparent)' : 'var(--neutral-white)',
-                        cursor:          'pointer',
-                        textAlign:       'left',
-                      }}
-                    >
-                      <span
-                        aria-hidden="true"
-                        style={{
-                          width:        14,
-                          height:       14,
-                          flexShrink:   0,
-                          borderRadius: '50%',
-                          boxShadow:    selected ? 'inset 0 0 0 4px var(--blue-400)' : 'inset 0 0 0 1.5px rgba(59,54,50,0.28)',
-                        }}
+              <Dropdown.Float
+                open={visibilityOpen}
+                onOpenChange={setVisibilityOpen}
+                placement="bottom-start"
+                trigger={
+                  <Button
+                    variant="outline"
+                    fluid
+                    aria-labelledby="edit-project-visibility"
+                    rightIcon={<ArrowDownOneIcon size={16} />}
+                    style={{ justifyContent: 'space-between' }}
+                  >
+                    {visibilityOptions.find(o => o.value === draft.visibility)?.label ?? draft.visibility}
+                  </Button>
+                }
+              >
+                <Dropdown size="md" maxHeight={false}>
+                  <Dropdown.Section fluid>
+                    {visibilityOptions.map(opt => (
+                      <Dropdown.Item
+                        key={opt.value}
+                        fluid
+                        label={opt.label}
+                        subLabel={opt.description}
+                        selected={draft.visibility === opt.value}
+                        rightIcon={<TickTwoIcon style={{ opacity: draft.visibility === opt.value ? 1 : 0 }} />}
+                        onClick={() => { setField('visibility', opt.value); setVisibilityOpen(false) }}
                       />
-                      <span style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: '14px', lineHeight: '20px', color: 'var(--neutral-800)' }}>
-                          {opt.label}
-                        </span>
-                        <span style={{ fontFamily: 'var(--font-body)', fontSize: '12px', lineHeight: '16px', color: 'var(--neutral-500)' }}>
-                          {opt.description}
-                        </span>
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
+                    ))}
+                  </Dropdown.Section>
+                </Dropdown>
+              </Dropdown.Float>
               {visibilityNote && (
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', lineHeight: '16px', color: visibilityNote.losesAccess ? 'var(--red-500, #ef4444)' : 'var(--neutral-500)', margin: 0 }}>
                   {visibilityNote.text}
@@ -393,8 +392,18 @@ export function EditProjectModal({
           }}
         >
           <Button variant="cancel" onClick={onClose} disabled={submitting}>Cancel</Button>
-          <Button variant={creating ? 'default' : 'save'} onClick={handleSave} loading={submitting} disabled={!form.isValid || submitting}>
-            {creating ? 'Create project' : 'Save changes'}
+          <Button
+            variant={creating ? 'default' : 'save'}
+            onClick={handleSave}
+            loading={submitting}
+            // Editing: nothing to save until a field changes. Creating: the form only has to be valid.
+            disabled={!form.isValid || submitting || (!creating && !form.isDirty)}
+          >
+            {creating
+              ? 'Create project'
+              : form.isDirty
+                ? `Save ${form.dirtyFields.length} ${form.dirtyFields.length === 1 ? 'change' : 'changes'}`
+                : 'Save changes'}
           </Button>
         </div>
       </DialogContent>
