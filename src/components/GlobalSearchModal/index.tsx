@@ -560,7 +560,7 @@ export function GlobalSearchModal({
                       onClick={noticeAction.onClick}
                       disabled={noticeAction.busy}
                       aria-busy={noticeAction.busy || undefined}
-                      style={{ border: 0, padding: 0, background: 'none', font: 'inherit', color: 'var(--neutral-900)', textDecoration: 'underline', cursor: noticeAction.busy ? 'default' : 'pointer' }}
+                      style={{ border: 0, padding: 0, background: 'none', font: 'inherit', color: 'var(--neutral-900)', textDecoration: 'underline', cursor: noticeAction.busy ? 'progress' : 'pointer' }}
                     >
                       {noticeAction.busy ? 'Loading…' : noticeAction.label}
                     </button>

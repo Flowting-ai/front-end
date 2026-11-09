@@ -250,10 +250,10 @@
   --blue-950-20: rgba(231, 244, 253, 0.2);
 
   /* ── Shadows: stay shadows (dark-neutral colours → black; hairline → soft ring) ── */
-  --shadow-button-primary-outer: 0px 1.091px 1.091px 0px rgba(0, 0, 0, 0.1), 0px 1.455px 3.127px 0px rgba(0, 0, 0, 0.3), 0px 0px 0px 1px var(--neutral-900), inset 0px -2.182px 0.364px 0px rgba(0, 0, 0, 0.45);
-  --shadow-button-primary-outer-hover: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--neutral-700);
-  --shadow-button-secondary-outer: 0px 1.091px 1.091px 0px rgba(0, 0, 0, 0.1), 0px 1.455px 3.127px 0px rgba(0, 0, 0, 0.3), 0px 0px 0px 1px var(--neutral-100);
-  --shadow-button-secondary-outer-hover: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--neutral-300-40);
+  --shadow-button-primary-outer: 0px 1.091px 1.091px 0px rgba(0, 0, 0, 0.1), 0px 1.455px 3.127px 0px rgba(0, 0, 0, 0.3), inset 0px 0px 0px 1px var(--neutral-900), inset 0px -2.182px 0.364px 0px rgba(0, 0, 0, 0.45);
+  --shadow-button-primary-outer-hover: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), inset 0px 0px 0px 1px var(--neutral-700);
+  --shadow-button-secondary-outer: 0px 1.091px 1.091px 0px rgba(0, 0, 0, 0.1), 0px 1.455px 3.127px 0px rgba(0, 0, 0, 0.3), inset 0px 0px 0px 1px var(--neutral-100);
+  --shadow-button-secondary-outer-hover: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), inset 0px 0px 0px 1px var(--neutral-300-40);
   --shadow-button-default-outer: drop-shadow(0px 1.091px 1.091px rgba(0, 0, 0, 0.2)) drop-shadow(0px 1.455px 3.127px rgba(0, 0, 0, 0.6));
   --shadow-button-default-icon-emboss: drop-shadow(0px 0.364px 0.364px var(--neutral-white-25)) drop-shadow(0px -0.727px 0.364px rgba(0, 0, 0, 0.5));
   --shadow-button-default-icon-emboss-disabled: drop-shadow(0px 0.364px 0.364px var(--neutral-700)) drop-shadow(0px -0.727px 0.364px rgba(0, 0, 0, 0.5));
@@ -346,15 +346,15 @@
   --icon-button-secondary-bg-hover: #3A3A3A;
   --tab-item-bg-selected: #404040;
   --tab-item-text-selected: #FFFFFF;
-  --shadow-button-secondary-outer: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.10);
-  --shadow-button-secondary-outer-hover: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.18);
+  --shadow-button-secondary-outer: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), inset 0px 0px 0px 1px rgba(255, 255, 255, 0.10);
+  --shadow-button-secondary-outer-hover: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), inset 0px 0px 0px 1px rgba(255, 255, 255, 0.18);
   --shadow-button-secondary-inner: inset 0px 1px 0px 0px rgba(255, 255, 255, 0.08);
   --shadow-button-secondary-inner-hover: inset 0px 1px 0px 0px rgba(255, 255, 255, 0.12);
   --shadow-tab-item-selected: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.14);
   --shadow-tab-item-selected-inner: inset 0px 1px 0px 0px rgba(255, 255, 255, 0.10);
   --button-primary-bg-hover: rgba(0, 0, 0, 0.06);
-  --shadow-button-primary-outer: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.10);
-  --shadow-button-primary-outer-hover: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.18);
+  --shadow-button-primary-outer: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), inset 0px 0px 0px 1px rgba(255, 255, 255, 0.10);
+  --shadow-button-primary-outer-hover: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), inset 0px 0px 0px 1px rgba(255, 255, 255, 0.18);
   --button-approve-bg: rgba(74, 222, 128, 0.12);
   --button-approve-bg-hover: rgba(74, 222, 128, 0.2);
   --button-approve-text: #4ADE80;
@@ -363,6 +363,8 @@
   --text-field-bg: #2E2E2E;
   --text-field-ring: rgba(255, 255, 255, 0.22);
   --text-field-ring-hover: rgba(255, 255, 255, 0.34);
+  --floating-menu-item-active-bg: #FFFFFF;
+  --floating-menu-item-active-fg: #1C1C1C;
   --message-bubble-user-bg: #2A2A2A;
   --message-bubble-user-text: var(--neutral-900);
   --chat-input-bg: #262626;

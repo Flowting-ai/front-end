@@ -20,7 +20,7 @@ export function AgentsListLoading() {
       style={{
         background:   'var(--color-surface-container)',
         border:       '1px solid var(--border-default)',
-        borderRadius: 22,
+        borderRadius: 'var(--layout-radius)',
         flex:         '1 1 0',
         minHeight:    0,
         overflow:     'hidden',

@@ -9,6 +9,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RightSidebar } from "./RightSidebar";
 import { HighlightSidebar } from "./HighlightSidebar";
 import { TopBar } from "./TopBar";
+import { TopBarSlotsProvider } from "./TopBarSlots";
 import { AppDialogs } from "./AppDialogs";
 import { FloatingPanel } from "./FloatingPanel";
 import { IconButton } from "@/components/ui/button";
@@ -276,16 +277,19 @@ export function AppLayout({
               alignItems:      "flex-start",
               gap:             "2px",
               padding:         usesTightCard ? "3px" : "12px",
-              borderRadius:    "22px",
+              borderRadius:    "var(--layout-radius)",
               border:          "1px solid var(--border-default)",
               backgroundColor: "var(--color-surface-container)",
               overflow:        "hidden",
               isolation:       "isolate",
             }}
           >
-            {/* ── TopBar - absolute, overlaps the 1px border on three sides ── */}
+            {/* Pages put their back button / actions into the TopBar through these slots. */}
+            <TopBarSlotsProvider>
+            {/* ── TopBar - a defined bar along the top of the card, edge to edge, hairline below ── */}
             {!isAdminPage && !isTeamPage && !isConnectorsOrSlackPage && (
               <TopBar
+                edgeInset={usesTightCard ? 3 : 12}
                 showCitationsToggle={showCitationsToggle}
                 citationsOpen={citationsOpen}
                 onCitationsToggle={onCitationsToggle}
@@ -322,6 +326,7 @@ export function AppLayout({
                 <FloatingPanel />
               </Suspense>
             )}
+            </TopBarSlotsProvider>
           </div>
         )}
         </div>
@@ -360,6 +365,8 @@ export function AppLayout({
 // provides the animated shell plus the same neutral-50 background + titled
 // header/close-button chrome as Pinboard (see PinboardHeader), so the two
 // side panels read as one consistent system.
+const PANEL_SIDE_PADDING = 8;
+
 function ProjectPanelSidebar() {
   const { panel: livePanel, isOpen } = useProjectPanel();
   // Mounting or unmounting the panel's body is the expensive part, so it never happens while the
@@ -370,7 +377,8 @@ function ProjectPanelSidebar() {
   if (livePanel && livePanel !== shownPanel) setShownPanel(livePanel);
   if (!isOpen && settled) setSettled(false);
   const panel = livePanel ?? shownPanel;
-  const sidePadding = panel?.sidePadding ?? 24;
+  // One inset for every panel (header title and content share a left edge): the 8px Pinboard uses.
+  const sidePadding = PANEL_SIDE_PADDING;
 
   return (
     <m.div
@@ -407,8 +415,10 @@ function ProjectPanelSidebar() {
             alignItems:     "center",
             justifyContent: "space-between",
             gap:            8,
-            minHeight:      58,
-            padding:        `22px 16px 0 ${sidePadding}px`,
+            // The panel starts at the window's top (the card starts 11px lower), so 19px of padding puts
+            // its title and close button on the TopBar's 19–51px band, as the left sidebar's header is.
+            minHeight:      51,
+            padding:        `19px 16px 0 ${sidePadding}px`,
             flexShrink:     0,
           }}
         >

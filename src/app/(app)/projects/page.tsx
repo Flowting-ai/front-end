@@ -272,13 +272,13 @@ function ProjectsPageInner() {
                 Projects
               </h1>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', alignSelf: 'flex-start' }}>
-                <Badge label={`${personalCount} Personal ${personalCount === 1 ? 'Project' : 'Projects'}`} color="Neutral" />
+                <Badge label={`${personalCount} Personal`} color="Neutral" />
                 {orgId && (
                   <>
                     <span style={{ color: 'var(--neutral-300)', fontSize: 12 }}>|</span>
-                    <Badge label={`${workspaceCount} Workspace ${workspaceCount === 1 ? 'Project' : 'Projects'}`} color="Neutral" />
+                    <Badge label={`${workspaceCount} Workspace`} color="Neutral" />
                     <span style={{ color: 'var(--neutral-300)', fontSize: 12 }}>|</span>
-                    <Badge label={`${sharedCount} Shared ${sharedCount === 1 ? 'Project' : 'Projects'}`} color="Neutral" />
+                    <Badge label={`${sharedCount} Shared`} color="Neutral" />
                   </>
                 )}
               </div>

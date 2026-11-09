@@ -4,12 +4,13 @@ import React, { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { AnimatePresence, m } from 'framer-motion'
-import { ArrowLeftOneIcon, ArrowDownOneIcon, InformationCircleIcon, CancelOneIcon } from '@strange-huge/icons'
+import { ArrowDownOneIcon, InformationCircleIcon, CancelOneIcon } from '@strange-huge/icons'
 import { useProjectActions, TAG_COLORS, type ProjectTag } from '@/context/projects-context'
 import { useOrg } from '@/context/org-context'
 import { InputField } from '@/components/InputField'
 import { Button, IconButton } from '@/components/ui/button'
 import { Tooltip } from '@/components/Tooltip'
+import { PageBackButton } from '@/components/PageBackButton'
 import { Dropdown } from '@/components/Dropdown'
 import { Badge } from '@/components/Badge'
 import { ChipInput } from '@/components/ChipInput'
@@ -81,27 +82,8 @@ function NewProjectPageInner() {
         boxSizing:     'border-box',
       }}
     >
-      {/* Back button - anchored top-left, matches /project/[id]'s back button */}
-      <button
-        onClick={() => push(PROJECTS_ROUTE)}
-        style={{
-          position:     'absolute',
-          top:          6,
-          left:         8,
-          zIndex:       10,
-          display:      'flex',
-          alignItems:   'center',
-          background:   'transparent',
-          border:       'none',
-          cursor:       'pointer',
-          padding:      '4px',
-          borderRadius: '10px',
-          flexShrink:   0,
-        }}
-        aria-label="Back to Projects"
-      >
-        <ArrowLeftOneIcon style={{ width: 20, height: 20, color: 'var(--neutral-700)' }} />
-      </button>
+      {/* Back button - anchored top-left, level with the sidebar toggle; this page sits in AppLayout's 12px card. */}
+      <PageBackButton label="Back to Projects" onClick={() => push(PROJECTS_ROUTE)} />
 
       {/* Horizontal padding lives here, not on the scrolling element above —
           keeps the scrollbar flush with the container's edge. */}

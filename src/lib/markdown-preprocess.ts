@@ -195,6 +195,12 @@ function normalizeMathDelimiters(content: string, stash: string[]): string {
     stash.push(`\n$$\n${math.trim()}\n$$\n`)
     return token(stash.length - 1)
   });
+  // A line that is exactly $$...$$ → display math too. remark-math reads a one-line $$...$$ as
+  // inline math, but models write display equations that way on their own line.
+  out = out.replace(/^[ \t]*\$\$([^\n$]+?)\$\$[ \t]*$/gm, (_, math) => {
+    stash.push(`\n$$\n${math.trim()}\n$$\n`)
+    return token(stash.length - 1)
+  });
   // \(...\) → inline math
   out = out.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => {
     stash.push(`$${math}$`)

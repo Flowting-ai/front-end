@@ -348,16 +348,16 @@ const overrides = [
   ['--icon-button-secondary-bg-hover', '#3A3A3A'],
   ['--tab-item-bg-selected', '#404040'],
   ['--tab-item-text-selected', '#FFFFFF'],
-  ['--shadow-button-secondary-outer', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.10)'],
-  ['--shadow-button-secondary-outer-hover', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.18)'],
+  ['--shadow-button-secondary-outer', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), inset 0px 0px 0px 1px rgba(255, 255, 255, 0.10)'],
+  ['--shadow-button-secondary-outer-hover', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), inset 0px 0px 0px 1px rgba(255, 255, 255, 0.18)'],
   ['--shadow-button-secondary-inner', 'inset 0px 1px 0px 0px rgba(255, 255, 255, 0.08)'],
   ['--shadow-button-secondary-inner-hover', 'inset 0px 1px 0px 0px rgba(255, 255, 255, 0.12)'],
   ['--shadow-tab-item-selected', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.14)'],
   ['--shadow-tab-item-selected-inner', 'inset 0px 1px 0px 0px rgba(255, 255, 255, 0.10)'],
   // The primary button (light in dark): a dark wash on hover, and the secondary's ring + lift.
   ['--button-primary-bg-hover', 'rgba(0, 0, 0, 0.06)'],
-  ['--shadow-button-primary-outer', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.10)'],
-  ['--shadow-button-primary-outer-hover', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.18)'],
+  ['--shadow-button-primary-outer', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), inset 0px 0px 0px 1px rgba(255, 255, 255, 0.10)'],
+  ['--shadow-button-primary-outer-hover', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), inset 0px 0px 0px 1px rgba(255, 255, 255, 0.18)'],
   // Approve (shadcnspace Permissions button): a light green tint and text that hold contrast on dark.
   ['--button-approve-bg', 'rgba(74, 222, 128, 0.12)'],
   ['--button-approve-bg-hover', 'rgba(74, 222, 128, 0.2)'],
@@ -369,6 +369,10 @@ const overrides = [
   ['--text-field-bg', FIELD_BG],
   ['--text-field-ring', 'rgba(255, 255, 255, 0.22)'],
   ['--text-field-ring-hover', 'rgba(255, 255, 255, 0.34)'],
+  // Floating menu item that is selected (its panel is open): solid white with a dark icon, so the
+  // open panel's button stands out on the dark menu (the other items take the menu's own colour).
+  ['--floating-menu-item-active-bg', '#FFFFFF'],
+  ['--floating-menu-item-active-fg', '#1C1C1C'],
   // The user's message bubble is a raised dark-grey card (light mode keeps white with dark text).
   ['--message-bubble-user-bg', '#2A2A2A'],
   ['--message-bubble-user-text', 'var(--neutral-900)'],

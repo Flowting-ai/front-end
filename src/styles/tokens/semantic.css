@@ -24,11 +24,11 @@
   --shadow-button-primary-outer:
     0px 1.091px 1.091px 0px var(--neutral-800-05),
     0px 1.455px 3.127px 0px var(--neutral-900-15),
-    0px 0px 0px 1px var(--neutral-900),
+    inset 0px 0px 0px 1px var(--neutral-900),
     inset 0px -2.182px 0.364px 0px rgba(0, 0, 0, 0.45);
   --shadow-button-primary-outer-hover:
     0px 1px 1.5px 0px var(--neutral-700-12),
-    0px 0px 0px 1px var(--neutral-700);
+    inset 0px 0px 0px 1px var(--neutral-700);
   --button-default-border-disabled:  var(--color-interactive-primary-border-disabled);
   --button-default-text-disabled:    var(--color-interactive-primary-text-disabled);
   --button-default-hover-glow:       linear-gradient(180deg, rgb(221,221,221) 0%, rgb(143,116,39) 21.635%, rgb(104,61,27) 36.058%, rgb(39,13,42) 63.462%, rgb(11,53,127) 82.212%, rgb(13,110,178) 97.115%);
@@ -57,12 +57,12 @@
   --shadow-button-secondary-outer:
     0px 1.091px 1.091px 0px var(--neutral-800-05),
     0px 1.455px 3.127px 0px var(--neutral-900-15),
-    0px 0px 0px 1px var(--neutral-100);
+    inset 0px 0px 0px 1px var(--neutral-100);
 
   /* Outer hover: subtle drop + ring - elevated look gives way to hover ring on interaction */
   --shadow-button-secondary-outer-hover:
     0px 1px 1.5px 0px var(--neutral-700-12),
-    0px 0px 0px 1px var(--neutral-300-40);
+    inset 0px 0px 0px 1px var(--neutral-300-40);
 
   /* Inner resting: bottom depth groove */
   --shadow-button-secondary-inner:
@@ -372,6 +372,11 @@
   /* ── FloatingMenuItem ──────────────────────────────────────────────────────── */
   --floating-menu-item-hover-bg: var(--neutral-100-60);  /* rgba(245, 245, 245,0.6) */
   --floating-menu-item-label:    var(--neutral-700);
+  /* The app's main layout cards (the chat/page card, settings, agents, schedules). 16px = the 8px
+     radius of the controls inside (TopBar chat name, buttons) + their 8px inset, so the corners nest. */
+  --layout-radius: 16px;
+  --floating-menu-item-active-bg: var(--neutral-100);  /* selected item (its panel is open): one step past hover */
+  --floating-menu-item-active-fg: var(--neutral-800);  /* icon / label on the selected item */
 
   /* Outer: drop shadow + 1px ring - applied via box-shadow on the element */
   --shadow-floating-menu-item-outer:

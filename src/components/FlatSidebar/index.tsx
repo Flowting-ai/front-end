@@ -230,7 +230,7 @@ export const FlatSidebar = React.forwardRef<HTMLDivElement, FlatSidebarProps>(
           : { position: 'absolute', inset: 0 }}>
         {/* ── Header ── */}
         <div ref={headerRef} style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, backgroundColor: 'var(--neutral-50)', display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: effectiveCollapsed ? 'center' : 'space-between', padding: effectiveCollapsed ? '24px 8px 8px' : '24px 8px 8px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: effectiveCollapsed ? 'center' : 'space-between', padding: effectiveCollapsed ? '19px 8px 8px' : '19px 8px 8px 16px' }}>
             {!effectiveCollapsed && <SouvenirWordmark />}
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               {!effectiveCollapsed && (

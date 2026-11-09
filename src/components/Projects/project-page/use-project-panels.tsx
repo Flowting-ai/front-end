@@ -10,8 +10,20 @@ import { ProjectMembersPanel } from '@/components/ProjectMembersPanel'
 import { usePinboard } from '@/context/pinboard-context'
 import { useProjectPanel } from '@/context/project-panel-context'
 import { useProjectActions, type Project } from '@/context/projects-context'
+import { ProjectSettingsPanel } from './ProjectSettingsPanel'
 
-export type ProjectPanelKind = 'files' | 'agents' | 'members'
+export type ProjectPanelKind = 'files' | 'agents' | 'members' | 'settings'
+
+/** What the Settings panel needs; read through a ref, so new callbacks never re-run the slot effect. */
+export interface ProjectSettingsActions {
+  /** Who made the project ('you' for the viewer), shown under the panel title. */
+  ownerName: string | undefined
+  canLeave: boolean
+  canDelete: boolean
+  onEdit: () => void
+  onLeave: () => void
+  onDelete: () => void
+}
 
 const PROJECT_STORAGE_BYTES = 100 * 1024 * 1024
 
@@ -21,14 +33,18 @@ const PROJECT_STORAGE_BYTES = 100 * 1024 * 1024
  * border; this hook hands it the content and clears the slot on close and unmount. Only one panel
  * (or Pinboard) is open at a time. Instructions & Files starts open.
  */
-export function useProjectPanels({ project, canEdit, canManageMembers, onOpenInstructions, onAddMember }: {
+export function useProjectPanels({ project, canEdit, canManageMembers, onOpenInstructions, onAddMember, settings }: {
   project: Project | undefined
   canEdit: boolean
   canManageMembers: boolean
   /** Stable callbacks (state setters), so the slot effect does not re-run every render. */
   onOpenInstructions: () => void
   onAddMember: () => void
+  settings: ProjectSettingsActions
 }) {
+  const settingsRef = useRef(settings)
+  useEffect(() => { settingsRef.current = settings })
+  const { ownerName, canLeave, canDelete } = settings
   const [open, setOpen] = useState<ProjectPanelKind | null>('files')
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const { panel: sharedPanel, setPanel } = useProjectPanel()
@@ -53,8 +69,8 @@ export function useProjectPanels({ project, canEdit, canManageMembers, onOpenIns
         title: 'Instructions & Files',
         onClose: close,
         content: (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-regular)', fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)', margin: '-6px 0 0' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-regular)', fontSize: 12, lineHeight: '16px', color: 'var(--neutral-500)', margin: '-12px 0 0' }}>
               Instructions are included as part of the context for every chat in this project.
             </p>
             <BlockErrorBoundary label="instructions">
@@ -84,9 +100,29 @@ export function useProjectPanels({ project, canEdit, canManageMembers, onOpenIns
           </div>
         ),
       })
+    } else if (open === 'settings') {
+      setPanel({
+        title: 'Project settings',
+        onClose: close,
+        content: (
+          <ProjectSettingsPanel
+            key={project.id}
+            project={project}
+            ownerName={ownerName}
+            canEdit={canEdit}
+            canLeave={canLeave}
+            canDelete={canDelete}
+            canManageMembers={canManageMembers}
+            onAddMember={onAddMember}
+            onEdit={() => settingsRef.current.onEdit()}
+            onLeave={() => settingsRef.current.onLeave()}
+            onDelete={() => settingsRef.current.onDelete()}
+          />
+        ),
+      })
     } else if (open === 'agents') {
       // The same panel /chat uses; a pick arrives as AGENT_SELECT_EVENT (use-project-composer.ts).
-      setPanel({ title: 'Agents', onClose: close, content: <AgentsPanelContent inProject />, sidePadding: 8 })
+      setPanel({ title: 'Agents', onClose: close, content: <AgentsPanelContent inProject /> })
     } else {
       setPanel({
         title: 'Members',
@@ -96,10 +132,9 @@ export function useProjectPanels({ project, canEdit, canManageMembers, onOpenIns
             <ProjectMembersPanel projectId={project.id} ownerUserId={project.ownerUserId} canManage={canManageMembers} onAddMember={onAddMember} />
           </BlockErrorBoundary>
         ),
-        sidePadding: 8,
       })
     }
-  }, [project, open, pendingFiles, canEdit, canManageMembers, onOpenInstructions, onAddMember, setPanel, uploadFiles, removeFile])
+  }, [project, open, pendingFiles, canEdit, canManageMembers, ownerName, canLeave, canDelete, onOpenInstructions, onAddMember, setPanel, uploadFiles, removeFile])
 
   useEffect(() => () => setPanel(null), [setPanel])
 

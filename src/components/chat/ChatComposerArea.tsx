@@ -54,7 +54,9 @@ export function ChatComposerArea({
   return (
     <div
       style={{
-        padding: "16px 16px 24px",
+        // 5px + the card's 3px inset = 8px from the composer to the card's bottom edge, the same 8px
+        // the TopBar keeps from the card's top.
+        padding: "16px 16px 5px",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",

@@ -135,7 +135,7 @@ function CustomCard({ onClick, disabled }: { onClick: () => void; disabled?: boo
         boxShadow: hovered
           ? '0px 8px 16px 0px color-mix(in srgb, var(--blue-100) 50%, transparent), 0px 0px 0px 1px var(--neutral-100)'
           : '0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
-        cursor: disabled ? 'default' : 'pointer',
+        cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.6 : 1,
         transform: hovered ? 'translateY(-1px)' : 'none',
         transition: 'background-color 150ms, border-color 150ms, box-shadow 150ms, transform 150ms, opacity 150ms',

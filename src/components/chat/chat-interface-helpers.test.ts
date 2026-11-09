@@ -72,6 +72,10 @@ describe("getComposerPlaceholder", () => {
     expect(getComposerPlaceholder(base)).toBe("How can I help you today?");
   });
 
+  it("asks for a follow-up once the chat has messages", () => {
+    expect(getComposerPlaceholder({ ...base, hasMessages: true })).toBe("Ask a follow-up…");
+  });
+
   it("orders blocking states from most to least blocking", () => {
     const all = { readOnly: true, poolPaused: true, creditsBlocked: true, personaConfigLoading: true, queuedCount: 1, sendQueues: true };
     expect(getComposerPlaceholder(all)).toBe("Create your own copy to continue this chat.");

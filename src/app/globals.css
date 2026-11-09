@@ -975,6 +975,24 @@ button:not(:disabled),
   cursor: pointer;
 }
 
+/* Every disabled control shows the not-allowed cursor (a busy one shows progress). Keep pointer
+   events on disabled controls, or the cursor never appears. */
+button:disabled,
+[role="button"][aria-disabled="true"],
+[role="radio"][aria-disabled="true"],
+[role="menuitem"][aria-disabled="true"],
+[role="tab"]:disabled,
+[role="tab"][aria-disabled="true"],
+a[aria-disabled="true"],
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+}
+button:disabled[aria-busy="true"] {
+  cursor: progress;
+}
+
 /* Dark mode: the page layout border (AppLayout content card, agent cards, panels) is a darkish grey.
    Kept here as a literal, outside the generated theme.css, so regenerating the theme can never
    drop it and leave the light-mode tan (#D3CEC8) showing. */

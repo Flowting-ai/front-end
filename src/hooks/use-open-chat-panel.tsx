@@ -32,7 +32,6 @@ export function useOpenChatPanel({ inProject = false, agentsDisabled = false }: 
       title:       CHAT_PANEL_TITLE,
       content:     <ContextPanelContent inProject={inProject} agentsDisabled={agentsDisabled} />,
       onClose:     () => setPanel(null),
-      sidePadding: 8,
     })
   }
 

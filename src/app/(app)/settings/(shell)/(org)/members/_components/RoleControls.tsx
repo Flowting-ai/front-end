@@ -134,7 +134,7 @@ function RoleDropdownTrigger({ label, disabled }: { label: string; disabled?: bo
         border:          'none',
         backgroundColor: 'var(--neutral-white)',
         boxShadow:       '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100)',
-        cursor:          disabled ? 'default' : 'pointer',
+        cursor:          disabled ? 'not-allowed' : 'pointer',
         opacity:         disabled ? 0.6 : 1,
         fontFamily:      'var(--font-body)',
         fontWeight:      500,

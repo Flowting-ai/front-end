@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useProjects } from "@/context/projects-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { Button } from "@/components/ui/button";
+import { useTopBarHasSlotContent, useTopBarSlotRef } from "./TopBarSlots";
 // ModelIcon only renders here when a persona/model tag is actually shown (see the
 // `personaModel || persona?.modelId` guard below) — most pages never hit that branch,
 // so it is deferred rather than loaded with every page's TopBar.
@@ -25,6 +26,8 @@ import type { AIModel } from "@/types/ai-model";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface TopBarProps {
+  /** The app card's padding: the bar pulls out by this much so it runs edge to edge under the border. */
+  edgeInset?: number;
   showCitationsToggle?: boolean;
   citationsOpen?: boolean;
   onCitationsToggle?: () => void;
@@ -32,12 +35,14 @@ interface TopBarProps {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: _citationsOpen, onCitationsToggle: _onCitationsToggle }: TopBarProps) {
+function TopBarImpl({ edgeInset = 0, showCitationsToggle: _showCitationsToggle, citationsOpen: _citationsOpen, onCitationsToggle: _onCitationsToggle }: TopBarProps) {
   const { getProject, getChats } = useProjects();
   const pathname = usePathname();
   const router   = useRouter();
   const searchParams = useSearchParams();
   const { chats: chatHistoryChats } = useChatHistoryContext();
+  const leftSlotRef = useTopBarSlotRef("left");
+  const rightSlotRef = useTopBarSlotRef("right");
 
   // Track the real browser pathname — may differ from Next.js pathname when
   // window.history.replaceState is used (e.g. project chat new→real chatId).
@@ -100,6 +105,14 @@ function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: 
   const activeChatIdFromUrl = isPlainChatPage ? (searchParams.get('id') ?? undefined) : undefined;
   const activeChatFromUrl = activeChatIdFromUrl ? chatHistoryChats.find(c => c.id === activeChatIdFromUrl) : undefined;
   const isArchivedChat = activeChatFromUrl?.visibility === 'archived';
+  // The bar only shows when it has something to show: its own chat name / agent tag, or anything a
+  // page placed in its slots (a back button, Share, the side panel toggle). Hidden, it keeps its
+  // slots mounted so a page can still fill them.
+  const hasSlotContent = useTopBarHasSlotContent();
+  // A chat name on the left earns the hairline under the bar; a bar with only buttons has none
+  // (the border stays, transparent, so the bar keeps its height).
+  const hasTitle = isProjectChatPage || !!activeChatFromUrl?.title;
+  const visible = hasSlotContent || isProjectChatPage || isPersonaChatPage || !!activeChatFromUrl?.title || isArchivedChat;
 
   // Fetch persona data + resolve full model object for the top-bar tag on persona chat pages
   const [persona,      setPersona]      = useState<Persona | null>(null);
@@ -160,23 +173,27 @@ function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: 
   );
 
   return (
+    // A defined, compact bar, edge to edge across the card with a hairline along the bottom: 49px
+    // (48 + the border) puts its 32px items 8px from the top, bottom and ends, on the same 19–51px
+    // band as the sidebar header's logo and buttons and the right panel's close button. Left: the page's back
+    // button (slot) and the chat name; right: the page's actions (slot).
     <div
       style={{
-        position:       "absolute",
-        top:            -1,
-        left:           -1,
-        right:          -1,
-        display:        "flex",
+        flexShrink:     0,
+        alignSelf:      "stretch",
+        boxSizing:      "border-box",
+        height:         49,
+        display:        visible ? "flex" : "none",
+        margin:         `-${edgeInset}px -${edgeInset}px 0`,
         alignItems:     "center",
-        justifyContent: "space-between",
-        paddingTop:     "12px",
-        paddingLeft:    "12px",
-        // On an open chat the Share button and side panel toggle (ChatShareOverlay) sit absolutely at
-        // the top right; the title chip stops short of them instead of running underneath.
-        paddingRight:   isProjectChatPage || activeChatIdFromUrl ? "148px" : "12px",
+        gap:            8,
+        padding:        "0 8px",
+        borderBottom:   hasTitle ? "1px solid var(--border-default)" : "1px solid transparent",
         zIndex:         1,
       }}
     >
+      {/* empty:hidden so an empty slot takes no room (or flex gap) and the chat name sits 12px in. */}
+      <div ref={leftSlotRef} className="flex empty:hidden" style={{ alignItems: "center", gap: 4, flexShrink: 0 }} />
       {isProjectChatPage && projectChatMatch ? (
         <>
           {/* ── Left: project + chat name — model selector lives in the composer
@@ -353,6 +370,7 @@ function TopBarImpl({ showCitationsToggle: _showCitationsToggle, citationsOpen: 
           {!isProjectDetailPage && !isChatsPage && isArchivedChat && backToArchivedButton}
         </>
       )}
+      <div ref={rightSlotRef} className="flex empty:hidden" style={{ alignItems: "center", gap: 8, flexShrink: 0, marginLeft: "auto" }} />
     </div>
   );
 }

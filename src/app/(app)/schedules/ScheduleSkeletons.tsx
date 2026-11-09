@@ -195,7 +195,7 @@ export function ScheduleDetailLoadingState() {
 export function SchedulesRouteLoading({ detail = false }: { detail?: boolean }) {
   return (
     <div style={{ position: 'relative', flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--neutral-50)', padding: '10px 10px 10px 0' }}>
-      <div style={{ position: 'relative', flex: '1 0 0', minHeight: 0, display: 'flex', flexDirection: 'column', borderRadius: '22px', border: '1px solid var(--border-default)', backgroundColor: 'var(--color-surface-glass)', overflow: 'hidden' }}>
+      <div style={{ position: 'relative', flex: '1 0 0', minHeight: 0, display: 'flex', flexDirection: 'column', borderRadius: 'var(--layout-radius)', border: '1px solid var(--border-default)', backgroundColor: 'var(--color-surface-glass)', overflow: 'hidden' }}>
         <div
           role="status"
           aria-label={detail ? 'Loading schedule' : 'Loading schedules'}
