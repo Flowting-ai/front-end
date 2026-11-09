@@ -107,7 +107,7 @@ export function useFollowLive(isStreaming: boolean, revealingKey: string | null)
  */
 export function useChatScroll({
   messages,
-  isLoadingMessages,
+  historyLoadId,
   hasMoreMessages,
   loadMoreMessages,
   scrollToMessageId,
@@ -122,7 +122,8 @@ export function useChatScroll({
   followLiveRef,
 }: {
   messages: UIMessage[];
-  isLoadingMessages: boolean;
+  /** Bumped once per opened thread by useChatState — see its doc comment. */
+  historyLoadId: number;
   hasMoreMessages: boolean;
   loadMoreMessages: () => void;
   scrollToMessageId: string | null | undefined;
@@ -136,15 +137,18 @@ export function useChatScroll({
   scheduleFollowRef: RefObject<() => void>;
   followLiveRef: RefObject<{ live: boolean; graceUntil: number }>;
 }) {
-  // Scroll to bottom instantly when a chat finishes loading (opening an existing chat).
-  // We track the previous loading state so we fire exactly once on the
-  // false→true transition, not on every subsequent message change.
-  const prevIsLoadingRef = useRef(false);
+  // Scroll to bottom instantly when a chat's history is installed (opening an
+  // existing chat). Keyed on historyLoadId rather than an isLoadingMessages
+  // false→true→false round trip: a cached history is installed without ever
+  // going through a loading state, and this still has to fire exactly once per
+  // opened thread — never on a subsequent message change, and never when
+  // pagination prepends older messages (which does not bump the id).
+  const prevLoadIdRef = useRef(historyLoadId);
   const scrolledToMessageRef = useRef<string | null>(null);
   useEffect(() => {
-    const wasLoading = prevIsLoadingRef.current;
-    prevIsLoadingRef.current = isLoadingMessages;
-    if (wasLoading && !isLoadingMessages && messages.length > 0) {
+    const changed = prevLoadIdRef.current !== historyLoadId;
+    prevLoadIdRef.current = historyLoadId;
+    if (changed && messages.length > 0) {
       // Enter settling: keep spinner up while the virtualizer renders and
       // measures all initial items. The effect below clears it.
       setIsSettling(true);
@@ -165,7 +169,7 @@ export function useChatScroll({
         listRef.current?.scrollToIndex(messages.length - 1, { align: 'end', behavior: 'auto' });
       }
     }
-  }, [isLoadingMessages, messages, scrollToMessageId, stickToBottom, setAtBottom, setIsSettling, listRef]);
+  }, [historyLoadId, messages, scrollToMessageId, stickToBottom, setAtBottom, setIsSettling, listRef]);
 
   // Leave settling two frames later, so the browser finishes its layout pass and
   // the first visible frame is already at settled positions. Keyed on isSettling

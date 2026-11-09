@@ -65,17 +65,25 @@ const normalizeModelType = (
 export function toLlmIconId(source: string | null | undefined): string | null {
   const s = (source ?? "").toLowerCase();
   if (!s) return null;
-  if (s.includes("anthropic") || s.includes("claude")) return "Claude";
+  if (s.includes("anthropic") || s.includes("claude") || s.includes("sonnet") || s.includes("opus") || s.includes("haiku")) return "Claude";
   if (s.includes("grok") || s.includes("xai")) return "Grok";
   if (s.includes("openai") || s.includes("gpt")) return "OpenAI";
   if (s.includes("gemini")) return "Gemini";
-  if (s.includes("google")) return "Google";
+  if (s.includes("google") || s.includes("gemma")) return "Google";
   if (s.includes("meta") || s.includes("llama")) return "Meta";
-  if (s.includes("mistral")) return "Mistral";
+  if (s.includes("mistral") || s.includes("mixtral") || s.includes("codestral") || s.includes("magistral")) return "Mistral";
   if (s.includes("deepseek")) return "DeepSeek";
   if (s.includes("groq")) return "Groq";
   if (s.includes("cohere")) return "Cohere";
-  if (s.includes("perplexity")) return "Perplexity";
+  if (s.includes("perplexity") || s.includes("sonar")) return "Perplexity";
+  // Providers we hold artwork for that used to fall through to the plain
+  // Souvenir mark - which is why rows of the model list showed no provider
+  // colour at all. Model-family names are matched alongside the provider,
+  // since a catalog row's provider can be the lab, the cloud it is served
+  // from, or nothing useful.
+  if (s.includes("qwen") || s.includes("qwq") || s.includes("tongyi") || s.includes("alibaba")) return "Qwen";
+  if (s.includes("kimi")) return "Kimi";
+  if (s.includes("moonshot")) return "Moonshot";
   return null;
 }
 

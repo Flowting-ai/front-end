@@ -28,6 +28,12 @@ export const queryKeys = {
     list: () => [...queryKeys.chats.all(), "list"] as const,
     /** One-off first-page read used to pick up a generated title. */
     titleProbe: () => [...queryKeys.chats.all(), "title-probe"] as const,
+    /** One chat's message history, or the prefix for every chat's.
+     *  Written imperatively — see lib/chat/chat-message-cache.ts. */
+    messages: (chatId?: string) =>
+      (chatId === undefined
+        ? [...queryKeys.chats.all(), "messages"]
+        : [...queryKeys.chats.all(), "messages", chatId]) as readonly unknown[],
   },
 
   /** Persona-derived entries; all under ["personas"] so bustPersonasCache() hits them. */

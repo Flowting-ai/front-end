@@ -24,6 +24,7 @@ import type {
   MessagesListResponse,
   PersistedToolCall,
 } from "@/types/chat";
+import { dropChatHistory } from "@/lib/chat/chat-message-cache";
 import type { ReasoningSection } from "@/lib/reasoning";
 import { extractThinkingContent } from "@/lib/parsers/content-parser";
 import { INCOMPLETE_ANSWER_MESSAGE } from "@/lib/turn-outcome";
@@ -188,6 +189,9 @@ export async function deleteChat(chatId: string): Promise<void> {
       "Failed to delete chat",
     );
   }
+  // Its history must not outlive it: Undo restores the chat but not this entry,
+  // so the restored chat reloads from the server rather than from a stale copy.
+  dropChatHistory(chatId);
   if (!deleteFiles) return;
   const body: unknown = await response.json().catch(() => null);
   const ids = body && typeof body === "object" && Array.isArray((body as { trashedFileIds?: unknown }).trashedFileIds)

@@ -29,7 +29,7 @@ export interface AccountMenuProps {
   /** Workspace identity line under the name in the trigger — e.g. "Acme Corp". Omit for
    *  an individual account with no workspace context. */
   plan?: string
-  /** True when the viewer has no active plan — the plan card shows a "No plan selected"
+  /** True when the viewer has no active plan — the plan card shows a "Free Plan"
    *  chip instead of the credits. */
   planWarning?: boolean
   /** Plan name shown as the plan card's chip, e.g. "Free Plan", "Core", "Enterprise". The
@@ -227,7 +227,9 @@ const PlanRow = ({
   onPlanAction?: () => void
 }) => {
   if (!planWarning && !planType && credits === undefined) return null
-  const planLabel = planWarning ? 'No plan selected' : withPlanSuffix(planType ?? 'Plan')
+  // No subscription and no trial IS the free tier, named the way the rest of the app names it
+  // (Plan.chipLabel, the billing pages). The yellow tone still flags it as needing a choice.
+  const planLabel = planWarning ? 'Free Plan' : withPlanSuffix(planType ?? 'Plan')
   const shownCredits = planWarning ? undefined : credits
   return (
     <div style={{ padding: '0 6px 6px' }}>

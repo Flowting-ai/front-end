@@ -190,6 +190,7 @@ export function ChatInterface({
     markChatAsOptimistic,
     refreshMessages,
     messagesLoadError,
+    historyLoadId,
   } = useChatState(chatId, chatStateOptions);
 
   // Append host-supplied local messages (the agent card) — merged during render; see the hook.
@@ -313,7 +314,7 @@ export function ChatInterface({
 
   const { handleScroll, scrollToBottom } = useChatScroll({
     messages,
-    isLoadingMessages,
+    historyLoadId,
     hasMoreMessages,
     loadMoreMessages,
     scrollToMessageId,

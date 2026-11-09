@@ -13,9 +13,10 @@ import { emitProjectNewChat } from "@/hooks/use-sidebar-events";
 import type { Project } from "@/context/projects-context";
 import { PROJECT_ROUTE, PROJECT_CHAT_ROUTE, PROJECT_CHAT_NEW_ROUTE, PROJECTS_ROUTE, PROJECTS_NEW_ROUTE } from "@/lib/routes";
 import { sectionHeightVariants, sectionStaggerVariants, sectionItemVariants } from "./section-motion";
-import { PROJECT_LIMIT, CHAT_LIMIT, sortChatsByRecency, NO_CHATS_YET_STYLE, sortProjectsByRecency, activeProjectIdFromPathname, includeAllProjects } from "./project-helpers";
+import { PROJECT_LIMIT, CHAT_LIMIT, sortChatsByRecency, sortProjectsByRecency, activeProjectIdFromPathname, includeAllProjects } from "./project-helpers";
 import type { ProjectsSectionProps, TeamsSidebarContentProps } from "./project-helpers";
 import { FlatProjectChatItem } from "./FlatProjectChatItem";
+import { SidebarEmptyState } from "./SidebarEmptyState";
 
 // -- FlatProjectItemsList — the reusable body of a project section (loading
 // skeleton, empty state, up to `limit` FlatSidebarProjectGroup rows). Shared
@@ -75,7 +76,7 @@ function FlatProjectItemsList({ projectsFilter, limit, emptyLabel }: FlatProject
     <>
       {projectsLoading && projects.length === 0 && Array.from({ length: 2 }).map((_, i) => <SidebarMenuSkeleton key={i} index={i} fluid />)}
       {!projectsLoading && projects.length === 0 && (
-        <div style={{ padding: "8px 6px", fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-400)" }}>{emptyLabel}</div>
+        <SidebarEmptyState label={emptyLabel} actionLabel="New project" onAction={() => push(PROJECTS_NEW_ROUTE)} />
       )}
       {!projectsLoading && visibleProjects.map(project => {
         const chats = sortChatsByRecency(getChats(project.id).filter(c => c.canEdit !== false))
@@ -110,7 +111,16 @@ function FlatProjectItemsList({ projectsFilter, limit, emptyLabel }: FlatProject
                 />
               ))}
               {project.chatCount === 0 ? (
-                <div style={NO_CHATS_YET_STYLE}>No chats yet</div>
+                <SidebarEmptyState
+                  label="No chats yet"
+                  actionLabel="Start a chat"
+                  onAction={() => {
+                    // Same path the group's own feather uses, so an already-visited
+                    // /project/[id]/chat/new still force-remounts (see PROJECT_NEW_CHAT_EVENT).
+                    emitProjectNewChat({ projectId: project.id })
+                    push(PROJECT_CHAT_NEW_ROUTE(project.id))
+                  }}
+                />
               ) : project.chatCount > CHAT_LIMIT ? (
                 // Only when there's more to see than the CHAT_LIMIT rows already
                 // listed above — a project with CHAT_LIMIT or fewer chats has

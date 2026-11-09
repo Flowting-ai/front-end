@@ -195,6 +195,13 @@ export interface DropdownFloatProps {
    * Defaults to `false`: the exact placement from the spec table is kept.
    */
   autoFlipVertical?: boolean
+  /**
+   * Called with the side the panel actually opened on, once it is mounted and
+   * again if `autoFlipVertical` flips it. Lets a trigger reflect the real
+   * direction (e.g. the composer's model button pointing up when its menu
+   * drops up). Must be stable - wrap it in `useCallback`.
+   */
+  onSideChange?: (side: Side) => void
   /** Dropdown content - typically a `<Dropdown>` containing one or more `<Dropdown.Section>`s. */
   children: React.ReactNode
 }
@@ -212,6 +219,7 @@ export function DropdownFloat({
   placement = 'bottom-end',
   offset = DROPDOWN_GAP,
   autoFlipVertical = false,
+  onSideChange,
   children,
 }: DropdownFloatProps) {
   // Static wrapper: its layout box is unaffected by transforms applied inside
@@ -237,6 +245,23 @@ export function DropdownFloat({
       align: align === 'end' ? r.bottom - p.bottom : p.top - r.top,
     })
   }, [open, isSideways, side, align])
+
+  // Radix writes the resolved side onto the content element as `data-side`
+  // (after collision handling), so that attribute - watched, since a flip can
+  // happen while the panel is open - is the only honest source for it.
+  const panelRef = React.useRef<HTMLDivElement | null>(null)
+  React.useEffect(() => {
+    const el = panelRef.current
+    if (!open || !el || !onSideChange) return
+    const report = () => {
+      const resolved = el.getAttribute('data-side')
+      if (resolved) onSideChange(resolved as Side)
+    }
+    report()
+    const observer = new MutationObserver(report)
+    observer.observe(el, { attributes: true, attributeFilter: ['data-side'] })
+    return () => observer.disconnect()
+  }, [open, onSideChange])
 
   const focusTrigger = () => {
     triggerWrapRef.current
@@ -307,7 +332,7 @@ export function DropdownFloat({
                 if (e.key === 'Tab') onOpenChange(false)
               }}
             >
-              <m.div {...MENU_ANIMATION} style={MENU_ORIGIN_STYLE}>
+              <m.div ref={panelRef} {...MENU_ANIMATION} style={MENU_ORIGIN_STYLE}>
                 <MenuModeContext.Provider value="menu">
                   <EditableKeyGuard>{children}</EditableKeyGuard>
                 </MenuModeContext.Provider>
@@ -326,7 +351,8 @@ DropdownFloat.displayName = 'Dropdown.Float'
 // Hover-triggered nested menu built on Radix `DropdownMenu.Sub`. Radix owns
 // hover intent, the pointer-grace "safe triangle", ArrowRight / ArrowLeft /
 // Escape handling and viewport collision flipping. The submenu sits 8 px
-// outside the PARENT panel's edge and top-aligns with the trigger row.
+// outside the PARENT panel's edge and aligns with that panel's top or bottom,
+// matching the direction the parent itself opened in.
 //
 // Meant to be rendered inside a `Dropdown.Float`. Outside any Radix menu it
 // falls back to a hover-opened standalone floating menu.
@@ -377,12 +403,31 @@ function RadixSubmenu({ trigger, children, open: controlledOpen, onOpenChange }:
   // Distance from the trigger row's edge to the parent panel's edge, so the
   // submenu clears the PARENT card by exactly the KDS gap.
   const [panelInset, setPanelInset] = React.useState(0)
+  // Shift along the vertical axis. Radix aligns a submenu's top to its trigger
+  // ROW, which leaves it starting mid-panel. This lines it up with the parent
+  // panel's own edge instead - its TOP when the parent dropped down, its BOTTOM
+  // when the parent dropped up - so the two cards read as one block opening in
+  // the same direction.
+  const [alignOffset, setAlignOffset] = React.useState(0)
+  const subPanelRef = React.useRef<HTMLDivElement | null>(null)
   React.useLayoutEffect(() => {
     if (!open) return
     const t = triggerRef.current
     const panel = t?.closest(PANEL_SELECTOR) as HTMLElement | null
     if (!t || !panel) return
-    setPanelInset(Math.max(0, panel.getBoundingClientRect().right - t.getBoundingClientRect().right))
+    const panelRect   = panel.getBoundingClientRect()
+    const triggerRect = t.getBoundingClientRect()
+    setPanelInset(Math.max(0, panelRect.right - triggerRect.right))
+    // Radix writes the direction it resolved onto the parent panel.
+    const parentSide = panel.getAttribute('data-side')
+    // offsetHeight, not a bounding rect: the panel is mid enter-animation here
+    // and its scale would skew a measured rect.
+    const subHeight = subPanelRef.current?.offsetHeight ?? 0
+    setAlignOffset(
+      parentSide === 'top'
+        ? panelRect.bottom - triggerRect.top - subHeight
+        : panelRect.top - triggerRect.top,
+    )
   }, [open])
 
   return (
@@ -408,11 +453,12 @@ function RadixSubmenu({ trigger, children, open: controlledOpen, onOpenChange }:
               forceMount
               asChild
               sideOffset={DROPDOWN_GAP + panelInset}
+              alignOffset={alignOffset}
               collisionPadding={8}
               data-kds-dropdown-panel=""
               style={{ zIndex: DROPDOWN_Z, outline: 'none' }}
             >
-              <m.div {...MENU_ANIMATION} style={MENU_ORIGIN_STYLE}>
+              <m.div ref={subPanelRef} {...MENU_ANIMATION} style={MENU_ORIGIN_STYLE}>
                 <MenuModeContext.Provider value="menu">
                   <EditableKeyGuard>{children}</EditableKeyGuard>
                 </MenuModeContext.Provider>
