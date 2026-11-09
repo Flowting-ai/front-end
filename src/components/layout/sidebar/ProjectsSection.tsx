@@ -4,13 +4,14 @@ import React, { useMemo, useState } from "react";
 import { m } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { useGuardedRouter } from "@/context/nav-guard-context";
+import { SidebarEmptyState } from "./SidebarEmptyState";
 import { FolderAddIcon, MoreHorizontalIcon } from "@strange-huge/icons";
 import { SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection } from "@/components/ui";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useProjects } from "@/context/projects-context";
 import { PROJECT_ROUTE, PROJECT_CHAT_ROUTE, PROJECTS_ROUTE, PROJECTS_NEW_ROUTE } from "@/lib/routes";
 import { sectionHeightVariants, sectionStaggerVariants, sectionItemVariants } from "./section-motion";
-import { PROJECT_LIMIT, CHAT_LIMIT, sortChatsByRecency, NO_CHATS_YET_STYLE, activeProjectIdFromPathname, isOrgSharedProject } from "./project-helpers";
+import { PROJECT_LIMIT, CHAT_LIMIT, sortChatsByRecency, activeProjectIdFromPathname, isOrgSharedProject } from "./project-helpers";
 import type { ProjectsSectionProps, TeamsSidebarContentProps } from "./project-helpers";
 import { ProjectChatItem } from "./ProjectChatItem";
 
@@ -119,14 +120,11 @@ export function ProjectsSection({
           )}
 
           {!projectsLoading && projects.length === 0 && (
-            <div style={{
-              padding:    "8px 6px",
-              fontFamily: "var(--font-body)",
-              fontSize:   "var(--font-size-caption)",
-              color:      "var(--neutral-400)",
-            }}>
-              {emptyLabel}
-            </div>
+            <SidebarEmptyState
+              label={emptyLabel}
+              actionLabel="New project"
+              onAction={() => push(pathname === newProjectHref ? newProjectHref + "?t=" + Date.now() : newProjectHref)}
+            />
           )}
 
           {!projectsLoading && visibleProjects.map(project => {
@@ -165,7 +163,7 @@ export function ProjectsSection({
                     />
                   ))}
                   {project.chatCount === 0 ? (
-                    <div style={NO_CHATS_YET_STYLE}>No chats yet</div>
+                    <SidebarEmptyState label="No chats yet" />
                   ) : (
                     <SidebarMenuItem
                       fluid

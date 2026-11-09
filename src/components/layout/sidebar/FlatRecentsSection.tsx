@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import { SidebarEmptyState } from "./SidebarEmptyState";
 import { m } from "framer-motion";
 import { useGuardedRouter } from "@/context/nav-guard-context";
 import { FolderLibraryIcon, FolderThreeIcon, QuillWriteOneIcon } from "@strange-huge/icons";
@@ -63,7 +64,7 @@ export function FlatRecentsSection({ activeChatId, onSelectChat, chatHistory, on
           {loading && chats.length === 0 ? (
             <SidebarChatRowsSkeleton rows={5} />
           ) : recentChats.length === 0 ? (
-            <div style={{ padding: "8px 6px", fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-400)" }}>No chats yet</div>
+            <SidebarEmptyState label="No chats yet" actionLabel={onNewChat ? "Start a chat" : undefined} onAction={onNewChat} />
           ) : (
             <>
               {recentChats.map((chat) => (

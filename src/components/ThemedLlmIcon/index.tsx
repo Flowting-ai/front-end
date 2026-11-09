@@ -5,8 +5,13 @@ import { cn } from '@/lib/utils'
 import { THEMING_ENABLED } from '@/lib/feature-flags'
 
 /**
- * A model provider's logo: full colour in light mode, a single-colour WHITE mark in
- * dark mode.
+ * A model provider's logo, colour-coded the same way in both themes.
+ *
+ * A mark drawn in real brand colour (Claude's orange, Gemini's blue, Qwen's violet
+ * gradient) renders as that one image in light AND dark mode, so a provider looks
+ * the same wherever it appears. Only the marks drawn in `currentColor` (OpenAI,
+ * xAI, Grok, Groq, Moonshot) still swap: black would vanish on a dark surface, so
+ * dark mode shows a white version of those instead. See isBrandColoured below.
  *
  * Each logo is drawn as an <img> with a data URL, so its `mono` variant (which
  * uses currentColor) would render black — an <img> never inherits the text colour.
@@ -67,8 +72,41 @@ function Logo({ id, variant, size, className, style, alt }: LogoProps) {
   )
 }
 
+/** Colours that carry no brand: a mark painted only in these is a shape, not a logo. */
+const NEUTRAL_PAINTS = new Set(['none', 'transparent', 'currentcolor', 'black', '#000', '#000000', 'white', '#fff', '#ffffff'])
+
+const brandColourCache = new Map<string, boolean>()
+
+/**
+ * Whether a provider's COLOUR artwork actually carries brand colour.
+ *
+ * Several marks (OpenAI, xAI, Grok, Groq, Moonshot) are drawn in `currentColor`,
+ * which an <img> renders black - those still need the white mono mark on a dark
+ * surface or they disappear. The rest carry real brand paint (Claude's orange,
+ * Gemini's blue, Qwen's violet gradient...) and should keep it in both themes.
+ * Read from the artwork rather than a hand-kept list, so a provider added to
+ * `scripts/generate-llm-icons.mjs` is classified without a second edit here.
+ */
+function isBrandColoured(id: string): boolean {
+  const cached = brandColourCache.get(id)
+  if (cached !== undefined) return cached
+  const raw = LLM_COLOR[id]
+  const paints = raw ? raw.match(/(?:fill|stop-color)="[^"]*"/g) ?? [] : []
+  const coloured = paints.some((paint) => {
+    const value = paint.slice(paint.indexOf('"') + 1, -1).trim().toLowerCase()
+    // A url(#id) fill points at a gradient; its own stop-colors are in this
+    // same list, so the gradient is judged by those, not by the reference.
+    return !!value && !value.startsWith('url(') && !NEUTRAL_PAINTS.has(value)
+  })
+  brandColourCache.set(id, coloured)
+  return coloured
+}
+
 export function ThemedLlmIcon({ id, size = 24, className, style, alt }: ThemedLlmIconProps) {
-  if (!THEMING_ENABLED) {
+  // A logo with real brand colour keeps it in both themes - one image, no swap,
+  // so every surface in the app shows the same colour-coded mark. Only the
+  // currentColor-drawn marks still need the light/dark pair below.
+  if (!THEMING_ENABLED || isBrandColoured(id)) {
     return <Logo id={id} variant="color" size={size} className={className} style={style} alt={alt} />
   }
   // Two catalogue entries have no mono artwork; their colour artwork is flattened to white instead.

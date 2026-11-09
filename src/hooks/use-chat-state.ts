@@ -5,8 +5,15 @@ import { toast } from "sonner"
 import { getChatMessages } from "@/lib/api/chat"
 import { toUIMessages } from "@/lib/normalizers/message-transformer"
 import { logger } from "@/lib/logger"
-import { getStreamCompletion, consumeInterruptedStreamMarker, waitForChatStreams } from "@/lib/stream-registry"
+import { getStreamCompletion, consumeInterruptedStreamMarker, waitForChatStreams, subscribeStreams } from "@/lib/stream-registry"
 import { stopActiveActivities } from "@/lib/activity"
+import {
+  readChatHistory,
+  saveChatHistory,
+  updateCachedMessages,
+  dropChatHistory,
+  isHistoryStale,
+} from "@/lib/chat/chat-message-cache"
 import type { UIMessage } from "@/types/chat"
 
 // ── Hook result ───────────────────────────────────────────────────────────────
@@ -36,6 +43,12 @@ export interface UseChatStateResult {
    *  instead of an unexplained empty thread. Cleared on the next successful
    *  load, initial or retried. */
   messagesLoadError: string | null
+  /** Bumped every time a chat's history is installed — from the cache, from the
+   *  network, or on an explicit refresh — and never on pagination. Consumers
+   *  that need to act once per opened thread (scrolling it to the bottom) key
+   *  off this rather than an `isLoadingMessages` transition, which a cache hit
+   *  does not produce. */
+  historyLoadId: number
 }
 
 // ── Reload-interrupted stream recovery ───────────────────────────────────────
@@ -79,6 +92,27 @@ function markInterruptedIfNeeded(chatId: string, msgs: UIMessage[]): UIMessage[]
   return [...msgs, placeholder]
 }
 
+// ── Local-work detection ─────────────────────────────────────────────────────
+
+/**
+ * A turn this tab started that has not landed yet. Two things key off it: such a
+ * list is never written to the cache (coming back to a chat must not restore a
+ * bubble that is permanently mid-reply), and a background refresh that would
+ * overwrite one is abandoned instead.
+ *
+ * `isLoading` alone is enough, and the message's temp id deliberately is not
+ * part of the test. Every send path pairs addOptimisticUserMessage with
+ * addLoadingAssistantMessage (see use-chat-turns.ts and use-initial-prompt.ts),
+ * so this also covers the window between composing a turn and the stream being
+ * registered — attachment uploads run in it, so it can last seconds. Matching on
+ * the `loading-assistant-` id instead would never clear: a finished reply keeps
+ * its temp id until the next load, so the chat the user just talked to — the one
+ * most worth caching — would be the one chat never cached.
+ */
+function isPendingLocal(m: UIMessage): boolean {
+  return Boolean(m.isLoading)
+}
+
 // ── Implementation ────────────────────────────────────────────────────────────
 
 export interface UseChatStateOptions {
@@ -87,15 +121,44 @@ export interface UseChatStateOptions {
    * getChatMessages so persona surfaces can supply their own loader
    * without needing a separate state hook. The returned messages must already
    * be in UIMessage form (fully normalised). Pagination is disabled when this
-   * override is active.
+   * override is active, and so is caching: this hook cannot know whether a
+   * custom loader's result is interchangeable with the default endpoint's.
    */
   loadMessages?: (chatId: string) => Promise<UIMessage[]>
 }
 
+/**
+ * `messages` with the chat it belongs to carried alongside it, rather than in a
+ * ref. Writes come from all over (the streaming hook, the composer, edits), and
+ * during a navigation there is a commit where `chatId` is already the new chat
+ * while `list` is still the old one's. Tagging the list in state makes "which
+ * chat do these messages belong to" a property of the value, so a write-back can
+ * never file one chat's history under another's id.
+ */
+interface HistoryState {
+  chatId: string | undefined
+  list: UIMessage[]
+  /**
+   * Whether `list` is this chat's actual history rather than the empty
+   * placeholder shown while its first load is in flight. Without it the
+   * write-back below would cache that placeholder, and the next visit would
+   * render a chat as empty instead of loading it.
+   */
+  loaded: boolean
+}
+
+const EMPTY_HISTORY: HistoryState = { chatId: undefined, list: [], loaded: false }
+
 export function useChatState(chatId: string | undefined, options?: UseChatStateOptions): UseChatStateResult {
-  const [messages, setMessages] = useState<UIMessage[]>([])
+  const [state, setState] = useState<HistoryState>(EMPTY_HISTORY)
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const [hasMoreMessages, setHasMoreMessages] = useState(false)
+  const [historyLoadId, setHistoryLoadId] = useState(0)
+  // Bumped when a background stream ends, purely to re-run the write-back
+  // effect: the stream's final commit can land before completeStream() clears
+  // the registry, in which case the effect would skip that commit and the chat
+  // the user just talked to would never make it into the cache.
+  const [streamEndTick, setStreamEndTick] = useState(0)
   // Set when the initial message-history fetch for the current chatId fails.
   // Cleared on the next successful load (initial or retried). Lets the UI
   // show a retry affordance instead of a silently-empty thread — a failed
@@ -104,7 +167,13 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
   // conversation's history is gone" rather than "a refresh failed."
   const [messagesLoadError, setMessagesLoadError] = useState<string | null>(null)
   const cursorRef = useRef<string | undefined>(undefined)
+  const pagesRef = useRef(1)
   const loadingRef = useRef(false)
+  // Mirrors `state` for the guards that run outside render (a background
+  // refresh deciding whether a turn started while it was in flight). Synced in
+  // an effect, not during render: a background fetch resolves whole ticks after
+  // the commit, so one-commit latency cannot matter here.
+  const stateRef = useRef<HistoryState>(EMPTY_HISTORY)
   // Track chat IDs that were created optimistically during streaming -
   // we must NOT clear messages when navigating to these since the streaming
   // hook is still actively writing to the message list.
@@ -114,14 +183,65 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
   // messages on the simulated remount before they can be re-added.
   const hasPreviousChatRef = useRef(false)
 
+  const cacheEnabled = !options?.loadMessages
+
+  const messages = state.list
+
+  useEffect(() => {
+    stateRef.current = state
+  }, [state])
+
+  /** Replaces the list while keeping it tagged with the chat it belongs to. */
+  const setMessages = useCallback<React.Dispatch<React.SetStateAction<UIMessage[]>>>((action) => {
+    setState((prev) => {
+      const next = typeof action === "function"
+        ? (action as (p: UIMessage[]) => UIMessage[])(prev.list)
+        : action
+      return next === prev.list ? prev : { ...prev, list: next }
+    })
+  }, [])
+
+  // ── Loading ────────────────────────────────────────────────────────────────
+
+  /** Installs a freshly-loaded history for `id` and records it in the cache. */
+  const install = useCallback((
+    id: string,
+    list: UIMessage[],
+    meta: { hasMore: boolean; cursor: string | undefined },
+  ) => {
+    cursorRef.current = meta.cursor
+    pagesRef.current = 1
+    setState({ chatId: id, list, loaded: true })
+    setHasMoreMessages(meta.hasMore)
+    setHistoryLoadId((n) => n + 1)
+    setMessagesLoadError(null)
+    if (cacheEnabled) {
+      saveChatHistory(id, { messages: list, hasMore: meta.hasMore, cursor: meta.cursor, pages: 1 })
+    }
+  }, [cacheEnabled])
+
+  /** Fetches `id`'s first page through whichever loader is configured. */
+  const fetchHistory = useCallback(async (id: string): Promise<{ list: UIMessage[]; hasMore: boolean; cursor: string | undefined }> => {
+    if (options?.loadMessages) {
+      const msgs = await options.loadMessages(id)
+      return { list: markInterruptedIfNeeded(id, msgs), hasMore: false, cursor: undefined }
+    }
+    const res = await getChatMessages(id)
+    return {
+      list: markInterruptedIfNeeded(id, toUIMessages(res.messages)),
+      hasMore: res.has_more,
+      cursor: res.next_cursor ?? undefined,
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- options is stable for each hook consumer
+  }, [])
+
   // Load messages whenever chatId changes
   useEffect(() => {
     if (!chatId) {
-      if (hasPreviousChatRef.current) {
-        setMessages([])
-      }
+      if (hasPreviousChatRef.current) setState(EMPTY_HISTORY)
       setHasMoreMessages(false)
       cursorRef.current = undefined
+      pagesRef.current = 1
       setMessagesLoadError(null)
       return
     }
@@ -130,95 +250,108 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
     setMessagesLoadError(null)
 
     // If this chatId was just created during an active stream, skip the
-    // fetch-and-clear cycle - the stream is still writing messages.
+    // fetch-and-clear cycle - the stream is still writing messages. Re-tag the
+    // list it is writing to, which until now was the pre-creation `undefined`,
+    // so the finished reply gets cached under the real id.
     if (optimisticChatIdsRef.current.has(chatId)) {
       optimisticChatIdsRef.current.delete(chatId)
+      // loaded: the list the stream is building is this new chat's history —
+      // there is nothing on the server yet to load it from.
+      setState((prev) => (prev.chatId === chatId ? prev : { chatId, list: prev.list, loaded: true }))
       return
     }
 
-    // If a background stream is still running for this chat (the user navigated
-    // away while it was generating), wait for it to finish before reloading
-    // from the API so the complete response is always shown — and for the
-    // user's queued message, if one goes out right after it.
+    // A reply is still running for this chat (the user navigated away while it
+    // was generating). The cached history predates the message they just sent,
+    // so showing it would drop their own turn out of the thread until the
+    // refetch lands — the skeleton is the honest state here.
     const pendingStream = getStreamCompletion(chatId)
-    if (pendingStream) {
-      let cancelled = false
-      loadingRef.current = true
-      setIsLoadingMessages(true)
-      setMessages([])
+    const cached = pendingStream || !cacheEnabled ? undefined : readChatHistory(chatId)
+
+    if (cached) {
+      // Render the thread immediately; revalidate underneath if it has aged.
+      cursorRef.current = cached.cursor
+      pagesRef.current = cached.pages
+      setState({ chatId, list: cached.messages, loaded: true })
+      setHasMoreMessages(cached.hasMore)
+      setHistoryLoadId((n) => n + 1)
+
+      // A paginated history is served as-is. Revalidating would refetch only
+      // the newest page and collapse the thread back to it, throwing away the
+      // older pages the user scrolled up for; merging a first page into older
+      // ones can't be done safely while edits and deletes can change them.
+      if (!isHistoryStale(cached) || cached.pages > 1) return
+    } else {
       cursorRef.current = undefined
-
-      // Cap each wait at 90 s so a hung stream never blocks the UI indefinitely.
-      void waitForChatStreams(chatId, 90_000).then(async () => {
-        if (cancelled) return
-        try {
-          if (options?.loadMessages) {
-            const msgs = await options.loadMessages(chatId)
-            if (!cancelled) {
-              setMessages(markInterruptedIfNeeded(chatId, msgs))
-              setHasMoreMessages(false)
-            }
-          } else {
-            const res = await getChatMessages(chatId)
-            if (!cancelled) {
-              setMessages(markInterruptedIfNeeded(chatId, toUIMessages(res.messages)))
-              setHasMoreMessages(res.has_more)
-              cursorRef.current = res.next_cursor ?? undefined
-            }
-          }
-        } catch (err) {
-          logger.error("[useChatState] Failed to reload after background stream", err)
-          const message = err instanceof Error ? err.message : "Failed to load messages"
-          toast.error(message)
-          if (!cancelled) setMessagesLoadError(message)
-        } finally {
-          if (!cancelled) setIsLoadingMessages(false)
-          loadingRef.current = false
-        }
-      })
-
-      return () => {
-        cancelled = true
-      }
+      pagesRef.current = 1
+      setState({ chatId, list: [], loaded: false })
+      setHasMoreMessages(false)
     }
+
+    // A refresh behind a rendered thread stays silent: no skeleton, and on
+    // failure no toast or error state, because there is already content to read.
+    const background = Boolean(cached)
 
     let cancelled = false
     loadingRef.current = true
-    setIsLoadingMessages(true)
-    setMessages([])
-    cursorRef.current = undefined
+    if (!background) setIsLoadingMessages(true)
 
-    const fetch = options?.loadMessages
-      ? options.loadMessages(chatId).then((msgs) => {
-          // Custom loader returns UIMessage[] directly; no pagination.
-          if (!cancelled) {
-            setMessages(markInterruptedIfNeeded(chatId, msgs))
-            setHasMoreMessages(false)
-          }
-        })
-      : getChatMessages(chatId).then((res) => {
-          if (cancelled) return
-          setMessages(markInterruptedIfNeeded(chatId, toUIMessages(res.messages)))
-          setHasMoreMessages(res.has_more)
-          cursorRef.current = res.next_cursor ?? undefined
-        })
-
-    fetch
-      .catch((err) => {
+    void (async () => {
+      try {
+        if (pendingStream) await waitForChatStreams(chatId, 90_000)
+        if (cancelled) return
+        const result = await fetchHistory(chatId)
+        if (cancelled) return
+        // A turn that started while this was in flight owns the list now;
+        // installing the server's copy would delete the message being sent and
+        // orphan the stream writing into it.
+        if (background && (getStreamCompletion(chatId) || stateRef.current.list.some(isPendingLocal))) return
+        install(chatId, result.list, { hasMore: result.hasMore, cursor: result.cursor })
+      } catch (err) {
         logger.error("[useChatState] Failed to load messages", err)
+        if (cancelled || background) return
         const message = err instanceof Error ? err.message : "Failed to load messages"
         toast.error(message)
-        if (!cancelled) setMessagesLoadError(message)
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingMessages(false)
+        setMessagesLoadError(message)
+      } finally {
+        if (!cancelled && !background) setIsLoadingMessages(false)
         loadingRef.current = false
-      })
+      }
+    })()
 
     return () => {
       cancelled = true
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- install/fetchHistory are stable; re-running on anything but chatId would refetch mid-thread
   }, [chatId])
+
+  // ── Write-back ─────────────────────────────────────────────────────────────
+
+  // Mirror the live list into the cache so returning to this chat renders it
+  // without a round trip. Skipped while a turn is in flight: a half-written
+  // reply or an un-sent optimistic bubble must not be what the user comes back
+  // to. The stream's own completion re-runs this (see streamEndTick).
+  useEffect(() => {
+    if (!cacheEnabled) return
+    const owner = state.chatId
+    if (!owner || !state.loaded) return
+    if (getStreamCompletion(owner) || state.list.some(isPendingLocal)) return
+    updateCachedMessages(owner, state.list, {
+      hasMore: hasMoreMessages,
+      cursor: cursorRef.current,
+      pages: pagesRef.current,
+    })
+  }, [state, hasMoreMessages, streamEndTick, cacheEnabled])
+
+  // Re-run the write-back once a reply for the shown chat has ended.
+  useEffect(() => {
+    if (!cacheEnabled) return
+    return subscribeStreams((event) => {
+      if (event.type === "end" && event.chatId === stateRef.current.chatId) {
+        setStreamEndTick((n) => n + 1)
+      }
+    })
+  }, [cacheEnabled])
 
   // ── Pagination ─────────────────────────────────────────────────────────────
 
@@ -227,16 +360,17 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
     loadingRef.current = true
     try {
       const res = await getChatMessages(chatId, cursorRef.current)
+      cursorRef.current = res.next_cursor ?? undefined
+      pagesRef.current += 1
       setMessages((prev) => [...toUIMessages(res.messages), ...prev])
       setHasMoreMessages(res.has_more)
-      cursorRef.current = res.next_cursor ?? undefined
     } catch (err) {
       logger.error("[useChatState] Failed to load more messages", err)
       toast.error(err instanceof Error ? err.message : "Failed to load more messages")
     } finally {
       loadingRef.current = false
     }
-  }, [chatId, hasMoreMessages])
+  }, [chatId, hasMoreMessages, setMessages])
 
   // ── Optimistic helpers ─────────────────────────────────────────────────────
 
@@ -263,7 +397,7 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
     }
     setMessages((prev) => [...prev, msg])
     return id
-  }, [chatId])
+  }, [chatId, setMessages])
 
   const addLoadingAssistantMessage = useCallback((): string => {
     const id = `loading-assistant-${Date.now()}`
@@ -278,13 +412,21 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
     }
     setMessages((prev) => [...prev, msg])
     return id
-  }, [chatId])
+  }, [chatId, setMessages])
 
   const rollbackLast = useCallback((n: number) => {
     setMessages((prev) => prev.slice(0, prev.length - n))
-  }, [])
+  }, [setMessages])
 
-  const clearMessages = useCallback(() => setMessages([]), [])
+  /** Empties the thread and forgets its cached copy — the emptied list is a
+   *  local reset, not a history worth restoring on the next visit. */
+  const clearMessages = useCallback(() => {
+    const owner = stateRef.current.chatId
+    if (owner && cacheEnabled) dropChatHistory(owner)
+    // loaded: false so the write-back does not immediately re-create the entry
+    // that was just dropped, as an empty one.
+    setState((prev) => ({ ...prev, list: [], loaded: false }))
+  }, [cacheEnabled])
 
   /** Mark a chat ID as optimistically created (prevents fetch-on-navigate). */
   const markChatAsOptimistic = useCallback((id: string) => {
@@ -298,17 +440,8 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
     loadingRef.current = true
     setIsLoadingMessages(true)
     try {
-      if (options?.loadMessages) {
-        const msgs = await options.loadMessages(chatId)
-        setMessages(markInterruptedIfNeeded(chatId, msgs))
-        setHasMoreMessages(false)
-      } else {
-        const res = await getChatMessages(chatId)
-        setMessages(markInterruptedIfNeeded(chatId, toUIMessages(res.messages)))
-        setHasMoreMessages(res.has_more)
-        cursorRef.current = res.next_cursor ?? undefined
-      }
-      setMessagesLoadError(null)
+      const result = await fetchHistory(chatId)
+      install(chatId, result.list, { hasMore: result.hasMore, cursor: result.cursor })
     } catch (err) {
       logger.error("[useChatState] Failed to refresh messages", err)
       const message = err instanceof Error ? err.message : "Failed to refresh messages"
@@ -318,8 +451,7 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
       setIsLoadingMessages(false)
       loadingRef.current = false
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- options is stable for each hook consumer
-  }, [chatId])
+  }, [chatId, fetchHistory, install])
 
   return {
     messages,
@@ -334,5 +466,6 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
     markChatAsOptimistic,
     refreshMessages,
     messagesLoadError,
+    historyLoadId,
   }
 }

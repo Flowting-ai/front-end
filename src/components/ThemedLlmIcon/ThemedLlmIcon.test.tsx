@@ -5,10 +5,10 @@ import path from "node:path";
 import { ThemedLlmIcon } from "./index";
 
 // ThemedLlmIcon renders each provider logo as an <img> with a data-URL SVG, once for
-// light mode and (when theming is on) once more for dark mode. The markup is part of the
-// app's visual contract (dark-mode CSS targets `kds-llm-color` / `kds-llm-mono`), so this
-// test pins it byte-for-byte against a fixture captured from the original implementation
-// that read the logos from `@strange-huge/icons/llm`.
+// light mode and, for a mark with no brand colour of its own, once more for dark mode.
+// The markup is part of the app's visual contract (dark-mode CSS targets
+// `kds-llm-color` / `kds-llm-mono`), so this test pins it byte-for-byte against a
+// captured fixture.
 //
 // To (re)capture the fixture on purpose: UPDATE_LLM_BASELINE=1 npx vitest run ThemedLlmIcon
 
@@ -76,11 +76,23 @@ describe("ThemedLlmIcon markup", () => {
     expect(render(true, "NoSuchIcon", 16)).toBe("");
   });
 
-  it("themed mode renders a color image and a mono image carrying the dark-mode CSS hooks", () => {
-    const html = render(true, "Claude", 16);
+  // OpenAI's mark is drawn in currentColor, which an <img> renders black - it still
+  // needs the light/dark pair so dark mode can show a white version.
+  it("themed mode renders a color image and a mono image for a mark with no brand colour", () => {
+    const html = render(true, "OpenAI", 16);
     expect(html).toContain("kds-llm-color");
     expect(html).toContain("kds-llm-mono");
     expect(html.match(/<img /g)?.length).toBe(2);
+  });
+
+  // Claude's mark is painted #D97757, so it is colour-coded the same in both themes:
+  // one image, no theme classes, nothing for the dark-mode CSS to swap.
+  it("themed mode renders one unswapped image for a brand-coloured mark", () => {
+    const html = render(true, "Claude", 16);
+    expect(html.match(/<img /g)?.length).toBe(1);
+    expect(html).not.toContain("kds-llm-color");
+    expect(html).not.toContain("kds-llm-mono");
+    expect(html).toContain("D97757");
   });
 
   it("plain mode renders only the color image", () => {

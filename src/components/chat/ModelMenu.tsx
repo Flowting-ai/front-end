@@ -1,8 +1,10 @@
 'use client'
 
 import React from 'react'
-import { TickTwoIcon, ArrowRightOneIcon } from '@strange-huge/icons'
+import { TickTwoIcon, ArrowRightOneIcon, InformationCircleIcon } from '@strange-huge/icons'
 import { Dropdown } from '@/components/Dropdown'
+import { Tooltip } from '@/components/Tooltip'
+import { POPOVER_WIDTHS } from '@/components/Popover'
 import * as SliderPrimitive from '@radix-ui/react-slider'
 import styles from './EffortSlider.module.css'
 import { useModelSelectorContext, type ModelAlgorithm } from '@/context/model-selector-context'
@@ -10,6 +12,80 @@ import { trackFeature } from '@/lib/analytics/events'
 import { sortModels, modelIconSource, AUTO_ROUTING_LABELS, isAutoRoutingModelName } from '@/lib/ai-models'
 import { ModelIcon } from '@/components/ModelIcon'
 import type { AIModel } from '@/types/ai-model'
+
+// The panel this tooltip hangs off is a size="md" Popover (POPOVER_WIDTHS.md),
+// so the tooltip is capped to that width and stays within the menu's own edges.
+const TOOLTIP_WIDTH = POPOVER_WIDTHS.md
+
+/**
+ * What auto selection actually does, next to the section header that offers it.
+ * A section header can't carry a sublabel, and the two tier rows under it are
+ * just names — without this, "Auto selects for you" is the whole explanation.
+ */
+function AutoSelectInfo() {
+  return (
+    <Tooltip
+      side="bottom"
+      align="start"
+      sideOffset={6}
+      // Narrower than the panel it hangs from, so it stays inside the menu's own
+      // footprint instead of spilling past its edges.
+      maxWidth={TOOLTIP_WIDTH}
+      content={
+        // The tooltip's own wrapper is a <span>, so these are display:block
+        // spans, not divs. A lead paragraph, the two tiers as a list, then the
+        // two things worth knowing — rather than one unbroken block of text.
+        <span style={{ display: 'block' }}>
+          <span style={{ display: 'block' }}>
+            Souvenir reads each message and sends it to the model that fits it: a quick
+            question to a fast model, a long or difficult one to a stronger model.
+          </span>
+          <span style={{ display: 'block', marginTop: 8 }}>
+            {[
+              ['Souvenir Standard', 'the quicker, cheaper models'],
+              ['Souvenir Pro', 'the strongest models when the work calls for it'],
+            ].map(([tier, detail]) => (
+              <span key={tier} style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                <span aria-hidden style={{ opacity: 0.5 }}>•</span>
+                <span>
+                  <strong style={{ fontWeight: 'var(--font-weight-semibold)' }}>{tier}</strong>
+                  {' — '}
+                  {detail}
+                </span>
+              </span>
+            ))}
+          </span>
+          <span style={{ display: 'block', marginTop: 8, opacity: 0.75 }}>
+            Picking a model yourself turns auto selection off until you choose a tier again.
+          </span>
+        </span>
+      }
+    >
+      <button
+        type="button"
+        aria-label="How auto selection works"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 16,
+          height: 16,
+          padding: 0,
+          border: 'none',
+          background: 'transparent',
+          color: 'var(--dropdown-menu-item-muted)',
+          cursor: 'help',
+          lineHeight: 0,
+        }}
+        // The header row is inert; this button is the one thing in it that
+        // responds, so its own click must not read as picking anything.
+        onClick={(e) => e.preventDefault()}
+      >
+        <InformationCircleIcon size={14} color="currentColor" />
+      </button>
+    </Tooltip>
+  )
+}
 
 function isSameModel(a: AIModel | null, b: AIModel): boolean {
   return a?.id === b.id && a?.modelId === b.modelId
@@ -129,6 +205,8 @@ export function ModelMenu({ onClose }: ModelMenuProps = {}) {
   )
   // What "Select a Model" shows as chosen: an Auto Routing tier or a model.
   const currentLabel = algorithm ? ALGORITHM_LABELS[algorithm] : selectedModel?.modelName
+  // No provider backs an auto-routing tier, so it resolves to the Souvenir mark.
+  const currentIconSource = algorithm || !selectedModel ? null : modelIconSource(selectedModel)
 
   const renderModelItem = (model: AIModel) => {
     const selected = isSameModel(selectedModel, model)
@@ -186,14 +264,24 @@ export function ModelMenu({ onClose }: ModelMenuProps = {}) {
     // in the "Select a Model" submenu, whose model list keeps its own 5-row cap
     // (see MODEL_LIST_MAX_HEIGHT + the Dropdown.Submenu below).
     <Dropdown size="md" maxHeight={false}>
-      <Dropdown.Section label="Model" fluid>
+      <Dropdown.Section label="Model" labelEmphasis="strong" fluid>
         <Dropdown.Submenu
           trigger={
             <Dropdown.Item
               fluid
-              // Says what it does now: pick one, or change the one already picked (shown under it).
-              label={currentLabel ? 'Change model' : 'Select a model'}
-              subLabel={currentLabel}
+              // The chosen model leads the row, in Google Sans at body-lg — it is
+              // the value this row carries. What the row DOES ("Change model") is
+              // the subtext under it. With nothing picked yet there is no value,
+              // so the action becomes the label.
+              emphasis="strong"
+              // The chosen model's own logo — the Souvenir mark for an Auto
+              // Routing tier, or when nothing is picked yet. On the free-form
+              // avatar slot (not `icon`) so the logo sits on a square tile
+              // spanning the row's two lines, at the same 16px as every other
+              // logo in this menu.
+              avatar={<ModelIcon model={currentIconSource ?? undefined} size={16} />}
+              label={currentLabel ?? 'Select a model'}
+              subLabel={currentLabel ? 'Change model' : undefined}
               selected={!!currentLabel}
               rightIcon={<ArrowRightOneIcon />}
             />
@@ -209,12 +297,14 @@ export function ModelMenu({ onClose }: ModelMenuProps = {}) {
               section before this redesign — see MODEL_LIST_MAX_HEIGHT). */}
           <Dropdown size="md" maxHeight={false}>
             {/* Auto Routing tiers first, Standard before Pro (lighter to stronger). */}
-            {/* "Automatic": Souvenir picks the model for each message. */}
-            <Dropdown.Section label="Automatic" fluid>
+            {/* The headers name who does the choosing, which is the actual
+                difference between the two groups — "Automatic" over "Models"
+                left the reader to work out that the second list was manual. */}
+            <Dropdown.Section label="Auto selects for you" labelEmphasis="strong" labelBadge={<AutoSelectInfo />} fluid>
               {renderAlgorithmItem('base')}
               {renderAlgorithmItem('pro')}
             </Dropdown.Section>
-            <Dropdown.Section label="Models" fluid divider>
+            <Dropdown.Section label="Choose a model yourself" labelEmphasis="strong" fluid divider>
               {/* Two nested divs, not one — the OUTER is the plain-block
                   scroll container (maxHeight + overflow, no display:flex of
                   its own); the INNER is the flex column that stacks the
@@ -236,7 +326,13 @@ export function ModelMenu({ onClose }: ModelMenuProps = {}) {
                   // being clipped flush against the scroll container's own
                   // edges — same reason PresetModelSelectorDialog's model
                   // list padds its scroll div.
-                  padding:              '3px',
+                  padding:              '3px 2px 3px 3px',
+                  // The bar sat ~14px in from the panel's right edge: this div's
+                  // own padding, plus the scrollbar, plus the section's 8px.
+                  // Pulling the scroll box out into that section padding puts the
+                  // bar near the edge where it belongs, and gives the rows back
+                  // the width it was taking.
+                  marginRight:          '-5px',
                 }}
               >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: `${MODEL_ROW_GAP}px` }}>
@@ -248,7 +344,7 @@ export function ModelMenu({ onClose }: ModelMenuProps = {}) {
         </Dropdown.Submenu>
       </Dropdown.Section>
       {effortOptions.length > 0 && (
-        <Dropdown.Section label="Thinking" fluid divider>
+        <Dropdown.Section label="Thinking" labelEmphasis="strong" fluid divider>
           <EffortSlider
             options={effortOptions}
             value={reasoningEffort}

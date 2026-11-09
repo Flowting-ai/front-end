@@ -3,7 +3,7 @@
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders, getAuth0AccessToken, ensureFreshToken } from "@/lib/jwt-utils";
 import { getFriendlyHttpErrorText } from "@/lib/http-errors";
-import { CHAT_NOT_FOUND_MESSAGE } from "@/lib/model-error";
+import { CHAT_NOT_FOUND_MESSAGE, OUT_OF_CREDITS_MESSAGE } from "@/lib/model-error";
 import { clientGeoHeaders } from "@/lib/geo-headers";
 import { toast } from "sonner";
 import { trackBrowserEvent } from "@/lib/analytics/events";
@@ -96,7 +96,10 @@ export function friendlyApiError(raw: string, statusCode?: number): string {
     return "You don't have permission to perform this action.";
   }
   if (statusCode === 402 || lower.includes("request failed with status 402") || lower.includes("insufficient credits")) {
-    return "You've run out of credits. Visit Settings → Billing to buy a top-up and continue chatting.";
+    // Same sentence the chat stream shows for 402 (model-error.ts): one real page
+    // name ("Plans & Billing" — there is no "Settings → Billing" nav item), and it
+    // does not send a Teams/Enterprise member to a page only an admin can open.
+    return OUT_OF_CREDITS_MESSAGE;
   }
   if (statusCode === 429 || lower.includes("rate limit") || lower.includes("too many requests")) {
     return "You're sending requests too quickly. Please wait a moment and try again.";

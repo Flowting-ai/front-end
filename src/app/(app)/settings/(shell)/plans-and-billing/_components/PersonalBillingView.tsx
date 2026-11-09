@@ -57,21 +57,25 @@ export function PersonalBillingView() {
         </p>
 
         <div style={{ display: 'flex', gap: 12, alignItems: 'stretch', flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 0 0', minWidth: 280 }}>
+          {/* display:flex so the card fills the stretched row — without it this card sizes to its own
+              content and ends short of "Credits remaining" beside it (same wrapper as OrgBillingView). */}
+          <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
             <SectionCard
               title="Plan"
               titleColor="var(--neutral-700)"
               action={
                 hasPlan
                   ? <Badge label={cancelAtPeriodEnd ? 'Canceling' : (isTrialUser ? 'Free Trial' : 'Active')} tone={cancelAtPeriodEnd ? 'red' : (isTrialUser ? 'blue' : 'green')} />
-                  : <Badge label="No plan selected" tone="neutral" />
+                  // No subscription and no trial IS the free tier — the name the rest of the app uses
+                  // (Plan.chipLabel, OrgBillingView), not "No plan selected".
+                  : <Badge label="Free Plan" tone="neutral" />
               }
               headerDivider={false}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ flex: '1 0 0', minWidth: 0 }}>
                   <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 16, lineHeight: '22px', color: 'var(--neutral-900)', margin: 0 }}>
-                    {hasPlan ? `${planName} Plan${planPrice > 0 ? ` · $${planPrice}/mo` : ''}` : 'No plan selected'}
+                    {hasPlan ? `${planName} Plan${planPrice > 0 ? ` · $${planPrice}/mo` : ''}` : 'Currently on Free Plan'}
                   </p>
                   <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '6px 0 0' }}>
                     {isTrialUser
@@ -112,7 +116,8 @@ export function PersonalBillingView() {
             </SectionCard>
           </div>
 
-          <div style={{ flex: '1 0 0', minWidth: 280 }}>
+          {/* display:flex for the same reason as the Plan card above: fill the stretched row. */}
+          <div style={{ flex: '1 0 0', minWidth: 280, display: 'flex' }}>
             <SectionCard title="Credits remaining" titleColor="var(--neutral-700)" headerDivider={false} bodyAlign="space-between" bodyGap={12}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
