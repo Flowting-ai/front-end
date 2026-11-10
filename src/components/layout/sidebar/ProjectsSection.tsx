@@ -4,7 +4,6 @@ import React, { useMemo, useState } from "react";
 import { m } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { useGuardedRouter } from "@/context/nav-guard-context";
-import { SidebarEmptyState } from "./SidebarEmptyState";
 import { FolderAddIcon, MoreHorizontalIcon } from "@strange-huge/icons";
 import { SidebarMenuItem, SidebarMenuSkeleton, SidebarProjectsSection } from "@/components/ui";
 import { useChatHistoryContext } from "@/context/chat-history-context";
@@ -120,11 +119,14 @@ export function ProjectsSection({
           )}
 
           {!projectsLoading && projects.length === 0 && (
-            <SidebarEmptyState
-              label={emptyLabel}
-              actionLabel="New project"
-              onAction={() => push(pathname === newProjectHref ? newProjectHref + "?t=" + Date.now() : newProjectHref)}
-            />
+            <div style={{
+              padding:    "8px 6px",
+              fontFamily: "var(--font-body)",
+              fontSize:   "var(--font-size-caption)",
+              color:      "var(--neutral-400)",
+            }}>
+              {emptyLabel}
+            </div>
           )}
 
           {!projectsLoading && visibleProjects.map(project => {
