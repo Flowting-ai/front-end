@@ -16,7 +16,6 @@ import { sectionHeightVariants, sectionStaggerVariants, sectionItemVariants } fr
 import { PROJECT_LIMIT, CHAT_LIMIT, sortChatsByRecency, NO_CHATS_YET_STYLE, sortProjectsByRecency, activeProjectIdFromPathname, includeAllProjects } from "./project-helpers";
 import type { ProjectsSectionProps, TeamsSidebarContentProps } from "./project-helpers";
 import { FlatProjectChatItem } from "./FlatProjectChatItem";
-import { SidebarEmptyState } from "./SidebarEmptyState";
 
 // -- FlatProjectItemsList — the reusable body of a project section (loading
 // skeleton, empty state, up to `limit` FlatSidebarProjectGroup rows). Shared
@@ -76,7 +75,7 @@ function FlatProjectItemsList({ projectsFilter, limit, emptyLabel }: FlatProject
     <>
       {projectsLoading && projects.length === 0 && Array.from({ length: 2 }).map((_, i) => <SidebarMenuSkeleton key={i} index={i} fluid />)}
       {!projectsLoading && projects.length === 0 && (
-        <SidebarEmptyState label={emptyLabel} actionLabel="New project" onAction={() => push(PROJECTS_NEW_ROUTE)} />
+        <div style={{ padding: "8px 6px", fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-400)" }}>{emptyLabel}</div>
       )}
       {!projectsLoading && visibleProjects.map(project => {
         const chats = sortChatsByRecency(getChats(project.id).filter(c => c.canEdit !== false))
