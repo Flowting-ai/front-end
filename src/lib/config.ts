@@ -133,6 +133,8 @@ export const CHAT_STREAM_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}/stream`);
 export const CHAT_STOP_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}/stop`);
+export const CHAT_ENDPOINT = (chatId: string) =>
+  withBase(`/chats/${chatId}`);
 export const CHAT_DELETE_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}`)
 // PATCH .../visibility never existed on this backend's chat router (confirmed

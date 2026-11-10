@@ -30,6 +30,8 @@ const MODEL_TOO_LARGE_MESSAGE =
   "Your message is too large for this model. Try shortening it or removing attachments.";
 const MODEL_GENERIC_ERROR_MESSAGE =
   "Something went wrong generating a response. Please try again.";
+export const TURN_RUNNING_MESSAGE =
+  "A response is still being generated in this chat. Wait for it to finish, or stop it, then send again.";
 export const CHAT_NOT_FOUND_MESSAGE =
   "This chat no longer exists — it may have been deleted. Start a new chat to continue.";
 
@@ -91,6 +93,10 @@ export function friendlyModelError(raw?: string | null, statusCode?: number): st
   // a bare 404 would otherwise get.
   if (lower.includes("chat not found")) {
     return CHAT_NOT_FOUND_MESSAGE;
+  }
+  // A second send while the chat's reply is still running: the 409 entry below would blame the model.
+  if (lower.includes("turn_running")) {
+    return TURN_RUNNING_MESSAGE;
   }
 
   const code = statusCode ?? (() => {

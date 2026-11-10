@@ -4,6 +4,7 @@ import { apiFetch, apiFetchJson, ApiError, friendlyApiError } from "./client";
 import {
   API_BASE_URL,
   CHATS_ENDPOINT,
+  CHAT_ENDPOINT,
   CHATS_RENAME_ENDPOINT,
   CHAT_MESSAGES_ENDPOINT,
   CHAT_STAR_ENDPOINT,
@@ -498,6 +499,14 @@ export async function deleteMessage(messageId: string): Promise<void> {
       "Failed to delete message",
     );
   }
+}
+
+/** GET /chats/{chat_id} — the id of the turn still being generated in the chat, or null. */
+export async function getChatStreamId(chatId: string): Promise<string | null> {
+  const response = await apiFetch(CHAT_ENDPOINT(chatId));
+  if (!response.ok) return null;
+  const chat = (await response.json()) as { streamId?: string | null };
+  return chat.streamId ?? null;
 }
 
 /** POST /chats/{chat_id}/stop — abort an in-flight stream. */

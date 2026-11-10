@@ -46,6 +46,22 @@ class FriendlyStreamError extends Error {
   readonly alreadyFriendly = true as const
 }
 
+/** The connection went away while the turn was still running. The backend keeps
+ *  running it, so the reply can be picked up again from GET /chats/{id}/stream. */
+class ConnectionDroppedError extends FriendlyStreamError {
+  constructor() {
+    super(friendlyModelError("", 503))
+  }
+}
+
+/** How many times one turn re-attaches to its stream, and the pause before each. */
+const FOLLOW_ATTEMPTS = 5
+const FOLLOW_RETRY_MS = 1000
+
+/** How a follow of a running turn went: it reached the stream, the chat has no
+ *  running turn any more (it ended while nobody was reading), or it couldn't connect. */
+type FollowResult = "attached" | "gone" | "failed"
+
 /** The agent chat endpoint answers 409 for an agent that can't be chatted with right now
  *  (no published version, paused, or disabled) — not for a retired model, which is what
  *  the generic 409 copy says. */
@@ -82,6 +98,8 @@ export interface UseStreamingChatParams {
   setStreamState?: React.Dispatch<React.SetStateAction<StreamState>>
   /** Called after a stream completes successfully (for refreshing usage data). */
   onStreamDone?: () => void
+  /** The turn ended while this view wasn't reading it: the saved reply is in the chat's history. */
+  onStreamLost?: (chatId: string) => void
   /** Override the proxy endpoint (defaults to "/api/chat"). Use for persona chat, etc. */
   endpoint?: string
   /** Absolute backend endpoints for proxy-less streaming on deployed origins.
@@ -110,6 +128,7 @@ export function useStreamingChat({
   onChatMoveToTop,
   setStreamState,
   onStreamDone,
+  onStreamLost,
   endpoint = "/api/chat",
   directEndpoints,
   onStopBackend,
@@ -132,6 +151,8 @@ export function useStreamingChat({
   // Stops the current call's stream, and only that one — registered with the
   // stream registry so the stream can be stopped from wherever its chat is shown.
   const activeStopRef = useRef<(() => void) | null>(null)
+  // Set by a follow of a running turn, read by whoever started it.
+  const followResultRef = useRef<FollowResult>("attached")
 
   // ── Flush helpers ───────────────────────────────────────────────────────────
 
@@ -236,8 +257,14 @@ export function useStreamingChat({
     chatId: string | null,
     loadingMessageId: string,
     modelId?: string | number | null,
-    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; reasoningEffort?: string | null; algorithm?: 'base' | 'pro' | null; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void; personaId?: string; systemPrompt?: string; temperature?: number; toneId?: string; connectorSlugs?: string[]; replaceMessageId?: string; chatOwnershipConfirmed?: boolean },
+    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; reasoningEffort?: string | null; algorithm?: 'base' | 'pro' | null; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void; personaId?: string; systemPrompt?: string; temperature?: number; toneId?: string; connectorSlugs?: string[]; replaceMessageId?: string; chatOwnershipConfirmed?: boolean; follow?: boolean; followAttempt?: number },
   ): Promise<StreamOutcome> => {
+    // A follow reads the chat's running turn from its first event; it sends nothing.
+    const follow = options?.follow === true
+    // A follow owns the reply only once its stream answers; until then the reply is left as it is.
+    let attached = !follow
+    let failedStatus = 0
+    followResultRef.current = "attached"
     stopRequestedRef.current = false
     xhrRef.current = null
     loadingMessageIdRef.current = loadingMessageId
@@ -354,16 +381,19 @@ export function useStreamingChat({
       // no ownership question (isExistingChat is false), so this never
       // affects that path, and callers that don't pass the option at all
       // keep today's behavior (undefined !== false).
-      const useDirectBackend =
-        direct !== null &&
-        shouldUseDirectBackend() &&
-        (!isExistingChat || options?.chatOwnershipConfirmed !== false)
+      const useDirectBackend = follow
+        ? shouldUseDirectBackend()
+        : direct !== null &&
+          shouldUseDirectBackend() &&
+          (!isExistingChat || options?.chatOwnershipConfirmed !== false)
       const directToken = useDirectBackend ? await ensureFreshToken() : null
       // Direct-to-backend requests must opt into the AG-UI stream themselves;
       // proxied requests get the parameter added by the proxy route.
-      const resolvedEndpoint = useDirectBackend
-        ? directUpload(isExistingChat ? direct!.stream(chatId!) : direct!.create)
-        : endpoint
+      const resolvedEndpoint = follow
+        ? directUpload(CHAT_STREAM_ENDPOINT(chatId!))
+        : useDirectBackend
+          ? directUpload(isExistingChat ? direct!.stream(chatId!) : direct!.create)
+          : endpoint
 
       const fd = new FormData()
       fd.append("input", input)
@@ -1439,7 +1469,7 @@ export function useStreamingChat({
         const xhr = new XMLHttpRequest()
         xhrRef.current = xhr
 
-        xhr.open("POST", resolvedEndpoint)
+        xhr.open(follow ? "GET" : "POST", resolvedEndpoint)
         if (useDirectBackend) {
           // Talking straight to the backend origin — carry credentials and the
           // bearer token the proxy would otherwise have attached server-side.
@@ -1499,13 +1529,17 @@ export function useStreamingChat({
             if (xhr.status > 0 && (xhr.status < 200 || xhr.status >= 300)) {
               const rawText = xhr.responseText || `Request failed with status ${xhr.status}`
               const lowerText = rawText.toLowerCase()
-              logger.error("[useStreamingChat] Stream request failed", {
-                status: xhr.status,
-                chatId,
-                isExistingChat,
-                endpoint: resolvedEndpoint,
-                responseText: xhr.responseText,
-              })
+              failedStatus = xhr.status
+              // A follow that finds no running turn is the turn having ended, not a failure.
+              if (!(follow && xhr.status === 404)) {
+                logger.error("[useStreamingChat] Stream request failed", {
+                  status: xhr.status,
+                  chatId,
+                  isExistingChat,
+                  endpoint: resolvedEndpoint,
+                  responseText: xhr.responseText,
+                })
+              }
               statusRejected = true
               if (
                 xhr.status === 401 ||
@@ -1518,6 +1552,18 @@ export function useStreamingChat({
                 reject(new FriendlyStreamError(streamFailureMessage(rawText, xhr.status, resolvedEndpoint)))
               }
               return
+            }
+            if (follow && xhr.status > 0) {
+              // The stream replays the turn from its start, so the reply starts over with it.
+              attached = true
+              const replyId = loadingMessageIdRef.current
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === replyId
+                    ? { id: msg.id, reactKey: msg.reactKey, role: msg.role, created_at: msg.created_at, chat_id: msg.chat_id, content: "", isLoading: true }
+                    : msg,
+                ),
+              )
             }
             const headerChatId =
               xhr.getResponseHeader("X-Chat-Id") ?? xhr.getResponseHeader("x-chat-id")
@@ -1544,7 +1590,7 @@ export function useStreamingChat({
               logger.error("[useStreamingChat] Connection dropped mid-stream", {
                 chatId, isExistingChat, endpoint: resolvedEndpoint,
               })
-              reject(new FriendlyStreamError(friendlyModelError("", 503)))
+              reject(new ConnectionDroppedError())
             } else if (!statusRejected && xhr.status > 0 && (xhr.status < 200 || xhr.status >= 300)) {
               // Backstop: HEADERS_RECEIVED should have already caught a non-2xx
               // status, but if that branch was skipped/raced for any reason,
@@ -1577,10 +1623,10 @@ export function useStreamingChat({
           logger.error("[useStreamingChat] XHR network error", {
             chatId, isExistingChat, endpoint: resolvedEndpoint,
           })
-          reject(new FriendlyStreamError(friendlyModelError("", 503)))
+          reject(new ConnectionDroppedError())
         }
 
-        xhr.send(fd)
+        xhr.send(follow ? null : fd)
       })
 
       stopFlushInterval()
@@ -1598,6 +1644,44 @@ export function useStreamingChat({
     } catch (error) {
       stopFlushInterval()
       flushPending()
+
+      // A follow that never reached the stream leaves the reply to whoever started it.
+      if (!attached) {
+        followResultRef.current = failedStatus === 404 ? "gone" : "failed"
+        return "error"
+      }
+
+      // The connection dropped but the backend is still running the turn: read
+      // it again from its stream. A regular chat only; other endpoints have none.
+      const liveChatId = resolvedChatIdRef.current
+      const attempt = options?.followAttempt ?? 0
+      if (
+        error instanceof ConnectionDroppedError &&
+        endpoint === "/api/chat" && !directEndpoints &&
+        liveChatId && !liveChatId.startsWith("temp-") &&
+        !stopRequestedRef.current &&
+        attempt < FOLLOW_ATTEMPTS
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, FOLLOW_RETRY_MS))
+        if (!stopRequestedRef.current) {
+          const outcome = await fetchAiResponse("", liveChatId, loadingMessageIdRef.current ?? loadingMessageId, null, {
+            follow: true,
+            followAttempt: attempt + 1,
+            userMessageId: userMessageIdRef.current ?? undefined,
+          })
+          const result = followResultRef.current
+          followResultRef.current = "attached"
+          if (result === "attached") return outcome
+          if (result === "gone") {
+            completeStream(liveChatId, "done")
+            setStreamState?.("done")
+            onStreamLost?.(liveChatId)
+            onStreamDone?.()
+            return "done"
+          }
+        }
+      }
+
       completeStream(resolvedChatIdRef.current, stopRequestedRef.current ? "aborted" : "error")
 
       // User-initiated stop - not an error
@@ -1666,7 +1750,23 @@ export function useStreamingChat({
     onChatCreated?.(chatId)
   }
 
-  return { fetchAiResponse, handleStopGeneration }
+  /**
+   * Reads a chat's running turn into the loading reply `loadingMessageId`, from
+   * the turn's first event — for a chat opened while its reply is still being
+   * generated. A turn that has ended by then is in the chat's history instead.
+   */
+  const followStream = async (chatId: string, loadingMessageId: string): Promise<StreamOutcome> => {
+    const outcome = await fetchAiResponse("", chatId, loadingMessageId, null, { follow: true })
+    const result = followResultRef.current
+    followResultRef.current = "attached"
+    if (result === "attached") return outcome
+    completeStream(chatId, "done")
+    setStreamState?.("done")
+    onStreamLost?.(chatId)
+    return "done"
+  }
+
+  return { fetchAiResponse, followStream, handleStopGeneration }
 }
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
