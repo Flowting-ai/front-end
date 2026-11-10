@@ -2,7 +2,7 @@
 
 // Account detail — S20/S21/S22 in one dialog over the connector page: the
 // name renames in place, the rail holds sharing and removal, and the
-// permissions list fills the rest. See docs v1.5/connectors-v1.5-migration-plan.md
+// permissions list fills the rest. See docs-v1.5/connectors-v1.5-migration-plan.md
 // §4 (edge cases to preserve).
 //
 // Everything here edits one account, and only its owner may. Permissions belong

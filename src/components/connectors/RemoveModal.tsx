@@ -3,7 +3,7 @@
 // Remove confirmation — S15 / S16. Ported from the story's Remove modal.
 // The story's "Used by 3 agents · 2 automations" copy is intentionally NOT
 // reproduced: nothing reports what depends on an account (Gap #3 in
-// docs v1.5/connectors-v1.5-migration-plan.md), and inventing counts would be
+// docs-v1.5/connectors-v1.5-migration-plan.md), and inventing counts would be
 // worse than saying nothing. A shared account is warned about instead, since
 // removing it takes it away from everyone.
 

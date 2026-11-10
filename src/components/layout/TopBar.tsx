@@ -183,7 +183,7 @@ function TopBarImpl({ edgeInset = 0, showCitationsToggle: _showCitationsToggle, 
   // The primary (TopBar) model selector button has been removed — ChatInput's
   // own embedded ModelMenu (the "secondary" selector) now covers the same 3
   // models everywhere a composer exists, so keeping a second, redundant
-  // trigger up here just duplicated it. See docs v1.5/dropdown-scrollbar-gutter-fix.md
+  // trigger up here just duplicated it. See docs-v1.5/dropdown-scrollbar-gutter-fix.md
   // for the ModelMenu changes that made this the single source of truth.
 
   // Archived chats have no model to select (the composer is disabled — see

@@ -4,7 +4,7 @@
 // S14 (reconnect banner). Ported 1:1 from
 // may-day-final/src/stories/teams/ConnectorLibraryV1.stories.tsx, wired to
 // real data via ConnectorCatalog instead of the story's static mocks.
-// See docs v1.5/connectors-v1.5-migration-plan.md §2/§3.
+// See docs-v1.5/connectors-v1.5-migration-plan.md §2/§3.
 
 // Parts: connections-shared.tsx, CatalogDiscover.tsx, Catalog.tsx.
 

@@ -95,7 +95,7 @@ export const ONBOARDING_BASE_ROUTE = "/onboarding";
 export const ONBOARDING_TEAM_BASE_ROUTE = "/onboarding/team";
 export const ONBOARDING_TONE_ROUTE = "/onboarding/tone";
 
-// ── v1.5 workspace-onboarding flow (docs v1.5/onboarding-v1.5-flow.md) ───────
+// ── v1.5 workspace-onboarding flow (docs-v1.5/onboarding-v1.5-flow.md) ───────
 // ONBOARDING_WORKSPACE_ROUTE above is reused for this flow's step 2 (same URL,
 // new content) — only these two are new routes.
 export const ONBOARDING_SETUP_ROUTE = "/onboarding/setup";

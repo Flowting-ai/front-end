@@ -50,7 +50,7 @@ export const SCOPE_DESCRIPTION: Record<ScopeFilter, string> = {
 
 // Legacy '?scope=team' links (bookmarks, the sidebar, anywhere else that
 // hasn't been updated) map to 'workspace' — the closest equivalent now that
-// Team is gone from the backend (see docs v1.5/sharing-model-v2-gap-audit.md's
+// Team is gone from the backend (see docs-v1.5/sharing-model-v2-gap-audit.md's
 // Cross-cutting Teams note).
 export function parseScope(raw: string | null): ScopeFilter {
   if (raw === 'team') return 'workspace'

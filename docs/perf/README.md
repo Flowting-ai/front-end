@@ -1,7 +1,7 @@
 # Bundle performance
 
 How the app keeps its initial JavaScript small, how to measure it, and how to keep it that way.
-Background and the full before/after: `fe system design/audits/bundle-performance-fix-plan.md`.
+Background and the full before/after: `fe-system-design/audits/bundle-performance-fix-plan.md`.
 
 ## Rules of thumb
 

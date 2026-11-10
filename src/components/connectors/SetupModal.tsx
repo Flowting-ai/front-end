@@ -1,7 +1,7 @@
 'use client'
 
 // Setup modal — S11 (reconnect) and S18 (connect), wired to the connect flow
-// in useConnectorSetupFlow. See docs v1.5/connectors-v1.5-migration-plan.md §4
+// in useConnectorSetupFlow. See docs-v1.5/connectors-v1.5-migration-plan.md §4
 // (edge cases).
 //
 // Anyone can connect an account and anyone can share their own: sharing is a

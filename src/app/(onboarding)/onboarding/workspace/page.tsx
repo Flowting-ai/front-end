@@ -14,7 +14,7 @@ import { ONBOARDING_SETUP_ROUTE, ONBOARDING_PROFILE_ROUTE } from "@/lib/routes";
 // Figma: node 27:1196 (default state), 55:2726 (empty/required-field error
 // state — label + message go red: "This field can not be empty").
 //
-// PENDING CONFIRMATION (see docs v1.5/onboarding-v1.5-flow.md item 2): there is
+// PENDING CONFIRMATION (see docs-v1.5/onboarding-v1.5-flow.md item 2): there is
 // no plan/billing step anywhere before this one in the new flow, unlike the
 // old team flow (which created the org only after a Stripe checkout). The
 // createOrganization()/updateOnboarding() calls below are the closest existing

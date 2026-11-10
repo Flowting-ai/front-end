@@ -317,7 +317,7 @@ function OrgChangePlanPageInner() {
   // startTrial) is individual-only and 403s for org members, so this can never
   // be true for anything reachable on this page. Hidden until an org-level
   // trial state actually exists on the backend — see
-  // docs v1.5/free-trial-onboarding-plan.md §3.
+  // docs-v1.5/free-trial-onboarding-plan.md §3.
   const isOnFreePlan = false
 
   // Sync tier picker to the org's current tier on load — only when the tier
