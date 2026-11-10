@@ -1,6 +1,6 @@
 # Design tokens — proposed mapping for every hard-coded colour
 
-Companion to [design-tokens-audit.md](design-tokens-audit.md) (generated 2026-10-02). **This is a proposal — no source files were changed.** Each distinct hard-coded colour found in `src` is mapped to the closest primitive in `src/styles/tokens/primitives.css`.
+Companion to [design-tokens-audit.md](./design-tokens-audit.md) (generated 2026-10-02). **This is a proposal — no source files were changed.** Each distinct hard-coded colour found in `src` is mapped to the closest primitive in `src/styles/tokens/primitives.css`.
 
 ## How the mapping works
 

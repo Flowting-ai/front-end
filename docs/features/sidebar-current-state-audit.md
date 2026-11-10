@@ -2,7 +2,7 @@
 
 **Purpose:** insurance document for the flat-list Figma redesign (node 136:53072). Everything below is verified against the actual code, not the older spec docs (which are incomplete/partially stale). Before considering the migration done, walk the checklist in §9 and confirm each item was deliberately kept, deliberately dropped, or deliberately changed — never lost by accident.
 
-This supersedes nothing — [`left-sidebar.md`](left-sidebar.md) and [`sidebar-tracking.md`](sidebar-tracking.md) still exist, but both are partial (the latter is mislabeled — it's actually a fuller spec, but only covers the individual-account tab UI and event wiring, not teams/admin/collapse/KDS internals). This doc is the complete cross-section.
+This supersedes nothing — [`left-sidebar.md`](../_archive/2026-05-v1-build/features/left-sidebar.md) and [`sidebar-tracking.md`](../_archive/2026-05-v1-build/features/sidebar-tracking.md) still exist, but both are partial (the latter is mislabeled — it's actually a fuller spec, but only covers the individual-account tab UI and event wiring, not teams/admin/collapse/KDS internals). This doc is the complete cross-section.
 
 ## 0. File map
 

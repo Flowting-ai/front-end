@@ -2,7 +2,7 @@
 
 // Connect/reconnect state machine for the Connectors Setup screen (S11, S18).
 // Carries over every edge case documented in §4 of
-// docs v1.5/connectors-v1.5-migration-plan.md.
+// docs-v1.5/connectors-v1.5-migration-plan.md.
 //
 // There is one connect path. Sharing is not a different kind of link — the
 // account is always vaulted under the person who authorized it, and `shared`

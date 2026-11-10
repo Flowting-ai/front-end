@@ -18,7 +18,7 @@ export function determineNextOnboardingPath(root: UserMeGate): string {
     return false;
   };
 
-  // v1.5 workspace-onboarding flow (docs v1.5/onboarding-v1.5-flow.md), case
+  // v1.5 workspace-onboarding flow (docs-v1.5/onboarding-v1.5-flow.md), case
   // A1's 5 web-app steps:
   //   setup (no data written)              → choice screen only
   //   workspace (name + size)               → saves role_fit

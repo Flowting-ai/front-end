@@ -21,6 +21,7 @@ import { RUN_OUTPUTS_HREF } from '@/components/Library/routines/RoutineLibrarySe
 import { LoopHistoryCard } from './LoopHistoryCard'
 import type { AgentStep, StepStatus } from './types'
 import type { ScheduleConnector } from './ScheduleCard'
+import { useMobile } from '@/hooks/use-mobile'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -134,6 +135,8 @@ export function ScheduleDetailView({
   onCopy,
   copying = false,
 }: ScheduleDetailViewProps) {
+  // One column on phones — the fixed 280px details rail squeezes the main column to nothing.
+  const isMobile = useMobile()
   // Someone else's org schedule: read and copy only (lib/schedules/schedule-permissions.ts).
   const readOnly = !canSchedule('edit', schedule)
   // Straight from the schedule: the toggle updates it at once and puts it back if the save fails
@@ -330,7 +333,7 @@ export function ScheduleDetailView({
       </div>
 
       {/* ── Two columns: what it does + history | details ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 280px', gap: 24, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) 280px', gap: 24, alignItems: 'start' }}>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24, minWidth: 0 }}>
           <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

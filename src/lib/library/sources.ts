@@ -1,6 +1,6 @@
 // Pure logic for Library inside a chat and a routine: citation chips, the Sources panel, sent-file
 // chips, the save prompt, the delete-chat file list and the routine notes. Typed against the chat
-// contract in docs v2/library (02 section "Citations", 04 sections 5 and 5b): the stream sends
+// contract in docs-v2/library (02 section "Citations", 04 sections 5 and 5b): the stream sends
 // citations as `{ fileId, locator }`, `sourceEvents` when access changes mid-chat, `groundedness`
 // on the answer, `savedFileIds` after a send and `ask_save` in "Ask each time" mode. Most of these
 // do not exist on the backend yet; the components that use them stay inert until they do.

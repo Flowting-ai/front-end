@@ -106,8 +106,8 @@ export function ScheduleListView({
     }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <div style={{ flex: '1 0 0' }}>
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ flex: '1 1 220px', minWidth: 0 }}>
           <h2 style={{
             margin:     0,
             fontFamily: 'var(--font-title)',
@@ -132,9 +132,9 @@ export function ScheduleListView({
           </p>
         </div>
         {!isEmpty && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: isMobile ? '1 1 100%' : '0 0 auto', minWidth: 0 }}>
             {searchOpen && (
-              <div style={{ width: 220 }}>
+              <div style={{ flex: '1 1 160px', minWidth: 0, maxWidth: isMobile ? undefined : 220 }}>
                 <InputField
                   label="Search schedules"
                   showLabel={false}

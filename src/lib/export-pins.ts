@@ -1,7 +1,7 @@
 import { toast } from "sonner"
 import type { PinItem } from "@/context/pinboard-context"
 
-// Security note (see docs v2/performance report/pinboard/07-pinboard-feature-report.md
+// Security note (see docs-v2/performance-report/pinboard/07-pinboard-feature-report.md
 // §10 for the full trace): this module used to build the exported document as
 // an HTML *string* (interpolating pin title/content/category/tags/chat-name —
 // all user- or model-generated text — into template literals with manual

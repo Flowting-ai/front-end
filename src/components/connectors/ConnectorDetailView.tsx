@@ -5,7 +5,7 @@
 //
 // The story's EndpointRow (a copyable "MCP endpoint" URL) is deliberately
 // NOT ported — there is no backend field for it (Gap #1 in
-// docs v1.5/connectors-v1.5-migration-plan.md). Fabricating a URL would be
+// docs-v1.5/connectors-v1.5-migration-plan.md). Fabricating a URL would be
 // worse than omitting the row.
 
 import { Tooltip } from '@/components/Tooltip'

@@ -1,6 +1,6 @@
 "use client";
 
-// Every Library write. The rules (docs v2/library/07-build-plan.md section 5.3):
+// Every Library write. The rules (docs-v2/library/07-build-plan.md section 5.3):
 //   optimistic with rollback  rename, trash, restore, revoke
 //   never optimistic          share (the server resolves ways in), delete forever, Empty Trash
 // Optimistic changes go through patchFileEverywhere (cache.ts); a failed change is rolled back and

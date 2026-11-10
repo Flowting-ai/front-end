@@ -24,6 +24,11 @@ const SECTION_LABEL_STYLE: React.CSSProperties = {
   color:      'var(--neutral-600)',
 }
 
+/** Splits raw input on whitespace, commas and semicolons into non-empty tokens. */
+function splitTokens(raw: string): string[] {
+  return raw.split(/[\s,;]+/).map(t => t.trim()).filter(Boolean)
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -253,7 +258,7 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
     }, [existingEmails, allowedDomains])
 
     const commitTokens = useCallback((raw: string) => {
-      const tokens = raw.split(/[\s,;]+/).map(t => t.trim()).filter(Boolean)
+      const tokens = splitTokens(raw)
       if (tokens.length === 0) return
       setEmailChips(prev => {
         const next = [...prev]
@@ -289,7 +294,23 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
     }, [onClose])
 
     const handleSubmit = useCallback(async () => {
-      const pending = emailChips.filter(c => c.status === 'pending').map(c => c.value)
+      // A valid address still sitting in the input (never committed with Enter /
+      // comma / blur) counts: the button is enabled for it, so submitting has to
+      // send it rather than silently drop it.
+      const draftChips = splitTokens(draft)
+        .filter(t => !emailChips.some(c => c.value.toLowerCase() === t.toLowerCase()))
+        .map(classify)
+      if (draftChips.length > 0) {
+        // The input's blur (fired by the click that got us here) may already have
+        // committed these, so dedupe against whatever is in state by then.
+        setEmailChips(prev => {
+          const seen = new Set(prev.map(c => c.value.toLowerCase()))
+          return [...prev, ...draftChips.filter(c => !seen.has(c.value.toLowerCase()))]
+        })
+        setDraft('')
+      }
+      const pending = [...emailChips, ...draftChips]
+        .filter(c => c.status === 'pending').map(c => c.value)
       if (pending.length === 0 || loading || submitting) return
 
       setSubmitting(true)
@@ -318,7 +339,7 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
       } finally {
         setSubmitting(false)
       }
-    }, [emailChips, loading, submitting, onInvite, onClose, role])
+    }, [emailChips, draft, classify, loading, submitting, onInvite, onClose, role])
 
     const handleDraftKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter' || e.key === ',') {
@@ -348,7 +369,13 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
       if (draft.trim()) { commitTokens(draft); setDraft('') }
     }, [draft, commitTokens])
 
-    const pendingCount = emailChips.filter(c => c.status === 'pending').length
+    // The draft counts alongside the chips, so a typed-but-uncommitted address
+    // enables the button instead of leaving it dead.
+    const draftPendingCount = splitTokens(draft)
+      .filter(t => !emailChips.some(c => c.value.toLowerCase() === t.toLowerCase()))
+      .filter(t => classify(t).status === 'pending').length
+    const pendingCount =
+      emailChips.filter(c => c.status === 'pending').length + draftPendingCount
 
     return (
       <Comp

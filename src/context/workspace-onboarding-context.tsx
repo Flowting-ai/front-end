@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
 // "account type" concept at all, since the new flow has none: a workspace's
 // size (including "Just me") replaces the old individual-vs-team decision.
 //
-// NOT yet resolved (see docs v1.5/onboarding-v1.5-flow.md): whether backend
+// NOT yet resolved (see docs-v1.5/onboarding-v1.5-flow.md): whether backend
 // org creation/role_fit mapping stays as-is under the hood or changes for
 // v1.5. Each step below calls the closest existing backend contract and flags
 // that assumption in a comment at the call site — this context only holds

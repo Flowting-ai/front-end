@@ -1,7 +1,7 @@
 /**
  * Idle and absolute session limits (Auth audit Phase 3.4). Pure timing rules;
  * components/auth/SessionTimeoutGuard.tsx wires them to activity and logout.
- * Off unless configured (decision D2 in fe system design/audits/decisions-for-review.md).
+ * Off unless configured (decision D2 in fe-system-design/audits/decisions-for-review.md).
  */
 
 export interface SessionLimits {
