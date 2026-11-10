@@ -191,7 +191,7 @@ export function AppLayout({
           </Suspense>
         </ErrorBoundary>
         {/* The page's landmark — every other branch wraps the page in a <main> too. */}
-        <main style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <main style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <ErrorBoundary>{children}</ErrorBoundary>
         </main>
         <AppDialogs />

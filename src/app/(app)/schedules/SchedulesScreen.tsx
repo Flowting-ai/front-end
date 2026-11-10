@@ -61,7 +61,7 @@ function SchedulesPageInner({ scheduleId }: { scheduleId?: string }) {
   return (
     <>
       {/* AppLayout renders this page bare, so it builds its own copy of the shared center container. */}
-      <div className="relative flex min-w-0 flex-1 flex-col bg-[var(--neutral-50)] py-2.5 pr-2.5">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--neutral-50)] py-2.5 pr-2.5">
         <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[var(--layout-radius)] border border-[var(--border-default)] bg-[var(--color-surface-glass)]">
           <div className="kaya-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
             <div className="mx-auto box-border w-full max-w-[991px] px-7 pb-10">
