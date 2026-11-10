@@ -11,7 +11,7 @@ import { useChatHistoryContext } from "@/context/chat-history-context";
 import { useProjects } from "@/context/projects-context";
 import { PROJECT_ROUTE, PROJECT_CHAT_ROUTE, PROJECTS_ROUTE, PROJECTS_NEW_ROUTE } from "@/lib/routes";
 import { sectionHeightVariants, sectionStaggerVariants, sectionItemVariants } from "./section-motion";
-import { PROJECT_LIMIT, CHAT_LIMIT, sortChatsByRecency, activeProjectIdFromPathname, isOrgSharedProject } from "./project-helpers";
+import { PROJECT_LIMIT, CHAT_LIMIT, sortChatsByRecency, NO_CHATS_YET_STYLE, activeProjectIdFromPathname, isOrgSharedProject } from "./project-helpers";
 import type { ProjectsSectionProps, TeamsSidebarContentProps } from "./project-helpers";
 import { ProjectChatItem } from "./ProjectChatItem";
 
@@ -163,7 +163,7 @@ export function ProjectsSection({
                     />
                   ))}
                   {project.chatCount === 0 ? (
-                    <SidebarEmptyState label="No chats yet" />
+                    <div style={NO_CHATS_YET_STYLE}>No chats yet</div>
                   ) : (
                     <SidebarMenuItem
                       fluid

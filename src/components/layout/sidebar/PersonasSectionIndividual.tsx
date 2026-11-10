@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { SidebarEmptyState } from "./SidebarEmptyState";
 import { useIsClient } from "@/hooks/use-is-client";
 import { m } from "framer-motion";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -157,7 +156,9 @@ export function PersonasSectionIndividual() {
                 />
               ))}
               {chatData?.loaded && visibleChats.length === 0 && (
-                <SidebarEmptyState label="No chats yet" />
+                <div style={{ padding: "4px 6px", fontFamily: "var(--font-body)", fontSize: "var(--font-size-caption)", color: "var(--neutral-400)" }}>
+                  No chats yet
+                </div>
               )}
             </>
           )}

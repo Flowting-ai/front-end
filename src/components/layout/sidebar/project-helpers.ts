@@ -14,6 +14,15 @@ export function sortChatsByRecency(chats: ProjectChat[]): ProjectChat[] {
 
 // Sits where "See all chats" would — same 32px row height and 8px inset —
 // for a project whose `chatCount` is genuinely 0, not just still loading.
+export const NO_CHATS_YET_STYLE: React.CSSProperties = {
+  height:     32,
+  display:    'flex',
+  alignItems: 'center',
+  padding:    '0 8px',
+  fontFamily: 'var(--font-body)',
+  fontSize:   'var(--font-size-caption)',
+  color:      'var(--neutral-400)',
+}
 
 export function sortProjectsByRecency(projects: Project[]): Project[] {
   return [...projects].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
