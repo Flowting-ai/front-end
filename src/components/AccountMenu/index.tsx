@@ -196,7 +196,11 @@ const PlanChip = ({ label, tone }: { label: string; tone: PlanTone }) => {
         fontSize:        'var(--font-size-caption)',
         lineHeight:      'var(--line-height-caption)',
         whiteSpace:      'nowrap',
-        minWidth:        0,
+        // The chip names the plan, so it is never the thing that gives: a longer
+        // label ("Enterprise Plan") used to be squeezed to "Enterprise P…" by the
+        // caption beside it. The row wraps instead — see PlanRow.
+        flexShrink:      0,
+        maxWidth:        '100%',
       }}
     >
       <span aria-hidden style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: 'currentColor', flexShrink: 0 }} />
@@ -234,7 +238,10 @@ const PlanRow = ({
   return (
     <div style={{ padding: '0 6px 6px' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 10, borderRadius: 10, backgroundColor: 'var(--neutral-100)', boxShadow: 'inset 0px 0px 0px 1px var(--neutral-200)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minWidth: 0 }}>
+        {/* Wraps rather than squeezing: the plan name and what the viewer can do about
+            it are both short and both matter, so when they don't fit side by side the
+            second one takes its own line instead of either being truncated. */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, rowGap: 4, minWidth: 0 }}>
           <PlanChip label={planLabel} tone={planTone(planLabel, !!planWarning)} />
           {planAction ? (
             <Button variant="secondary" size="xs" rightIcon={<ArrowUpRightOneIcon />} onClick={onPlanAction}>

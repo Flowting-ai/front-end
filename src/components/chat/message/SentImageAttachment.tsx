@@ -59,10 +59,15 @@ const metaStyle: React.CSSProperties = {
   flexShrink: 0,
 };
 
-export function SentImageAttachment({ att, url }: { att: Attachment; url: string }) {
+export function SentImageAttachment({ att, url, uploading }: { att: Attachment; url: string; uploading?: boolean }) {
   const [expanded, setExpanded] = useState(false);
 
   const ext = att.file_name.split(".").pop()?.toUpperCase() ?? "IMAGE";
+  // While the file is still going up the picture is shown dimmed, with the
+  // progress in place of the file type, so the tile doesn't claim to be sent yet.
+  const meta = uploading
+    ? (att.uploadProgress !== undefined && att.uploadProgress < 100 ? `${att.uploadProgress}%` : "Uploading…")
+    : ext;
 
   function handleDownload() {
     downloadImage(url, att.file_name || "image.png");
@@ -80,11 +85,11 @@ export function SentImageAttachment({ att, url }: { att: Attachment; url: string
         className="focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--focus-ring)]"
         style={tileButtonStyle}
       >
-        <Image src={url} alt="" fill sizes="56px" unoptimized style={{ objectFit: "cover" }} />
+        <Image src={url} alt="" fill sizes="56px" unoptimized style={{ objectFit: "cover", opacity: uploading ? 0.55 : 1, transition: "opacity 160ms ease" }} />
       </button>
       <span style={textStyle}>
         <span style={nameStyle}>{att.file_name}</span>
-        <span style={metaStyle}>{ext}</span>
+        <span style={metaStyle}>{meta}</span>
       </span>
       <ImageLightbox
         open={expanded}

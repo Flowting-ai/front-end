@@ -45,6 +45,27 @@ export function ChatMessagesPane({
   onScrollToBottom,
   children,
 }: ChatMessagesPaneProps) {
+  // The fade below is a mask on the scrolling element, and a mask covers the whole
+  // element — scrollbar included, which left the bar fading out along with the
+  // messages. The scrollbar's gutter is reserved by `scrollbar-gutter: stable` and
+  // its width is the platform's, not a number we author, so it's measured here and
+  // held out of the mask (see the second mask layer below).
+  const [gutter, setGutter] = React.useState(0);
+  React.useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const measure = () => setGutter(el.offsetWidth - el.clientWidth);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [scrollerRef]);
+  // Two layers, unioned: the fade over the messages, and a solid strip that keeps
+  // the scrollbar's column at full opacity.
+  const fade = "linear-gradient(to bottom, #000 calc(100% - 40px), transparent)";
+  const maskLayers = `${fade}, linear-gradient(#000, #000)`;
+  const maskSizes = `calc(100% - ${gutter}px) 100%, ${gutter}px 100%`;
+
   return (
     <div
       style={{
@@ -78,8 +99,14 @@ export function ChatMessagesPane({
           // Messages fade out over the last 40px as they near the composer instead of stopping at a
           // hard edge. A mask (not a coloured overlay) reveals whatever is behind, so it matches the
           // translucent card in both themes.
-          maskImage: "linear-gradient(to bottom, #000 calc(100% - 40px), transparent)",
-          WebkitMaskImage: "linear-gradient(to bottom, #000 calc(100% - 40px), transparent)",
+          maskImage: maskLayers,
+          WebkitMaskImage: maskLayers,
+          maskSize: maskSizes,
+          WebkitMaskSize: maskSizes,
+          maskPosition: "left top, right top",
+          WebkitMaskPosition: "left top, right top",
+          maskRepeat: "no-repeat, no-repeat",
+          WebkitMaskRepeat: "no-repeat, no-repeat",
           paddingRight: "2px",
           display: "flex",
           flexDirection: "column",

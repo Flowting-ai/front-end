@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
 import { AgentSaveError, saveAgentChanges } from '@/lib/agent-save'
+import { bustPersonasCache } from '@/lib/api/personas'
 import type { AgentDraft } from '@/lib/agent-draft'
 import type { AgentRecord } from '@/lib/agent-record'
 
@@ -31,6 +32,10 @@ export function useSaveAgent(args: {
         baseline,
       })
       markSaved({ ...next, avatarUrl: result.imageUrl ?? next.avatarUrl })
+      // Every other agent mutation busts this; editing did not, so a saved change
+      // (a new model above all) never reached the agents list or an open chat that
+      // has this agent attached until a reload.
+      bustPersonasCache()
       if (!result.published) {
         toast.warning('Changes saved, but the agent could not be made live. Save again to retry.')
       } else if (!options.quiet) {
