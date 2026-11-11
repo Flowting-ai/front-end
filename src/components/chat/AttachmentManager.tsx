@@ -3,18 +3,10 @@
 import { Tooltip } from '@/components/Tooltip'
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { m } from "framer-motion";
-import { HugeiconsIcon } from "@hugeicons/react";
-import PdfIcon from "@hugeicons/core-free-icons/Pdf01Icon";
 import {
   ArrowLeftOneIcon,
   ArrowRightOneIcon,
   CancelOneIcon,
-  FolderOneIcon,
-  FolderThreeIcon,
-  ImageTwoIcon,
-  SourceCodeIcon,
-  TextIcon,
 } from "@strange-huge/icons";
 import {
   useFileUpload,
@@ -22,49 +14,123 @@ import {
   formatFileSize,
   type PendingAttachment,
 } from "@/hooks/use-file-upload";
-import { Badge, type BadgeColor } from "@/components/Badge";
+import { attachmentSizeBytes, cancelComposerUpload, pickedLibraryFileId } from "@/lib/library/upload/composer-uploads";
+import { LIBRARY_FILE_ROUTE } from "@/lib/routes";
+import { Spinner } from "@/components/Spinner";
+import { FormatGlyph } from "@/components/Library/FormatGlyph";
+import type { Format } from "@/lib/library/schemas";
 
 // Re-export so callers that imported PendingAttachment from here still work.
 export type { PendingAttachment };
 
-// ── File-type icon helper ─────────────────────────────────────────────────────
-function getFileIcon(file: File): React.ReactNode {
-  const mime = file.type.toLowerCase();
-  const ext  = file.name.split(".").pop()?.toLowerCase() ?? "";
+// ── File type ─────────────────────────────────────────────────────────────────
+// The Library format of a file, for the same tinted icon Library lists use.
+const FORMAT_BY_EXTENSION: Record<string, Format> = {
+  pdf: "pdf", doc: "document", docx: "document", odt: "document", rtf: "document",
+  ppt: "slides", pptx: "slides", key: "slides", xls: "sheet", xlsx: "sheet", csv: "sheet", ods: "sheet",
+  txt: "text", md: "text", json: "text", xml: "text", html: "web", htm: "web", eml: "email", msg: "email",
+};
 
-  if (mime.startsWith("image/")) {
-    return <ImageTwoIcon size={14} color="var(--neutral-500)" />;
-  }
-  if (["txt", "md", "csv", "rtf"].includes(ext) ||
-      ["text/plain", "text/markdown", "text/csv", "application/rtf", "text/rtf"].includes(mime)) {
-    return <TextIcon size={14} color="var(--neutral-500)" />;
-  }
-  if (["json", "xml", "html", "htm"].includes(ext) ||
-      ["application/json", "application/xml", "text/xml", "text/html"].includes(mime)) {
-    return <SourceCodeIcon size={14} color="var(--neutral-500)" />;
-  }
-  if (ext === "zip" || mime === "application/zip" || mime === "application/x-zip-compressed") {
-    return <FolderThreeIcon size={14} color="var(--neutral-500)" />;
-  }
-  if (ext === "pdf" || mime === "application/pdf") {
-    return <HugeiconsIcon icon={PdfIcon} size={14} color="var(--neutral-500)" />;
-  }
-  // Fallback: Word, Excel, PPT, EPUB, etc.
-  return <FolderOneIcon size={14} color="var(--neutral-500)" variant="static" />;
+function formatOfFile(file: File): Format {
+  if (file.type.startsWith("image/")) return "image";
+  if (file.type.startsWith("audio/")) return "audio";
+  return FORMAT_BY_EXTENSION[file.name.split(".").pop()?.toLowerCase() ?? ""] ?? "text";
 }
 
-// ── Type-label → Badge color ──────────────────────────────────────────────────
-function getTypeBadgeColor(label: string): BadgeColor {
-  switch (label) {
-    case "PDF":           return "Red";
-    case "Word":          return "Blue";
-    case "PPT":           return "Brown";
-    case "Excel":         return "Green";
-    case "CSV":           return "Green";
-    case "JSON": case "XML": case "HTML": return "Purple";
-    case "ZIP":           return "Brown";
-    default:              return "Neutral";
-  }
+const CARD_TEXT = { fontFamily: "var(--font-body)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } as const;
+
+// ── Remove button ─────────────────────────────────────────────────────────────
+// The button is 24px (the hit target) around a 15px circle. It sits inside a clickable
+// card, so its click and key events must not reach the card (that would open a preview).
+
+function RemoveButton({
+  name,
+  visible,
+  disabled,
+  onRemove,
+  variant,
+}: {
+  name: string;
+  visible: boolean;
+  disabled?: boolean;
+  onRemove: () => void;
+  variant: "image" | "document";
+}) {
+  const onImage = variant === "image";
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onRemove();
+      }}
+      onKeyDown={(e) => e.stopPropagation()}
+      disabled={disabled}
+      aria-label={`Remove ${name}`}
+      style={{
+        position:       "absolute",
+        top:            0,
+        right:          0,
+        display:        "flex",
+        alignItems:     "center",
+        justifyContent: "center",
+        width:          "24px",
+        height:         "24px",
+        padding:        0,
+        border:         "none",
+        background:     "none",
+        opacity:        visible ? 1 : 0,
+        transition:     "opacity 100ms",
+        cursor:         disabled ? "not-allowed" : "pointer",
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          display:         "flex",
+          alignItems:      "center",
+          justifyContent:  "center",
+          width:           "18px",
+          height:          "18px",
+          borderRadius:    "50%",
+          backgroundColor: onImage ? "color-mix(in srgb, var(--static-black) 60%, transparent)" : "var(--neutral-900)",
+          color:           "var(--static-white)",
+        }}
+      >
+        <CancelOneIcon size={10} />
+      </span>
+    </button>
+  );
+}
+
+// ── Scroll arrow ──────────────────────────────────────────────────────────────
+
+function ScrollArrow({ direction, disabled, onClick }: { direction: "left" | "right"; disabled: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={`Scroll attachments ${direction}`}
+      style={{
+        display:         "flex",
+        alignItems:      "center",
+        justifyContent:  "center",
+        width:           "24px",
+        height:          "24px",
+        borderRadius:    "50%",
+        border:          "1px solid var(--border-default)",
+        backgroundColor: "var(--neutral-white)",
+        color:           "var(--neutral-700)",
+        cursor:          disabled ? "default" : "pointer",
+        opacity:         disabled ? 0.4 : 1,
+        padding:         0,
+        transition:      "background-color 120ms, opacity 120ms",
+      }}
+    >
+      {direction === "left" ? <ArrowLeftOneIcon size={12} /> : <ArrowRightOneIcon size={12} />}
+    </button>
+  );
 }
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -73,6 +139,8 @@ interface AttachmentManagerProps {
   attachments: PendingAttachment[];
   onAttachmentsChange: (attachments: PendingAttachment[]) => void;
   disabled?: boolean;
+  /** Files go to Library, whose check refuses bad files (see useFileUpload). */
+  libraryValidates?: boolean;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -86,15 +154,27 @@ export function AttachmentManager({
   attachments,
   onAttachmentsChange,
   disabled,
+  libraryValidates = false,
 }: AttachmentManagerProps) {
   const inputRef  = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showLeft,   setShowLeft]   = useState(false);
   const [showRight,  setShowRight]  = useState(false);
   const [hoveredId,  setHoveredId]  = useState<string | null>(null);
+  const [focusedId,  setFocusedId]  = useState<string | null>(null);
+  // No hover on touch screens, so the remove button is always shown there.
+  const [noHover,    setNoHover]    = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
-  const { processFiles, removeAttachment: removeOne, FILE_ACCEPT } = useFileUpload();
+  const { processFiles, removeAttachment: removeOne, FILE_ACCEPT } = useFileUpload({ libraryValidates });
+
+  useEffect(() => {
+    const mq = window.matchMedia("(hover: none)");
+    const sync = () => setNoHover(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   // Re-check scroll buttons whenever attachments are added/removed (RAF lets
   // the browser finish laying out the new chips before we measure widths).
@@ -113,18 +193,66 @@ export function AttachmentManager({
   };
 
   const handleRemove = (id: string) => {
+    // A keyboard user removes from the button, which is about to unmount. Hand focus to a
+    // neighbouring card (or back to the message box) instead of dropping it on the page body.
+    const fromKeyboard = scrollRef.current?.contains(document.activeElement) ?? false;
+    const index = attachments.findIndex((a) => a.id === id);
+    const neighbour = attachments[index + 1] ?? attachments[index - 1];
+    const strip = scrollRef.current;
+    const textarea = strip?.closest("form, [role='group'], body")?.querySelector<HTMLTextAreaElement>("textarea.kaya-chat-textarea")
+      ?? document.querySelector<HTMLTextAreaElement>("textarea.kaya-chat-textarea");
+    const removed = attachments.find((a) => a.id === id);
+    if (removed) cancelComposerUpload(removed.file);
     onAttachmentsChange(removeOne(id, attachments));
+    if (!fromKeyboard) return;
+    requestAnimationFrame(() => {
+      const next = neighbour && strip?.querySelector<HTMLElement>(`[data-attachment-id="${neighbour.id}"]`);
+      (next ?? textarea)?.focus();
+    });
   };
 
-  // Opens the local file in a new tab. Images already have a standing preview
+  // Opens the file in a new tab. Images already have a standing preview
   // object URL; other file types get one created on demand and revoked shortly
   // after (long enough for the new tab to finish loading it).
   const handlePreview = (attachment: PendingAttachment) => {
+    // A file picked from Library is an empty placeholder here: open its Library page instead.
+    const libraryId = pickedLibraryFileId(attachment.file);
+    if (libraryId) {
+      window.open(LIBRARY_FILE_ROUTE(libraryId), "_blank", "noopener,noreferrer");
+      return;
+    }
     const url = attachment.preview ?? URL.createObjectURL(attachment.file);
     window.open(url, "_blank", "noopener,noreferrer");
     if (!attachment.preview) {
       setTimeout(() => URL.revokeObjectURL(url), 30_000);
     }
+  };
+
+  // A card opens its preview only when it is a finished upload. The remove button is
+  // a child of the card, so it must stop its own click and key events from reaching these.
+  const cardProps = (attachment: PendingAttachment) => {
+    const canPreview = !attachment.uploading && !attachment.error;
+    return {
+      role:      "button" as const,
+      "data-attachment-id": attachment.id,
+      tabIndex:  canPreview ? 0 : -1,
+      "aria-label": canPreview ? `Preview ${attachment.file.name}` : attachment.file.name,
+      "aria-disabled": canPreview ? undefined : true,
+      onMouseEnter: () => setHoveredId(attachment.id),
+      onMouseLeave: () => setHoveredId(null),
+      onFocus: () => setFocusedId(attachment.id),
+      onBlur: (e: React.FocusEvent) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocusedId(null);
+      },
+      onClick: () => canPreview && handlePreview(attachment),
+      onKeyDown: (e: React.KeyboardEvent) => {
+        if (e.target !== e.currentTarget || !canPreview) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handlePreview(attachment);
+        }
+      },
+    };
   };
 
   const updateScrollButtons = () => {
@@ -211,6 +339,13 @@ export function AttachmentManager({
           >
             {attachments.length} file{attachments.length !== 1 ? "s" : ""} attached
           </span>
+          {/* Scroll arrows sit in this header row, not over the cards, so they never cover a card or its remove button. */}
+          {(showLeft || showRight) && (
+            <span style={{ marginLeft: "auto", display: "flex", gap: "4px" }}>
+              <ScrollArrow direction="left" disabled={!showLeft} onClick={() => scrollBy(-200)} />
+              <ScrollArrow direction="right" disabled={!showRight} onClick={() => scrollBy(200)} />
+            </span>
+          )}
         </div>
         {/* Row */}
         <div
@@ -229,9 +364,9 @@ export function AttachmentManager({
             msOverflowStyle:      "none",
             WebkitOverflowScrolling: "touch",
             borderRadius:         "8px",
-            outline:              isDragging ? "2px dashed var(--focus-ring)" : "none",
+            outline:              isDragging ? "2px dashed var(--neutral-300)" : "none",
             outlineOffset:        "2px",
-            minHeight:            "46px",
+            minHeight:            "56px",
             transition:           "outline 100ms",
           }}
         >
@@ -243,20 +378,17 @@ export function AttachmentManager({
 
             return isImage ? (
               // ── Image thumbnail ────────────────────────────────────────────
-              <Tooltip content={attachment.error ?? attachment.file.name} maxWidth={280}><div
-                key={attachment.id}
-                onMouseEnter={() => setHoveredId(attachment.id)}
-                onMouseLeave={() => setHoveredId(null)}
-                onClick={() => !attachment.uploading && handlePreview(attachment)}
+              <Tooltip key={attachment.id} content={attachment.error ?? attachment.file.name} maxWidth={280}><div
+                {...cardProps(attachment)}
                 style={{
                   position:     "relative",
-                  width:        "46px",
-                  height:       "46px",
-                  borderRadius: "8px",
+                  width:        "56px",
+                  height:       "56px",
+                  borderRadius: "14px",
                   border:       attachment.error ? "1px solid var(--red-400, #f87171)" : "1px solid var(--border-default)",
                   overflow:     "hidden",
                   flexShrink:   0,
-                  cursor:       attachment.uploading ? "default" : "pointer",
+                  cursor:       attachment.uploading || attachment.error ? "default" : "pointer",
                 }}
               >
                 {attachment.preview && (
@@ -264,18 +396,18 @@ export function AttachmentManager({
                     src={attachment.preview}
                     alt={attachment.file.name}
                     fill
-                    sizes="46px"
+                    sizes="56px"
                     unoptimized
                     style={{
                       objectFit: "cover",
-                      filter: attachment.uploading ? "blur(1.5px)" : "none",
+                      filter: attachment.uploading || attachment.processing ? "blur(1.5px)" : "none",
                       transition: "filter 300ms",
                     }}
                   />
                 )}
 
-                {/* Circular upload progress ring */}
-                {attachment.uploading && (
+                {/* Circular upload progress ring (spins on while the server processes the file) */}
+                {(attachment.uploading || attachment.processing) && (
                   <div
                     style={{
                       position:        "absolute",
@@ -284,7 +416,7 @@ export function AttachmentManager({
                       alignItems:      "center",
                       justifyContent:  "center",
                       backgroundColor: "color-mix(in srgb, var(--static-black) 20%, transparent)",
-                      borderRadius:    "8px",
+                      borderRadius:    "14px",
                     }}
                   >
                     <svg width="26" height="26" viewBox="0 0 28 28">
@@ -292,7 +424,7 @@ export function AttachmentManager({
                       <circle
                         cx="14" cy="14" r="10"
                         fill="none"
-                        stroke="var(--success-500)"
+                        stroke="var(--static-white)"
                         strokeWidth="2.5"
                         strokeDasharray={`${((attachment.uploadProgress ?? 0) * 62.83) / 100} 62.83`}
                         strokeLinecap="round"
@@ -325,255 +457,84 @@ export function AttachmentManager({
                   </span>
                 )}
 
-                {/* Remove - only after upload */}
-                {isHovered && !attachment.uploading && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(attachment.id)}
+                {/* Remove - also while uploading (removing cancels the upload). Always in the DOM so keyboard users can reach it. */}
+                {(
+                  <RemoveButton
+                    name={attachment.file.name}
+                    visible={noHover || isHovered || focusedId === attachment.id}
                     disabled={disabled}
-                    aria-label={`Remove ${attachment.file.name}`}
-                    style={{
-                      position:        "absolute",
-                      top:             "2px",
-                      right:           "2px",
-                      display:         "flex",
-                      alignItems:      "center",
-                      justifyContent:  "center",
-                      width:           "15px",
-                      height:          "15px",
-                      borderRadius:    "50%",
-                      border:          "none",
-                      backgroundColor: "color-mix(in srgb, var(--static-black) 55%, transparent)",
-                      color:           "var(--static-white)",
-                      cursor:          disabled ? "not-allowed" : "pointer",
-                      padding:         0,
-                    }}
-                  >
-                    <CancelOneIcon size={9} />
-                  </button>
+                    onRemove={() => handleRemove(attachment.id)}
+                    variant="image"
+                  />
                 )}
               </div></Tooltip>
             ) : (
-              // ── Document chip ──────────────────────────────────────────────
-              <Tooltip content={attachment.error ?? attachment.file.name} maxWidth={280}><div
-                key={attachment.id}
-                onMouseEnter={() => setHoveredId(attachment.id)}
-                onMouseLeave={() => setHoveredId(null)}
-                onClick={() => !attachment.uploading && handlePreview(attachment)}
+              // ── Document card (the prototype's attachment card: icon, name, then status or type) ──
+              <Tooltip key={attachment.id} content={attachment.error ?? attachment.file.name} maxWidth={280}><div
+                {...cardProps(attachment)}
                 style={{
                   position:        "relative",
                   display:         "flex",
                   alignItems:      "center",
-                  gap:             "8px",
-                  width:           "172px",
-                  height:          "46px",
-                  padding:         "0 28px 0 6px",
-                  borderRadius:    "8px",
+                  gap:             "10px",
+                  width:           "232px",
+                  height:          "56px",
+                  padding:         "0 28px 0 8px",
+                  borderRadius:    "14px",
                   border:          attachment.error ? "1px solid var(--red-400, #f87171)" : "1px solid var(--border-default)",
-                  backgroundColor: "var(--neutral-50)",
-                  overflow:        "hidden",
+                  backgroundColor: "var(--card-bg)",
                   flexShrink:      0,
-                  cursor:          attachment.uploading ? "default" : "pointer",
+                  cursor:          attachment.uploading || attachment.error ? "default" : "pointer",
                 }}
               >
-                {/* Icon box */}
-                <div
+                <span
+                  aria-hidden="true"
                   style={{
                     display:         "flex",
                     alignItems:      "center",
                     justifyContent:  "center",
-                    width:           "30px",
-                    height:          "30px",
-                    borderRadius:    "6px",
-                    backgroundColor: "var(--neutral-100)",
+                    width:           "38px",
+                    height:          "38px",
+                    borderRadius:    "10px",
+                    border:          "1px solid var(--border-default)",
+                    backgroundColor: "var(--neutral-50)",
                     flexShrink:      0,
                   }}
                 >
-                  {getFileIcon(attachment.file)}
-                </div>
+                  <FormatGlyph format={formatOfFile(attachment.file)} size="sm" />
+                </span>
 
-                {/* Text */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p
-                    style={{
-                      fontFamily:   "var(--font-body)",
-                      fontSize: "12px",
-                      fontWeight:   500,
-                      color:        "var(--neutral-900)",
-                      overflow:     "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace:   "nowrap",
-                      margin:       0,
-                      lineHeight:   1.2,
-                    }}
-                  >
+                <div style={{ flex: 1, minWidth: 0, lineHeight: 1.3 }}>
+                  <p style={{ ...CARD_TEXT, fontSize: "14px", fontWeight: 500, color: "var(--neutral-900)" }}>
                     {attachment.file.name}
                   </p>
-                  {attachment.uploading ? (
-                    <p
-                      style={{
-                        fontFamily: "var(--font-body)",
-                        fontSize:   "12px",
-                        color:      "var(--green-600, #16a34a)",
-                        margin:     "2px 0 0",
-                        lineHeight: 1,
-                        transition: "color 200ms",
-                      }}
-                    >
-                      {`Uploading… ${attachment.uploadProgress ?? 0}%`}
-                    </p>
-                  ) : attachment.error ? (
-                    <p
-                      style={{
-                        fontFamily:   "var(--font-body)",
-                        fontSize:     "12px",
-                        color:        "var(--red-600, #dc2626)",
-                        margin:       "2px 0 0",
-                        lineHeight:   1.2,
-                        overflow:     "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace:   "nowrap",
-                      }}
-                    >
-                      {attachment.error}
-                    </p>
-                  ) : (
-                    <div style={{ display: "flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
-                      <Badge label={typeLabel} color={getTypeBadgeColor(typeLabel)} style={{ padding: '1.5px' }} />
-                      <span
-                        style={{
-                          fontFamily: "var(--font-body)",
-                          fontSize:   "12px",
-                          color:      "var(--neutral-500)",
-                          lineHeight: 1,
-                        }}
-                      >
-                        {formatFileSize(attachment.file.size)}
-                      </span>
-                    </div>
-                  )}
+                  <p style={{ ...CARD_TEXT, display: "flex", alignItems: "center", gap: "4px", fontSize: "12px", color: attachment.error ? "var(--red-600, #dc2626)" : "var(--neutral-500)" }}>
+                    {attachment.error ? (
+                      attachment.error
+                    ) : attachment.uploading || attachment.processing ? (
+                      <>
+                        <Spinner size={12} />
+                        {attachment.uploading ? `Uploading ${attachment.uploadProgress ?? 0}%` : "Processing"}
+                      </>
+                    ) : (
+                      `${typeLabel} · ${formatFileSize(attachmentSizeBytes(attachment.file))}`
+                    )}
+                  </p>
                 </div>
 
-                {/* Progress bar - sits at the bottom of the chip */}
-                {attachment.uploading && (
-                  <div
-                    style={{
-                      position:        "absolute",
-                      bottom:          0,
-                      left:            0,
-                      right:           0,
-                      height:          "3px",
-                      backgroundColor: "var(--neutral-100)",
-                    }}
-                  >
-                    <m.div
-                      style={{
-                        width:           "100%",
-                        height:          "100%",
-                        backgroundColor: "var(--success-500)",
-                        borderRadius:    "0 0 8px 8px",
-                        transformOrigin: "left",
-                      }}
-                      animate={{ scaleX: (attachment.uploadProgress ?? 0) / 100 }}
-                      transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-                    />
-                  </div>
-                )}
-
-                {/* Remove - only after upload */}
-                {isHovered && !attachment.uploading && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(attachment.id)}
-                    disabled={disabled}
-                    aria-label={`Remove ${attachment.file.name}`}
-                    style={{
-                      position:        "absolute",
-                      top:             "3px",
-                      right:           "3px",
-                      display:         "flex",
-                      alignItems:      "center",
-                      justifyContent:  "center",
-                      width:           "15px",
-                      height:          "15px",
-                      borderRadius:    "50%",
-                      border:          "1px solid var(--border-default)",
-                      backgroundColor: "var(--neutral-white)",
-                      color:           "var(--neutral-600)",
-                      cursor:          disabled ? "not-allowed" : "pointer",
-                      padding:         0,
-                      boxShadow:       "0 1px 2px color-mix(in srgb, var(--static-black) 6%, transparent)",
-                    }}
-                  >
-                    <CancelOneIcon size={9} />
-                  </button>
-                )}
+                {/* Remove - also while uploading (removing cancels the upload). Always in the DOM so keyboard users can reach it. */}
+                <RemoveButton
+                  name={attachment.file.name}
+                  visible={noHover || isHovered || focusedId === attachment.id}
+                  disabled={disabled}
+                  onRemove={() => handleRemove(attachment.id)}
+                  variant="document"
+                />
               </div></Tooltip>
             );
           })}
         </div>
 
-        {/* ── Left scroll chevron ── */}
-        {showLeft && (
-          <button
-            type="button"
-            onClick={() => scrollBy(-200)}
-            aria-label="Scroll attachments left"
-            style={{
-              position:        "absolute",
-              left:            "4px",
-              top:             "50%",
-              transform:       "translateY(-25%)",
-              display:         "flex",
-              alignItems:      "center",
-              justifyContent:  "center",
-              width:           "28px",
-              height:          "28px",
-              borderRadius:    "50%",
-              border:          "1px solid var(--border-default)",
-              backgroundColor: "var(--neutral-white)",
-              color:           "var(--neutral-700)",
-              boxShadow:       "0 2px 8px color-mix(in srgb, var(--static-black) 10%, transparent)",
-              cursor:          "pointer",
-              padding:         0,
-              zIndex:          2,
-              transition:      "background-color 120ms",
-            }}
-          >
-            <ArrowLeftOneIcon size={14} />
-          </button>
-        )}
-
-        {/* ── Right scroll chevron ── */}
-        {showRight && (
-          <button
-            type="button"
-            onClick={() => scrollBy(200)}
-            aria-label="Scroll attachments right"
-            style={{
-              position:        "absolute",
-              right:           "4px",
-              top:             "50%",
-              transform:       "translateY(-25%)",
-              display:         "flex",
-              alignItems:      "center",
-              justifyContent:  "center",
-              width:           "28px",
-              height:          "28px",
-              borderRadius:    "50%",
-              border:          "1px solid var(--border-default)",
-              backgroundColor: "var(--neutral-white)",
-              color:           "var(--neutral-700)",
-              boxShadow:       "0 2px 8px color-mix(in srgb, var(--static-black) 10%, transparent)",
-              cursor:          "pointer",
-              padding:         0,
-              zIndex:          2,
-              transition:      "background-color 120ms",
-            }}
-          >
-            <ArrowRightOneIcon size={14} />
-          </button>
-        )}
       </div>
     </>
   );

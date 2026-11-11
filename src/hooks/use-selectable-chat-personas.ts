@@ -1,41 +1,32 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/context/auth-context'
 import { useOrg } from '@/context/org-context'
 import { fetchSelectableChatPersonas, type SelectedPersonaInfo } from '@/lib/chat-personas'
 import { resolveViewerUserId } from '@/lib/api/teams'
+import { queryKeys } from '@/lib/query-keys'
 
+const EMPTY: SelectedPersonaInfo[] = []
+
+/** Agents the viewer can pick in chat; fetched only while the picker is open.
+ *  Under the ["personas"] prefix, so bustPersonasCache() refreshes it. */
 export function useSelectableChatPersonas(open: boolean) {
   const { currentUserRole, orgId, members } = useOrg()
   const { user } = useAuth()
   const viewerUserId = resolveViewerUserId(members, user?.email)
-  const [personas, setPersonas] = useState<SelectedPersonaInfo[]>([])
-  const [loading, setLoading] = useState(false)
+  const isAdmin = currentUserRole === 'admin'
 
-  useEffect(() => {
-    if (!open) return
-    let cancelled = false
+  const query = useQuery({
+    queryKey: queryKeys.personas.selectable(orgId, viewerUserId, currentUserRole),
+    queryFn: () => fetchSelectableChatPersonas(orgId, viewerUserId, isAdmin),
+    enabled: open,
+    staleTime: 30_000,
+    retry: false,
+  })
 
-    async function load() {
-      setLoading(true)
-      try {
-        const list = await fetchSelectableChatPersonas(
-          orgId,
-          viewerUserId,
-          currentUserRole === 'admin',
-        )
-        if (!cancelled) setPersonas(list)
-      } catch {
-        if (!cancelled) setPersonas([])
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    void load()
-    return () => { cancelled = true }
-  }, [open, currentUserRole, orgId, viewerUserId])
-
-  return { personas, loading }
+  return {
+    personas: query.isError ? EMPTY : query.data ?? EMPTY,
+    loading: query.fetchStatus === 'fetching' && query.data === undefined,
+  }
 }

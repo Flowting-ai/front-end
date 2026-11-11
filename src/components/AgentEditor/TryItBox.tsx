@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { TestTubeIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { testVersionStream } from '@/lib/api/personas'
 import { trackFeature } from '@/lib/analytics/events'
 import { BOX_STYLE, HINT_STYLE, INPUT_STYLE, LABEL_STYLE } from './styles'

@@ -3,7 +3,14 @@
 import Image from 'next/image'
 import { ThemedLlmIcon } from '@/components/ThemedLlmIcon'
 import { SouvenirLogo } from '@/components/SouvenirLogo'
-import { toLlmIconId } from '@/lib/ai-models'
+import { useEffect, useSyncExternalStore } from 'react'
+import {
+  toLlmIconId,
+  catalogIconSource,
+  subscribeCatalogIcons,
+  getCatalogIconsVersion,
+  fetchModelsWithCache,
+} from '@/lib/ai-models'
 
 export interface ModelIconProps {
   /**
@@ -29,7 +36,14 @@ export interface ModelIconProps {
  * white Souvenir logo (both swap with CSS — see ThemedLlmIcon / SouvenirLogo).
  */
 export function ModelIcon({ model, size = 16, variant = 'dark' }: ModelIconProps) {
-  const iconId = toLlmIconId(model)
+  // Re-render once the catalog loads so a name resolves to the same logo the selector shows.
+  useSyncExternalStore(subscribeCatalogIcons, getCatalogIconsVersion, getCatalogIconsVersion)
+  useEffect(() => {
+    if (model && catalogIconSource(model) === undefined) void fetchModelsWithCache()
+  }, [model])
+  const fromCatalog = catalogIconSource(model)
+  // null from the catalog = auto-routing alias → Souvenir mark.
+  const iconId = fromCatalog === undefined ? toLlmIconId(model) : toLlmIconId(fromCatalog)
   if (iconId) return <ThemedLlmIcon id={iconId} size={size} />
   // 'light' is for a surface that is dark in BOTH themes (e.g. the TopBar gradient): always white.
   if (variant === 'light') {

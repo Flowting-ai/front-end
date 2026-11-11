@@ -15,10 +15,10 @@ import {
   QuillWriteTwoIcon,
   UserAddOneIcon,
 } from '@strange-huge/icons'
-import { IconButton } from '@/components/IconButton'
-import { Button } from '@/components/Button'
+import { IconButton, Button } from '@/components/ui/button'
 import { Chip } from '@/components/Chip'
 import { Dropdown } from '@/components/Dropdown'
+import { Tooltip } from '@/components/Tooltip'
 import { ModelIcon } from '@/components/ModelIcon'
 import { cn } from '@/lib/utils'
 import { PINS_ENABLED } from '@/lib/feature-flags'
@@ -26,6 +26,7 @@ import Image from 'next/image'
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition'
 import { toast } from 'sonner'
 import { trackFeature } from '@/lib/analytics/events'
+import { isImeKey } from '@/lib/ime'
 
 // ── Canonical default menu contents ───────────────────────────────────────────
 // The Add menu (Figma 3219:33599) and Model menu (Figma 3208:32989 + 3142:36710)
@@ -300,7 +301,7 @@ function DefaultAddMenu({
   return (
     <Dropdown style={{ width: 200 }} maxHeight={false}>
       <Dropdown.Section fluid>
-        <Dropdown.Item label="Add files or photos" icon={<FileAddIcon />} fluid />
+        <Dropdown.Item label="Add photos & files" icon={<FileAddIcon />} fluid />
         <Dropdown.Item
           label="Web search"
           icon={<GlobalSearchIcon />}
@@ -619,7 +620,7 @@ export interface ChatInputProps extends Omit<React.HTMLAttributes<HTMLDivElement
   modelMenu?: React.ReactNode | null
   /**
    * Contents of the leading `+` add-attachment dropdown (Figma 3219:33599).
-   * Defaults to the canonical KDS add menu - `Add files or photos`,
+   * Defaults to the canonical KDS add menu - `Add photos & files`,
    * `Web search` (switch), `Use style` (12-row submenu, Figma 3424:1892),
    * `Add persona`, `Pin folders`. Pass a custom `<Dropdown>` to override,
    * or `null` to opt out and use the legacy bare-button + `onAdd`.
@@ -698,6 +699,15 @@ export interface ChatInputProps extends Omit<React.HTMLAttributes<HTMLDivElement
   disabledModelSelector?: boolean
   /** When true, hides the leading + add button entirely. */
   hideAddButton?: boolean
+  /** Accessible name for the bare + button (the `addMenu={null}` + `onAdd` flow). Defaults to "Add attachment". */
+  addButtonLabel?: string
+  /** Hover tooltip for the bare + button. None by default. */
+  addButtonTooltip?: string
+  /**
+   * One-line layout: the textarea and the send/mic button share a single row inside the same surface
+   * (for a docked "ask about this" bar). The textarea still grows if the text wraps.
+   */
+  compact?: boolean
   /**
    * When true, the model is generating a response. The send button and Enter
    * key are blocked so the user cannot dispatch a new message, but the
@@ -750,6 +760,9 @@ export function ChatInput({
       hideModelSelector = false,
       disabledModelSelector = false,
       hideAddButton = false,
+      addButtonLabel = 'Add attachment',
+      addButtonTooltip,
+      compact = false,
       isStreaming = false,
       chips,
       pinCards,
@@ -1025,7 +1038,7 @@ export function ChatInput({
     }
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter' && !e.shiftKey && value && !isStreaming) {
+      if (e.key === 'Enter' && !e.shiftKey && !isImeKey(e) && value && !isStreaming) {
         e.preventDefault()
         handleSend()
       }
@@ -1043,6 +1056,39 @@ export function ChatInput({
 
     const shadow = isFocused ? SHADOW_FOCUS : isHovered ? SHADOW_HOVER : SHADOW_DEFAULT
 
+    // The leading + button. In the full composer it sits in the toolbar row; in the compact one-line bar
+    // it leads the row, left of the text, like the full composer's.
+    const addButton = hideAddButton ? null : addMenu != null ? (
+      // Inline Dropdown - opens above the trigger with its left
+      // edge aligned to the button's left edge (top-start). Figma
+      // 3219:33599.
+      <Dropdown.Float
+        open={addMenuOpen}
+        onOpenChange={setAddMenuOpen}
+        placement="top-start"
+        trigger={
+          <IconButton
+            variant="ghost"
+            size="md"
+            icon={<PlusSignIcon size={20} />}
+            aria-label="Add attachment"
+          />
+        }
+      >
+        <div onClick={() => setAddMenuOpen(false)}>{addMenu}</div>
+      </Dropdown.Float>
+    ) : (
+      <Tooltip content={addButtonTooltip} disabled={!addButtonTooltip}>
+        <IconButton
+          variant="ghost"
+          size="md"
+          icon={<PlusSignIcon size={20} />}
+          aria-label={addButtonLabel}
+          onClick={onAdd}
+        />
+      </Tooltip>
+    )
+
     return (
       <div
         ref={ref}
@@ -1050,12 +1096,13 @@ export function ChatInput({
         style={{
           position:        'relative',
           display:         'flex',
-          flexDirection:   'column',
-          gap:             '24px',
+          flexDirection:   compact ? 'row' : 'column',
+          alignItems:      compact ? 'center' : undefined,
+          gap:             compact ? '8px' : '24px',
           width:           '100%',
           maxWidth:        '754px',
-          padding:         '20px',
-          borderRadius:    '24px',
+          padding:         compact ? (addButton ? '8px' : '8px 8px 8px 20px') : '20px',
+          borderRadius:    compact ? '16px' : '24px',
           backgroundColor: 'var(--chat-input-bg)',
           boxShadow:       shadow,
           transition:      'box-shadow 150ms',
@@ -1107,8 +1154,10 @@ export function ChatInput({
           </div>
         )}
 
+        {compact && addButton}
+
         {/* ── Main content - textarea + animated placeholder ── */}
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative', ...(compact ? { flex: 1, minWidth: 0 } : null) }}>
           {/* Custom animated placeholder - fades out when user starts typing */}
           <AnimatePresence initial={false}>
             {!value && (
@@ -1126,8 +1175,8 @@ export function ChatInput({
                   pointerEvents: 'none',
                   fontFamily:    'var(--font-body)',
                   fontWeight:    'var(--font-weight-regular)',
-                  fontSize:      'var(--font-size-body-lg)',
-                  lineHeight:    'var(--line-height-body-lg)',
+                  fontSize:      compact ? 'var(--font-size-body)' : 'var(--font-size-body-lg)',
+                  lineHeight:    compact ? 'var(--line-height-body)' : 'var(--line-height-body-lg)',
                   color:         'var(--chat-input-placeholder)',
                 }}
               >
@@ -1161,6 +1210,7 @@ export function ChatInput({
             aria-label={textareaLabel}
             aria-multiline="true"
             style={{
+              display:             compact ? 'block' : undefined, // no inline descender gap, so one line centres exactly
               width:               '100%',
               maxHeight:           '396px', // 18 lines × 22px line-height
               background:          'transparent',
@@ -1172,8 +1222,8 @@ export function ChatInput({
               overscrollBehaviorY: 'none',
               fontFamily:          'var(--font-body)',
               fontWeight:          'var(--font-weight-regular)',
-              fontSize:            'var(--font-size-body-lg)',
-              lineHeight:          'var(--line-height-body-lg)',
+              fontSize:            compact ? 'var(--font-size-body)' : 'var(--font-size-body-lg)',
+              lineHeight:          compact ? 'var(--line-height-body)' : 'var(--line-height-body-lg)',
               color:               'var(--chat-input-text)',
               caretColor:          'var(--focus-ring)',
             }}
@@ -1192,41 +1242,14 @@ export function ChatInput({
             display:        'flex',
             alignItems:     'center',
             justifyContent: 'space-between',
-            width:          '100%',
+            width:          compact ? 'auto' : '100%',
             height:         36,
             flexShrink:     0,
           }}
         >
           {/* Left: attach button + chips slot */}
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {!hideAddButton && (addMenu != null ? (
-              // Inline Dropdown - opens above the trigger with its left
-              // edge aligned to the button's left edge (top-start). Figma
-              // 3219:33599.
-              <Dropdown.Float
-                open={addMenuOpen}
-                onOpenChange={setAddMenuOpen}
-                placement="top-start"
-                trigger={
-                  <IconButton
-                    variant="ghost"
-                    size="md"
-                    icon={<PlusSignIcon size={20} />}
-                    aria-label="Add attachment"
-                  />
-                }
-              >
-                <div onClick={() => setAddMenuOpen(false)}>{addMenu}</div>
-              </Dropdown.Float>
-            ) : (
-              <IconButton
-                variant="ghost"
-                size="md"
-                icon={<PlusSignIcon size={20} />}
-                aria-label="Add attachment"
-                onClick={onAdd}
-              />
-            ))}
+            {!compact && addButton}
             {(webSearch || activeStyle || activePersona || chips) && (
               <div
                 // Chips slot (Figma 3427:27842 - web-search / persona / style /
@@ -1256,7 +1279,7 @@ export function ChatInput({
                   description: "This chat uses the agent's model. Remove the agent chip to unlock model selection.",
                 })}
               >
-                <Button
+                <Button className="kaya-model-btn"
                   variant="ghost"
                   size="md"
                   rightIcon={<ArrowDownOneIcon size={16} />}
@@ -1272,7 +1295,7 @@ export function ChatInput({
                 placement="bottom-end"
                 autoFlipVertical
                 trigger={
-                  <Button
+                  <Button className="kaya-model-btn"
                     variant="ghost"
                     size="md"
                     rightIcon={<ArrowDownOneIcon size={16} />}
@@ -1293,7 +1316,7 @@ export function ChatInput({
                   : modelMenu}
               </Dropdown.Float>
             ) : (
-              <Button
+              <Button className="kaya-model-btn"
                 variant="ghost"
                 size="md"
                 rightIcon={<ArrowDownOneIcon size={16} />}
@@ -1311,6 +1334,9 @@ export function ChatInput({
               <IconButton
                 variant="default"
                 size="md"
+                // 16px icons, the size of the model selector's logo; the button stays 36px.
+                iconSize={16}
+                shine
                 aria-label={isRecording ? 'Stop recording' : value ? 'Send message' : 'Start recording'}
                 icon={
                   <AnimatePresence mode="popLayout" initial={false}>
@@ -1332,11 +1358,11 @@ export function ChatInput({
                         >
                           {isRecording
                             ? isMicHovered
-                              ? <StopCircleIcon size={20} />
-                              : <AudioWaveDisplay analyser={analyser} size={20} />
+                              ? <StopCircleIcon size={16} />
+                              : <AudioWaveDisplay analyser={analyser} size={16} />
                             : value
-                              ? <ArrowUpTwoIcon size={20} animated triggered={isMicHovered} />
-                              : <MicTwoIcon size={20} />
+                              ? <ArrowUpTwoIcon size={16} animated triggered={isMicHovered} />
+                              : <MicTwoIcon size={16} />
                           }
                         </m.span>
                       )

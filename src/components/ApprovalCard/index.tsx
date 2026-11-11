@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Badge } from '@/components/Badge'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { springs } from '@/lib/springs'
 import { cn } from '@/lib/utils'
 import type { BadgeColor } from '@/components/Badge'
@@ -353,9 +353,10 @@ export const ApprovalCard = React.forwardRef<HTMLDivElement, ApprovalCardProps>(
                 >
                   <div style={{ flex: '1 0 0' }}>
                     <Button
-                      variant="default"
+                      variant="approve"
                       size="md"
                       fluid
+                      attention
                       onClick={handleAccept}
                     >
                       Accept
@@ -363,7 +364,7 @@ export const ApprovalCard = React.forwardRef<HTMLDivElement, ApprovalCardProps>(
                   </div>
                   <div style={{ flex: '1 0 0' }}>
                     <Button
-                      variant="outline"
+                      variant="reject"
                       size="md"
                       fluid
                       onClick={handleDenyStart}

@@ -18,6 +18,7 @@ import React, { useEffect, useRef, useState } from "react"
 import { m, useReducedMotion } from "framer-motion"
 import { Check, Copy, GitBranch, Maximize2, Minimize2 } from "lucide-react"
 import { ChatChartShell } from "@/components/chat/ChatChartShell"
+import { sanitizeSVG } from "@/lib/security"
 import { CHAT_CHART_PALETTE } from "@/components/chat/chat-chart-theme"
 
 const THEME = {
@@ -104,7 +105,7 @@ export function MermaidDiagram({ code }: { code: string }) {
         ({ renderMermaidSVG }) => {
           if (cancelled) return
           try {
-            setSvg(renderMermaidSVG(code, THEME))
+            setSvg(sanitizeSVG(renderMermaidSVG(code, THEME)))
             setFailed(false)
           } catch {
             markFailedSoon()
@@ -257,7 +258,7 @@ export function MermaidDiagram({ code }: { code: string }) {
           backgroundImage: "radial-gradient(circle at 1px 1px, var(--neutral-800-05) 1px, transparent 0)",
           backgroundSize: "18px 18px",
         }}
-        // Library-generated SVG from diagram text — same trust model as XmlChart's SVG output.
+        // Library-generated SVG, passed through sanitizeSVG because labels come from the AI response.
         dangerouslySetInnerHTML={{ __html: svg }}
       />
     </ChatChartShell>

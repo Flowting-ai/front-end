@@ -1,0 +1,103 @@
+/* Thinking effort, after shadcnspace "Slider 04 - Modern Volume": a tall bordered track, a dark fill
+   inset from its edges, a thin vertical thumb riding inside the fill's end, and one tick per step
+   (Off and each effort the model supports) as the checkpoints. */
+.root {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 20px;
+  width: 100%;
+  user-select: none;
+  touch-action: none;
+  cursor: pointer;
+}
+
+.track {
+  position: relative;
+  flex-grow: 1;
+  height: 20px;
+  border-radius: 7px;
+  border: 1px solid var(--border-default);
+  background: var(--neutral-100);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.08), inset 0 0 0 1px var(--neutral-white);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* The fill: full height inside the track, inset 2px, rounded — the dark block of Slider 04. */
+.range {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  margin-left: 2px;
+  border-radius: 4px;
+  background: var(--effort-range-bg, var(--neutral-900));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  transition: right 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Radix positions each thumb inside a wrapper span via `left` — easing that
+   wrapper is what makes the thumb glide between snapped steps. */
+.root > span:has(> .thumb) {
+  transition: left 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* A thin light bar sitting just inside the fill's end. */
+.thumb {
+  display: block;
+  width: 3px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--neutral-white);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--neutral-900) 18%, transparent);
+  transform: translateX(-6px);
+  outline: none;
+  cursor: ew-resize;
+  transition: height 160ms ease, box-shadow 160ms ease;
+}
+.thumb:hover { height: 13px; }
+.thumb:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--effort-color) 45%, transparent);
+}
+
+/* The checkpoints: one tick per step, at the same spots the thumb snaps to. Ticks under the fill
+   turn light so they stay visible on the dark block. */
+.pips {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  pointer-events: none;
+}
+.pip {
+  width: 2px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--neutral-300);
+  transition: background-color 260ms ease;
+}
+.pip[data-active="true"] { background: color-mix(in srgb, var(--neutral-white) 45%, transparent); }
+.pip[data-current="true"] { background: transparent; }
+
+.value {
+  display: inline-block;
+  color: var(--effort-color);
+  font-weight: 600;
+  transition: color 260ms ease;
+}
+
+.labels {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 4px;
+  font-size: 11px;
+  color: var(--neutral-500);
+}
+.label { transition: color 260ms ease, font-weight 260ms ease; }
+.label[data-active="true"] { color: var(--neutral-900); font-weight: 600; }
+
+@media (prefers-reduced-motion: reduce) {
+  .range, .thumb, .pip, .value, .label, .root > span:has(> .thumb) { transition: none; }
+}

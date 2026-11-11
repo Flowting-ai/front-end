@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useRef, useId, useState } from 'react'
+import { cva } from 'class-variance-authority'
 import { Slot } from '@radix-ui/react-slot'
 import { m } from 'framer-motion'
 import { cn } from '@/lib/utils'
@@ -16,14 +17,32 @@ const SHADOW_INNER                    = 'var(--shadow-button-default-inner)'
 const SHADOW_INNER_DISABLED           = 'var(--shadow-button-default-inner-disabled)'
 const SHADOW_ICON_EMBOSS              = 'var(--shadow-button-default-icon-emboss)'
 const SHADOW_ICON_EMBOSS_DISABLED     = 'var(--shadow-button-default-icon-emboss-disabled)'
-const SHADOW_SUBTLE_OUTER_HOVER       = 'var(--shadow-button-subtle-outer-hover)'
-const SHADOW_SUBTLE_INNER_HOVER       = 'var(--shadow-button-subtle-inner-hover)'
-const SHADOW_SECONDARY_OUTER          = 'var(--shadow-button-secondary-outer)'
-const SHADOW_SECONDARY_OUTER_HOVER    = 'var(--shadow-button-secondary-outer-hover)'
-const SHADOW_SECONDARY_INNER          = 'var(--shadow-button-secondary-inner)'
-const SHADOW_SECONDARY_INNER_HOVER    = 'var(--shadow-button-secondary-inner-hover)'
 
 const HOVER_GLOW_GRADIENT = 'var(--button-default-hover-glow)'
+
+// ── Variants (cva) ──────────────────────────────────────────────────────────────
+// Hover visuals are pure CSS: the outer wrapper is the `group/kibtn`, and each layer
+// reacts with `group-hover/kibtn:` classes instead of a JS isHovered state.
+
+const iconButtonVariants = cva(
+  'group relative flex items-center justify-center overflow-hidden select-none cursor-[inherit] focus:outline-none',
+  {
+    variants: {
+      variant:  { default: '', ghost: '', outline: '', 'ghost-2': '', secondary: '' },
+      size:     { md: 'rounded-[10px]', sm: 'rounded-[8px]', xs: 'rounded-[6px] p-[3px]' },
+      disabled: { true: 'opacity-70', false: '' },
+    },
+    compoundVariants: [
+      { variant: 'default', size: 'md', className: 'pt-[7px] pb-[9px] px-[8px]' },
+      { variant: 'default', size: ['sm', 'xs'], className: 'pt-[5px] pb-[7px] px-[6px]' },
+      { variant: ['ghost', 'outline', 'ghost-2', 'secondary'], size: 'md', className: 'p-[8px]' },
+      { variant: ['ghost', 'outline', 'ghost-2', 'secondary'], size: 'sm', className: 'p-[6px]' },
+      // Secondary: white fill + box-shadow (no squircle clip); hover deepens the shadow.
+      { variant: 'secondary', disabled: false, className: '[box-shadow:var(--shadow-button-secondary-outer)] group-hover/kibtn:[box-shadow:var(--shadow-button-secondary-outer-hover)]' },
+      { variant: 'secondary', disabled: true,  className: '[box-shadow:var(--shadow-button-secondary-outer)]' },
+    ],
+  },
+)
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -119,7 +138,6 @@ export function IconButton({
   const defaultIcon = isXs ? <PlusSignIcon size={18} /> : <PlusSignIcon size={20} />
   const resolvedIcon = icon ?? defaultIcon
 
-  const [isHovered, setIsHovered] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
 
   // ── Squircle corner smoothing ────────────────────────────────────────────────
@@ -141,35 +159,16 @@ export function IconButton({
   const circleRef = useRef<SVGCircleElement>(null)
   const { onMouseEnter: corrosionEnter, onMouseLeave: corrosionLeave } = useCorrosion(circleRef)
 
+  // Hover visuals are CSS (group-hover). JS mouse handlers remain only for the
+  // default variant's corrosion glow, which follows the pointer position.
   const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
-    setIsHovered(true)
     if (isCorrosion) corrosionEnter(e)
     externalMouseEnter?.(e)
   }
 
   const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
-    setIsHovered(false)
     if (isCorrosion) corrosionLeave(e)
     externalMouseLeave?.(e)
-  }
-
-  // ── Base ────────────────────────────────────────────────────────────────────
-  const baseClasses = cn(
-    'group relative flex items-center justify-center overflow-hidden',
-    'select-none cursor-[inherit] focus:outline-none',
-    isMd ? 'rounded-[10px]' : isXs ? 'rounded-[6px]' : 'rounded-[8px]',
-    variant === 'default'
-      ? isMd ? 'pt-[7px] pb-[9px] px-[8px]' : 'pt-[5px] pb-[7px] px-[6px]'
-      : isXs ? 'p-[3px]'
-      : isMd ? 'p-[8px]' : 'p-[6px]',
-  )
-
-  const variantClasses: Record<IconButtonVariant, string> = {
-    default:    cn(isDisabled && 'opacity-70'),
-    ghost:      cn(isDisabled && 'opacity-70'),
-    outline:    cn(isDisabled && 'opacity-70'),
-    'ghost-2':  cn(isDisabled && 'opacity-70'),
-    secondary:  cn(isDisabled && 'opacity-70'),
   }
 
   // ── Icon color + filter ─────────────────────────────────────────────────────
@@ -188,14 +187,6 @@ export function IconButton({
     outline:   'var(--icon-button-outline-icon)',
     'ghost-2': 'var(--icon-button-ghost-2-icon)',
     secondary: 'var(--icon-button-secondary-icon)',
-  }
-
-  const subtleBgHover: Record<IconButtonVariant, string> = {
-    default:   '',
-    ghost:     'var(--icon-button-ghost-bg-hover)',
-    outline:   'var(--icon-button-outline-bg-hover)',
-    'ghost-2': 'var(--icon-button-ghost-2-bg-hover)',
-    secondary: 'var(--icon-button-secondary-bg-hover)',
   }
 
   const iconFilter = variant === 'default'
@@ -219,7 +210,6 @@ export function IconButton({
     ...(isSecondary ? {
       // Token (== --neutral-white in light) so the secondary button can stay white in dark.
       backgroundColor: 'var(--icon-button-secondary-bg)',
-      boxShadow:       isHovered && !isDisabled ? SHADOW_SECONDARY_OUTER_HOVER : SHADOW_SECONDARY_OUTER,
       transition:      'box-shadow 150ms',
     } : {}),
   }
@@ -234,14 +224,14 @@ export function IconButton({
 
   const wrapperFilter = variant === 'default'
     ? SHADOW_OUTER
-    : isSubtle && isHovered
-      ? SHADOW_SUBTLE_OUTER_HOVER
-      : undefined
+    : undefined
+  // Ghost/outline lift on hover comes from the wrapper's hover:[filter] class.
   // ghost-2 never applies a wrapper filter - no outer shadow on hover
 
   return (
     <m.span
       tabIndex={-1}
+      className={cn('group/kibtn', isSubtle && 'hover:[filter:var(--shadow-button-subtle-outer-hover)]')}
       whileTap={isDisabled ? undefined : { scale: 0.96 }}
       transition={{ duration: 0.1, ease: 'easeOut' }}
       style={{
@@ -276,21 +266,21 @@ export function IconButton({
       {isSubtle && strokeClipPath && clipPath && (
         <div
           aria-hidden
+          className="bg-transparent group-hover/kibtn:bg-[var(--icon-button-subtle-border-hover)]"
           style={{
             position: 'absolute',
             inset: -1,
             clipPath: strokeClipPath,
-            backgroundColor: isHovered ? 'var(--icon-button-subtle-border-hover)' : 'transparent',
             pointerEvents: 'none',
             transition: 'background-color 200ms',
           }}
         >
           <div
+            className="bg-transparent group-hover/kibtn:bg-[var(--neutral-50)]"
             style={{
               position: 'absolute',
               inset: 1,
               clipPath: clipPath,
-              backgroundColor: isHovered ? 'var(--neutral-50)' : 'transparent',
               transition: 'background-color 200ms',
             }}
           />
@@ -301,7 +291,7 @@ export function IconButton({
       ref={mergedRef}
       disabled={isDisabled}
       aria-busy={loading || undefined}
-      className={cn(baseClasses, variantClasses[variant], className)}
+      className={cn(iconButtonVariants({ variant, size, disabled: isDisabled }), className)}
       style={{ ...bgStyle }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -389,10 +379,9 @@ export function IconButton({
       {outlineStrokeColor && (
         <div
           aria-hidden
-          className="absolute inset-0 pointer-events-none rounded-[inherit]"
+          className={cn('absolute inset-0 pointer-events-none rounded-[inherit]', !isDisabled && 'group-hover/kibtn:opacity-0')}
           style={{
             boxShadow: `inset 0 0 0 1px ${outlineStrokeColor}`,
-            opacity: isHovered ? 0 : 1,
             transition: 'opacity 200ms',
           }}
         />
@@ -402,9 +391,8 @@ export function IconButton({
       {isSubtle && (
         <div
           aria-hidden
-          className="absolute inset-0 pointer-events-none rounded-[inherit]"
+          className={cn('absolute inset-0 pointer-events-none rounded-[inherit] bg-transparent', variant === 'ghost' ? 'group-hover/kibtn:bg-[var(--icon-button-ghost-bg-hover)]' : 'group-hover/kibtn:bg-[var(--icon-button-outline-bg-hover)]')}
           style={{
-            backgroundColor: isHovered ? subtleBgHover[variant as 'ghost' | 'outline'] : 'transparent',
             transition: 'background-color 200ms',
           }}
         />
@@ -414,9 +402,8 @@ export function IconButton({
       {isGhost2 && (
         <div
           aria-hidden
-          className="absolute inset-0 pointer-events-none rounded-[inherit]"
+          className="absolute inset-0 pointer-events-none rounded-[inherit] bg-transparent group-hover/kibtn:bg-[var(--icon-button-ghost-2-bg-hover)]"
           style={{
-            backgroundColor: isHovered ? subtleBgHover['ghost-2'] : 'transparent',
             transition: 'background-color 200ms',
           }}
         />
@@ -426,9 +413,8 @@ export function IconButton({
       {isSecondary && (
         <div
           aria-hidden
-          className="absolute inset-0 pointer-events-none rounded-[inherit]"
+          className={cn('absolute inset-0 pointer-events-none rounded-[inherit] bg-transparent', !isDisabled && 'group-hover/kibtn:bg-[var(--icon-button-secondary-bg-hover)]')}
           style={{
-            backgroundColor: isHovered && !isDisabled ? subtleBgHover['secondary'] : 'transparent',
             transition: 'background-color 200ms',
           }}
         />
@@ -452,9 +438,8 @@ export function IconButton({
       {isSubtle && (
         <div
           aria-hidden
-          className="absolute inset-0 pointer-events-none rounded-[inherit]"
+          className="absolute inset-0 pointer-events-none rounded-[inherit] group-hover/kibtn:[box-shadow:var(--shadow-button-subtle-inner-hover)]"
           style={{
-            boxShadow: isHovered ? SHADOW_SUBTLE_INNER_HOVER : undefined,
             transition: 'box-shadow 200ms',
           }}
         />
@@ -464,9 +449,8 @@ export function IconButton({
       {isSecondary && (
         <div
           aria-hidden
-          className="absolute inset-0 pointer-events-none rounded-[inherit]"
+          className={cn('absolute inset-0 pointer-events-none rounded-[inherit] [box-shadow:var(--shadow-button-secondary-inner)]', !isDisabled && 'group-hover/kibtn:[box-shadow:var(--shadow-button-secondary-inner-hover)]')}
           style={{
-            boxShadow: isHovered && !isDisabled ? SHADOW_SECONDARY_INNER_HOVER : SHADOW_SECONDARY_INNER,
             transition: 'box-shadow 150ms',
           }}
         />

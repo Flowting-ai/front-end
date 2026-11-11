@@ -25,6 +25,10 @@ export function useFocusTrap(
   onEscape?: () => void,
 ): void {
   const previouslyFocused = useRef<HTMLElement | null>(null)
+  // Read through a ref so an inline onEscape doesn't re-run the trap (and
+  // re-focus the first control) on every render of the caller.
+  const onEscapeRef = useRef(onEscape)
+  useEffect(() => { onEscapeRef.current = onEscape })
 
   useEffect(() => {
     if (!active) return
@@ -43,9 +47,9 @@ export function useFocusTrap(
     ;(first ?? container).focus()
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && onEscape) {
+      if (e.key === 'Escape' && onEscapeRef.current) {
         e.preventDefault()
-        onEscape()
+        onEscapeRef.current()
         return
       }
       if (e.key !== 'Tab') return
@@ -79,5 +83,5 @@ export function useFocusTrap(
       document.removeEventListener('keydown', handleKeyDown, true)
       previouslyFocused.current?.focus?.()
     }
-  }, [active, containerRef, onEscape])
+  }, [active, containerRef])
 }

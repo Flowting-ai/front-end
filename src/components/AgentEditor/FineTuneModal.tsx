@@ -2,10 +2,9 @@
 
 import React, { useEffect, useMemo, useState } from 'react'
 import { CancelOneIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button, IconButton } from '@/components/ui/button'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { EnhancePromptField } from '@/components/EnhancePromptField'
-import { IconButton } from '@/components/IconButton'
 import { Badge } from '@/components/Badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/Tabs'
 import { ModalHeader, ModalShell } from '@/components/ChangeAgentModelModal/shared'
@@ -110,8 +109,8 @@ function Body({
           borderTop: '1px solid var(--neutral-100)', flexShrink: 0,
         }}
       >
-        <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={saving}>Cancel</Button>
-        <Button type="button" variant="default" size="sm" onClick={() => void handleSave()} loading={saving} disabled={!canSave}>
+        <Button type="button" variant="cancel" size="sm" onClick={onClose} disabled={saving}>Cancel</Button>
+        <Button type="button" variant="save" size="sm" onClick={() => void handleSave()} loading={saving} disabled={!canSave}>
           {saveLabel ?? 'Save'}
         </Button>
       </div>

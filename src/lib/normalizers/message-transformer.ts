@@ -1,3 +1,4 @@
+import { parseLibraryCitations } from "@/components/Library/chat/library-citations";
 import type { Message } from "@/types/chat"
 import type { UIMessage, WebCitation, ActivityItem, ModelSelectedMeta, GeneratedFile } from "@/types/chat"
 import { toolNameToType, webSearchResults } from "@/lib/activity"
@@ -45,6 +46,18 @@ function extractFileAttachments(raw: Message): Pick<UIMessage, "generatedFiles" 
 
   for (const att of rawAtts) {
     const url = (att.file_link ?? att.url ?? att.link ?? "").trim();
+    // A deleted or locked Library file comes without a link or name; it still gets its chip.
+    if (!url && att.document_id && (att.libraryState === "deleted" || att.libraryState === "locked")) {
+      uploadedAttachments.push({
+        id: `att-${att.document_id}`,
+        file_name: "",
+        file_type: att.mime_type ?? "application/octet-stream",
+        file_size: 0,
+        libraryFileId: att.document_id,
+        libraryState: att.libraryState,
+      });
+      continue;
+    }
     if (!url) continue;
 
     const mimeType = att.mime_type ?? undefined;
@@ -60,9 +73,14 @@ function extractFileAttachments(raw: Message): Pick<UIMessage, "generatedFiles" 
         // matching the behaviour of the `image` SSE event during streaming.
         generatedImages.push({ url });
       } else {
-        generatedFiles.push({ url, filename, mimeType });
+        // A Library copy that is deleted or locked has no page to open; View falls back to the link.
+        const documentId = att.document_id && att.libraryState !== "deleted" && att.libraryState !== "locked" ? att.document_id : undefined;
+        generatedFiles.push({ url, filename, mimeType, ...(documentId ? { documentId } : {}) });
       }
-    } else if (origin === "uploaded" || origin === "user") {
+    } else {
+      // Anything not explicitly generated is the user's upload, including a row
+      // that omits `origin`. A stricter test silently dropped such files: they
+      // matched neither branch and never reached the bubble.
       // Populate the user message bubble with the actual backend URL after a page refresh.
       uploadedAttachments.push({
         id: `att-${filename}-${url.slice(-8)}`,
@@ -70,6 +88,8 @@ function extractFileAttachments(raw: Message): Pick<UIMessage, "generatedFiles" 
         file_type: mimeType ?? "application/octet-stream",
         file_size: 0,
         url,
+        ...(att.document_id ? { libraryFileId: att.document_id } : {}),
+        ...(att.libraryState ? { libraryState: att.libraryState } : {}),
       });
     }
   }
@@ -125,6 +145,9 @@ export function toUIMessage(raw: Message): UIMessage {
 
   // ── webCitations + activity rows from persisted tool calls and sources ──
   let webCitations: WebCitation[] | undefined;
+  const libraryCitations = parseLibraryCitations(raw.library_citations);
+  // The Library files a user message carried (attachments that are Library files).
+  const libraryFileIds = raw.role === "user" ? (raw.file_attachments ?? []).flatMap((a) => a.document_id ? [a.document_id] : []) : [];
   const toolActivities = toolCallActivities(raw);
   let activities: ActivityItem[] | undefined = toolActivities.length > 0 ? toolActivities : undefined;
 
@@ -213,6 +236,8 @@ export function toUIMessage(raw: Message): UIMessage {
     ...(modelName ? { modelName } : {}),
     ...(modelMeta ? { modelMeta } : {}),
     ...(webCitations ? { webCitations } : {}),
+    ...(libraryCitations.length > 0 ? { libraryCitations } : {}),
+    ...(libraryFileIds.length > 0 ? { libraryFileIds } : {}),
     ...(activities ? { activities } : {}),
     ...(mergedAttachments ? { attachments: mergedAttachments } : {}),
     ...(fileData.generatedFiles ? { generatedFiles: fileData.generatedFiles } : {}),

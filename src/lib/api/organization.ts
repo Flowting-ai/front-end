@@ -16,6 +16,7 @@ import {
 } from '@/lib/config'
 import type { OrgRole, OrgSettings, OrgMember, OrgPlanUsage, AuditLogEntry } from '@/types/teams'
 import { dollarsToCredits, normalizeMember, planMemberSchema } from './plan'
+import { trackBrowserEvent, trackFeature } from '@/lib/analytics/events'
 
 // ── Backend shapes ────────────────────────────────────────────────────────────
 // Unlike MemberBurn/AuditEntry/InvitePreview elsewhere in this file (still
@@ -201,6 +202,7 @@ export async function deleteOrg(orgId: string, confirmName: string): Promise<voi
     } catch { /* non-JSON error body */ }
     throw new ApiError(res.status, 'delete_org_failed', friendlyApiError(detail, res.status), detail)
   }
+  trackBrowserEvent('org_deleted')
 }
 
 /**
@@ -226,6 +228,7 @@ export async function leaveOrganization(orgId: string, successorAdminUserId?: st
     } catch { /* non-JSON error body */ }
     throw new ApiError(res.status, 'leave_org_failed', friendlyApiError(detail, res.status), detail)
   }
+  trackBrowserEvent('org_left', { with_successor: Boolean(successorAdminUserId) })
 }
 
 export async function getOrgSettings(orgId: string): Promise<OrgSettings> {
@@ -297,6 +300,7 @@ export async function setMemberRole(orgId: string, memberId: string, role: OrgRo
     } catch { /* non-JSON error body */ }
     throw new ApiError(res.status, 'set_member_role_failed', friendlyApiError(detail, res.status), detail)
   }
+  trackFeature('permission_level_changed', { role_changed_to: role })
 }
 
 export async function removeMember(orgId: string, memberId: string): Promise<void> {
@@ -309,6 +313,7 @@ export async function removeMember(orgId: string, memberId: string): Promise<voi
     } catch { /* non-JSON error body */ }
     throw new ApiError(res.status, 'remove_member_failed', friendlyApiError(detail, res.status), detail)
   }
+  trackBrowserEvent('org_member_removed')
 }
 
 export async function revokeInvite(orgId: string, inviteId: string): Promise<void> {
@@ -316,4 +321,5 @@ export async function revokeInvite(orgId: string, inviteId: string): Promise<voi
   if (!res.ok && res.status !== 204) {
     throw new Error(`Failed to revoke invite: ${res.status}`)
   }
+  trackBrowserEvent('org_invite_revoked')
 }

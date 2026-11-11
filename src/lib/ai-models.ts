@@ -2,7 +2,11 @@
 
 import type { AIModel } from "@/types/ai-model";
 import { MODELS_ALL_ENDPOINT } from "@/lib/config";
-import { apiFetch } from "@/lib/api/client";
+import { queryOptions } from "@tanstack/react-query";
+import { apiFetch, buildApiError } from "@/lib/api/client";
+import { getQueryClient } from "@/lib/query-client";
+import { invalidateModels } from "@/lib/query-invalidation";
+import { queryKeys } from "@/lib/query-keys";
 
 type BackendModel = {
   model_id?: string;
@@ -61,17 +65,25 @@ const normalizeModelType = (
 export function toLlmIconId(source: string | null | undefined): string | null {
   const s = (source ?? "").toLowerCase();
   if (!s) return null;
-  if (s.includes("anthropic") || s.includes("claude")) return "Claude";
+  if (s.includes("anthropic") || s.includes("claude") || s.includes("sonnet") || s.includes("opus") || s.includes("haiku")) return "Claude";
   if (s.includes("grok") || s.includes("xai")) return "Grok";
   if (s.includes("openai") || s.includes("gpt")) return "OpenAI";
   if (s.includes("gemini")) return "Gemini";
-  if (s.includes("google")) return "Google";
+  if (s.includes("google") || s.includes("gemma")) return "Google";
   if (s.includes("meta") || s.includes("llama")) return "Meta";
-  if (s.includes("mistral")) return "Mistral";
+  if (s.includes("mistral") || s.includes("mixtral") || s.includes("codestral") || s.includes("magistral")) return "Mistral";
   if (s.includes("deepseek")) return "DeepSeek";
   if (s.includes("groq")) return "Groq";
   if (s.includes("cohere")) return "Cohere";
-  if (s.includes("perplexity")) return "Perplexity";
+  if (s.includes("perplexity") || s.includes("sonar")) return "Perplexity";
+  // Providers we hold artwork for that used to fall through to the plain
+  // Souvenir mark - which is why rows of the model list showed no provider
+  // colour at all. Model-family names are matched alongside the provider,
+  // since a catalog row's provider can be the lab, the cloud it is served
+  // from, or nothing useful.
+  if (s.includes("qwen") || s.includes("qwq") || s.includes("tongyi") || s.includes("alibaba")) return "Qwen";
+  if (s.includes("kimi")) return "Kimi";
+  if (s.includes("moonshot")) return "Moonshot";
   return null;
 }
 
@@ -128,26 +140,33 @@ export const normalizeModels = (payload: unknown): AIModel[] => {
   return list.map((model) => normalizeModel(model as BackendModel));
 };
 
-// ── Shared in-memory cache ────────────────────────────────────────────────────
+// ── Shared catalogue (React Query) ────────────────────────────────────────────
+// One ["models"] query for every picker, selector and settings page: deduped,
+// cleared on logout, and invalidated (in every tab) by bustModelsCache().
 
-let _modelsCache: AIModel[] | null = null;
-let _modelsFetchPromise: Promise<AIModel[]> | null = null;
 const MODELS_CACHE_TTL = 60_000;
-let _modelsCacheTime = 0;
 
-// Fired whenever the cache is busted so already-mounted consumers (the model
-// selector is a single instance shared app-wide via ModelSelectorProvider,
-// mounted once in the (app) layout) know to refetch instead of keeping their
-// already-loaded — now stale — model list for the rest of the SPA session.
-export const MODELS_CACHE_BUSTED_EVENT = "models:cache-busted";
+/** GET /models/all as a query. Throws ApiError on failure; callers that treat the catalogue as optional use fetchModelsWithCache. */
+export const modelsQuery = () =>
+  queryOptions({
+    queryKey: queryKeys.models.all(),
+    queryFn: async (): Promise<AIModel[]> => {
+      // apiFetch (not raw fetch) so this shares one in-flight request with fetchAllModels().
+      const response = await apiFetch(MODELS_ALL_ENDPOINT);
+      if (!response.ok) throw await buildApiError(response);
+      // Every model is included regardless of its blocked flag — a model blocked
+      // in /settings/ai must not vanish from every picker with no way back.
+      // `blocked` stays on each AIModel for the "assigned model is disabled" warnings.
+      const models = normalizeModels(await response.json());
+      indexCatalogIcons(models);
+      return models;
+    },
+    staleTime: MODELS_CACHE_TTL,
+  });
 
-/** Force the next fetchModelsWithCache call to bypass the TTL and re-fetch. */
+/** Refetch the catalogue everywhere (here and in other tabs), e.g. after a model is toggled. */
 export function bustModelsCache(): void {
-  _modelsCache = null;
-  _modelsCacheTime = 0;
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(MODELS_CACHE_BUSTED_EVENT));
-  }
+  invalidateModels(getQueryClient());
 }
 
 // Canonical display order for every model-selector dropdown in the app (the
@@ -197,18 +216,46 @@ export function isAutoRoutingModelName(modelName: string): boolean {
   return AUTO_ROUTING_NAMES.has(modelName.trim().toLowerCase());
 }
 
-// Legacy Souvenir-tier names ("Advanced"/"Standard"/"Basic") that can still
-// appear in the catalog alongside the real provider models — these are
-// Claude under the hood, but their own companyName/modelName don't reliably
-// resolve to "Claude" via toLlmIconId, so it's forced explicitly here rather
-// than showing no logo for them.
-const CLAUDE_TIER_NAMES = new Set(["advanced", "standard", "basic"]);
-
-/** Resolves what to hand ModelIcon's `model` prop for a catalog model row. */
+/** Resolves what to hand ModelIcon's `model` prop for a catalog model row.
+ *  The catalog's provider is the truth (e.g. Advanced/Standard/Basic are OpenAI). */
 export function modelIconSource<T extends Pick<AIModel, "modelName" | "companyName">>(model: T): string | null {
-  if (CLAUDE_TIER_NAMES.has(model.modelName.trim().toLowerCase())) return "Claude";
   return model.companyName || model.modelName;
 }
+
+// Catalog-backed logo lookup by model name/id. A chat message only carries a
+// model name (and, when streamed, the backend's own `company`, which can
+// disagree with the catalog — e.g. a tier alias served by another provider), so
+// resolving through the catalog keeps a message's logo identical to the
+// selector's, live and after reload. Auto-routing aliases map to null so they
+// (and only they) get the Souvenir mark.
+const _catalogIcons = new Map<string, string | null>();
+const _catalogListeners = new Set<() => void>();
+let _catalogVersion = 0;
+
+function indexCatalogIcons(models: AIModel[]): void {
+  _catalogIcons.clear();
+  for (const m of models) {
+    const icon = isAutoRoutingModelName(m.modelName) ? null : modelIconSource(m);
+    for (const key of [m.modelName, m.modelId, m.id]) {
+      if (key) _catalogIcons.set(String(key).trim().toLowerCase(), icon);
+    }
+  }
+  _catalogVersion++;
+  _catalogListeners.forEach((fn) => fn());
+}
+
+/** `undefined` = name not in the catalog (or catalog not loaded yet). */
+export function catalogIconSource(name: string | null | undefined): string | null | undefined {
+  if (!name) return undefined;
+  return _catalogIcons.get(name.trim().toLowerCase());
+}
+
+export function subscribeCatalogIcons(fn: () => void): () => void {
+  _catalogListeners.add(fn);
+  return () => { _catalogListeners.delete(fn); };
+}
+
+export const getCatalogIconsVersion = (): number => _catalogVersion;
 
 // Size/class keywords used only to break ties between same-company candidates
 // — e.g. prefer another Sonnet-class model over an Opus/Haiku one so a
@@ -247,42 +294,17 @@ export function pickReplacementModel(
   return [...available].sort((a, b) => score(b) - score(a))[0]
 }
 
+/**
+ * The catalogue, never throwing: cached data within 60 s (or a fresh fetch with
+ * `force`), the last good copy if a fetch fails, else []. Backed by modelsQuery.
+ */
 export async function fetchModelsWithCache(
   opts?: { force?: boolean },
 ): Promise<AIModel[]> {
-  const now = Date.now();
-  if (
-    !opts?.force &&
-    _modelsCache &&
-    now - _modelsCacheTime < MODELS_CACHE_TTL
-  ) {
-    return _modelsCache;
+  const qc = getQueryClient();
+  try {
+    return await qc.fetchQuery({ ...modelsQuery(), staleTime: opts?.force ? 0 : MODELS_CACHE_TTL });
+  } catch {
+    return qc.getQueryData<AIModel[]>(queryKeys.models.all()) ?? [];
   }
-
-  if (_modelsFetchPromise) return _modelsFetchPromise;
-
-  _modelsFetchPromise = (async () => {
-    try {
-      // apiFetch (not raw fetch) so this shares one in-flight request with fetchAllModels().
-      const response = await apiFetch(MODELS_ALL_ENDPOINT);
-      if (!response.ok) return _modelsCache ?? [];
-      const data = await response.json();
-      // Previously filtered out models the user had blocked in /settings/ai.
-      // That page is no longer reachable from nav, so a model someone blocked
-      // in the past would otherwise vanish from every picker with no way back —
-      // include every model here regardless of its blocked flag. (`blocked`
-      // itself is left intact on each AIModel for the surfaces that still use
-      // it to show an accurate "this assigned model is disabled" warning.)
-      const models = normalizeModels(data);
-      _modelsCache = models;
-      _modelsCacheTime = Date.now();
-      return models;
-    } catch {
-      return _modelsCache ?? [];
-    } finally {
-      _modelsFetchPromise = null;
-    }
-  })();
-
-  return _modelsFetchPromise;
 }

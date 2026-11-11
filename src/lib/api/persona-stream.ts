@@ -8,9 +8,9 @@ import { friendlyModelError } from "@/lib/model-error";
 import { normalizeActivityStatus, toolNameToType } from "@/lib/activity";
 import type { ActivityType, GeneratedFile } from "@/types/chat";
 import { toConnector } from "@/lib/connector";
-import { PERSONA_GUIDE_ENDPOINT, PERSONA_VERSION_TEST_ENDPOINT, PERSONA_CHATS_CREATE_ENDPOINT, PERSONA_CHAT_STREAM_ENDPOINT, directUpload } from "@/lib/config";
+import { PERSONA_GUIDE_ENDPOINT, PERSONA_VERSION_TEST_ENDPOINT, directUpload } from "@/lib/config";
 import type { Persona } from "./persona-model";
-import { bustPersonaChatsCache } from "./persona-chats";
+import { keepAcceptedFields } from "@/lib/chat-form-fields";
 
 // ── Persona test chat ─────────────────────────────────────────────────────────
 
@@ -123,6 +123,8 @@ function buildStreamBody(
      *  rather than the version's stored model (useful when model changed but not yet saved). */
     modelId?: string | null;
   },
+  /** When set, every other field is dropped before sending. */
+  accepted?: ReadonlySet<string>,
 ): { body: BodyInit; headers?: HeadersInit } {
   const hasFiles = (options?.files?.length ?? 0) > 0;
   if (hasFiles) {
@@ -133,7 +135,7 @@ function buildStreamBody(
     options?.disabledConnectors?.forEach(slug => form.append("disabled_connectors", slug));
     options?.connectorSlugs?.forEach(slug => form.append("connector_slugs", slug));
     if (options?.modelId) form.append("model_id", options.modelId);
-    return { body: form };
+    return { body: accepted ? keepAcceptedFields(form, accepted) : form };
   }
   const params = new URLSearchParams();
   params.append("input", input);
@@ -142,7 +144,7 @@ function buildStreamBody(
   options?.connectorSlugs?.forEach(slug => params.append("connector_slugs", slug));
   if (options?.modelId) params.append("model_id", options.modelId);
   return {
-    body: params.toString(),
+    body: (accepted ? keepAcceptedFields(params, accepted) : params).toString(),
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
   };
 }
@@ -399,57 +401,6 @@ export async function testVersionStream(
   return () => controller.abort();
 }
 
-/**
- * Create a new persona chat session and stream the first assistant response.
- * The chatId is surfaced via `callbacks.onChatId` so callers can store it
- * for follow-up messages.
- * Returns an abort function that cancels the in-flight request.
- */
-export async function createAndStreamPersonaChat(
-  repoId: string,
-  input: string,
-  callbacks: PersonaChatStreamCallbacks,
-  options?: { files?: File[]; useMistralOcr?: boolean; connectorSlugs?: string[] },
-): Promise<() => void> {
-  const controller = new AbortController();
-  const { body, headers } = buildStreamBody(input, options);
-  // Multipart (file attachments) bypasses the 4.5 MB serverless proxy cap by
-  // going direct to the backend; text-only stays on the same-origin proxy.
-  const endpoint = body instanceof FormData
-    ? directUpload(PERSONA_CHATS_CREATE_ENDPOINT(repoId))
-    : PERSONA_CHATS_CREATE_ENDPOINT(repoId);
-  let response: Response;
-  try {
-    response = await apiFetch(endpoint, {
-      method: "POST",
-      body,
-      headers,
-      signal: controller.signal,
-    });
-  } catch (err) {
-    if ((err as Error).name !== "AbortError") {
-      callbacks.onError?.(friendlyModelError((err as Error).message ?? "Failed to create persona chat"));
-    }
-    return () => controller.abort();
-  }
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    callbacks.onError?.(friendlyModelError(text || `HTTP ${response.status}`, response.status));
-    return () => controller.abort();
-  }
-  // A new chat now exists for this agent — any cached list of its chats is stale.
-  bustPersonaChatsCache(repoId);
-  const chatId = response.headers.get("X-Chat-Id");
-  if (chatId) callbacks.onChatId?.(chatId);
-  const reader = response.body?.getReader();
-  if (!reader) {
-    callbacks.onError?.(friendlyModelError("No response body"));
-    return () => controller.abort();
-  }
-  readPersonaSSEStream(reader, callbacks);
-  return () => controller.abort();
-}
-
 // ── Persona guide (AI suggestions) ───────────────────────────────────────────
 
 /** A single turn in the in-memory guide conversation history. */
@@ -533,51 +484,3 @@ export async function guidePersonaStream(
   readPersonaSSEStream(reader, callbacks);
   return () => controller.abort();
 }
-
-/**
- * Send a follow-up message in an existing persona chat session and stream
- * the assistant response.
- * Returns an abort function that cancels the in-flight request.
- */
-export async function streamPersonaMessage(
-  repoId: string,
-  chatId: string,
-  input: string,
-  callbacks: PersonaChatStreamCallbacks,
-  options?: { files?: File[]; useMistralOcr?: boolean; connectorSlugs?: string[] },
-): Promise<() => void> {
-  const controller = new AbortController();
-  const { body, headers } = buildStreamBody(input, options);
-  // Multipart (file attachments) bypasses the 4.5 MB serverless proxy cap by
-  // going direct to the backend; text-only stays on the same-origin proxy.
-  const endpoint = body instanceof FormData
-    ? directUpload(PERSONA_CHAT_STREAM_ENDPOINT(repoId, chatId))
-    : PERSONA_CHAT_STREAM_ENDPOINT(repoId, chatId);
-  let response: Response;
-  try {
-    response = await apiFetch(endpoint, {
-      method: "POST",
-      body,
-      headers,
-      signal: controller.signal,
-    });
-  } catch (err) {
-    if ((err as Error).name !== "AbortError") {
-      callbacks.onError?.(friendlyModelError((err as Error).message ?? "Failed to stream message"));
-    }
-    return () => controller.abort();
-  }
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    callbacks.onError?.(friendlyModelError(text || `HTTP ${response.status}`, response.status));
-    return () => controller.abort();
-  }
-  const reader = response.body?.getReader();
-  if (!reader) {
-    callbacks.onError?.(friendlyModelError("No response body"));
-    return () => controller.abort();
-  }
-  readPersonaSSEStream(reader, callbacks);
-  return () => controller.abort();
-}
-

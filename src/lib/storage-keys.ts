@@ -10,6 +10,20 @@
 // (localStorage isn't readable during SSR). LeftSidebar writes both.
 export const SIDEBAR_COLLAPSED_KEY = "sidebar_collapsed";
 
+/** Last resolved org id per user (OrgProvider), so a reload doesn't wait on the org list. */
+export const ORG_ID_CACHE_PREFIX = "souvenir:org-id:";
+export const orgIdCacheKey = (userId: string) => `${ORG_ID_CACHE_PREFIX}${userId}`;
+
+/** Drops every cached org id; called on sign-out so the next account starts clean. */
+export function clearOrgIdCache(): void {
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(ORG_ID_CACHE_PREFIX)) localStorage.removeItem(key);
+    }
+  } catch { /* storage unavailable */ }
+}
+
 /** Parses the stored sidebar-collapsed value; anything but "true" (including
  *  a missing cookie) means expanded. */
 export function parseSidebarCollapsed(value: string | null | undefined): boolean {
@@ -27,6 +41,51 @@ export const personaProfileKey = (repoId: string) => `persona_profile_${repoId |
 export const PERSONA_WIZARD_REPO_KEY = "persona_wizard_repo";
 export const PERSONA_WIZARD_STARTER_KEY = "persona_wizard_starter";
 export const PENDING_PERSONA_KEY = "new-chat-pending-persona";
+
+// ── Library ──────────────────────────────────────────────────────────────────
+// When the person last dismissed the "an Admin changed Library settings" notice (an ISO time).
+
+// ── Projects ─────────────────────────────────────────────────────────────────
+// File sizes by filename, until project documents carry size_bytes (backend gap).
+export const projectFileSizesKey = (projectId: string) => `project-file-sizes:${projectId}`;
+
+// ── Model selection ──────────────────────────────────────────────────────────
+// The chosen model's stable id, plus a small display copy (name, company) so the
+// composer can paint before the catalogue loads. See lib/models/model-selection-store.ts.
+export const MODEL_SELECTION_KEY = "souvenir_selected_model";
+export const MODEL_SELECTION_CACHE_KEY = "souvenir_selected_model_cache";
+// Auto-routing tier choice and per-model reasoning effort (context/model-selector-context.tsx).
+export const MODEL_ALGORITHM_KEY = "souvenir_selected_algorithm";
+export const MODEL_EFFORT_KEY = "souvenir_reasoning_effort";
+// Settings → Account default model, until the backend stores one (gap).
+export const SETTINGS_DEFAULT_MODEL_KEY = "souvenir:settings:default-model";
+
+// ── Session limits (lib/auth/session-policy.ts; off unless configured) ────────
+export const SESSION_LAST_ACTIVITY_KEY = "souvenir:session:last-activity";
+export const SESSION_SIGNED_IN_AT_KEY = "souvenir:session:signed-in-at";
+
+/** Forget session timing on logout so the next sign-in starts fresh. */
+export function clearSessionTiming(): void {
+  try {
+    localStorage.removeItem(SESSION_LAST_ACTIVITY_KEY);
+    localStorage.removeItem(SESSION_SIGNED_IN_AT_KEY);
+  } catch { /* storage unavailable */ }
+}
+
+// ── Global search ────────────────────────────────────────────────────────────
+// The last few results opened from Cmd/Ctrl+K, shown before typing.
+export const SEARCH_RECENT_OPENED_KEY = "souvenir:search-recent-opened:v1";
+
+/** Forget recent search results (chat and agent titles) on logout. */
+export function clearSearchRecents(): void {
+  try { localStorage.removeItem(SEARCH_RECENT_OPENED_KEY); } catch { /* storage unavailable */ }
+}
+
+// ── Schedules ────────────────────────────────────────────────────────────────
+// schedule id → chat id, until GET /automations rows carry chat_id (backend gap).
+export const SCHEDULE_CHAT_LINKS_KEY = "schedule_chat_links_v1";
+// sessionStorage: the prompt handed from /schedules to /chat?fromSchedule=.
+export const schedulePendingPromptKey = (scheduleId: string) => `schedule_pending_prompt:${scheduleId}`;
 
 export const personaInitialVersionKey = (repoId: string) => `persona_initial_version_${repoId}`;
 export const personaConfigureSavedKey = (repoId: string) => `persona_configure_saved_${repoId}`;
@@ -66,3 +125,10 @@ export function clearPersonaRepoStorage(repoId: string): void {
     } catch { /* storage unavailable */ }
   }
 }
+
+/** "1" when this viewer last saw the admin-only Slack row, so the sidebar skeleton has the same number of rows. Layout hint only. */
+export const SIDEBAR_SLACK_ROW_HINT_KEY = "souvenir:sidebar:slack-row";
+
+// ── Library ──────────────────────────────────────────────────────────────────
+// When the person last dismissed the "an Admin changed Library settings" notice (an ISO time).
+export const LIBRARY_SETTINGS_SEEN_KEY = "library:v1:settings-seen";

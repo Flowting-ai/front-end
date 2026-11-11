@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import type { AvatarChoice } from '@/components/PersonaCard/AnimatedPersonaAvatar'
 import { AgentAvatar } from './AgentAvatar'
 import { AvatarCarousel } from './AvatarCarousel'
@@ -43,7 +43,7 @@ export function AvatarField({ name, value, onChange, disabled = false, buttonLab
           >
             <AvatarCarousel value={pending} onChange={setPending} disabled={disabled} />
             <div style={{ display: 'flex', gap: 8 }}>
-              <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button variant="cancel" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
               <Button
                 variant="default"
                 size="sm"

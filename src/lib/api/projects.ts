@@ -1,6 +1,7 @@
 "use client"
 
-import { apiFetch, apiFetchJson, ApiError } from './client'
+import { apiFetchJson, apiFetchVoid } from './client'
+import { trackBrowserEvent } from '@/lib/analytics/events'
 import {
   PROJECTS_ENDPOINT,
   PROJECT_DETAIL_ENDPOINT,
@@ -16,6 +17,13 @@ import {
   PROJECT_RESTORE_ENDPOINT,
   directUpload,
 } from '@/lib/config'
+import {
+  parseList,
+  projectChatSummarySchema,
+  projectMemberSchema,
+  projectResponseSchema,
+  projectSummarySchema,
+} from './project-schemas'
 
 // ── Backend shapes ──────────────────────────────────────────────────────────
 // The `services/projects` rewrite replaced the old snake_case, visibility-
@@ -229,22 +237,22 @@ function normalizeProjectMember(m: ProjectMemberResponse): ApiProjectMember {
 
 /** GET /projects */
 export async function fetchProjects(currentUserId: string): Promise<ApiProjectSummary[]> {
-  const list = await apiFetchJson<ProjectSummary[]>(PROJECTS_ENDPOINT)
-  return list.map(p => normalizeProjectSummary(p, currentUserId))
+  const list = await apiFetchJson<unknown>(PROJECTS_ENDPOINT)
+  return parseList(projectSummarySchema, list, "project").map(p => normalizeProjectSummary(p, currentUserId))
 }
 
 /** GET /projects?deleted=recoverable — the trash view. Only workspace/shared
  *  projects can ever appear here: personal projects hard-delete instantly
  *  server-side (`DELETE /projects/{id}`) and are never recoverable. */
 export async function fetchDeletedProjects(currentUserId: string): Promise<ApiProjectSummary[]> {
-  const list = await apiFetchJson<ProjectSummary[]>(`${PROJECTS_ENDPOINT}?deleted=recoverable`)
-  return list.map(p => normalizeProjectSummary(p, currentUserId))
+  const list = await apiFetchJson<unknown>(`${PROJECTS_ENDPOINT}?deleted=recoverable`)
+  return parseList(projectSummarySchema, list, "project").map(p => normalizeProjectSummary(p, currentUserId))
 }
 
 /** GET /projects/{project_id} */
 export async function fetchProject(projectId: string, currentUserId: string): Promise<ApiProject> {
-  const project = await apiFetchJson<ProjectResponse>(PROJECT_DETAIL_ENDPOINT(projectId))
-  return normalizeProject(project, currentUserId)
+  const project = await apiFetchJson<unknown>(PROJECT_DETAIL_ENDPOINT(projectId))
+  return normalizeProject(projectResponseSchema.parse(project), currentUserId)
 }
 
 export interface CreateProjectParams {
@@ -274,8 +282,8 @@ export async function createProjectApi(params: CreateProjectParams, currentUserI
   params.files?.forEach(f => form.append('files', f))
 
   // Direct-to-backend: file uploads can exceed the 4.5 MB serverless proxy cap.
-  const project = await apiFetchJson<ProjectResponse>(directUpload(PROJECTS_ENDPOINT), { method: 'POST', body: form })
-  return normalizeProject(project, currentUserId)
+  const project = await apiFetchJson<unknown>(directUpload(PROJECTS_ENDPOINT), { method: 'POST', body: form })
+  return normalizeProject(projectResponseSchema.parse(project), currentUserId)
 }
 
 export interface UpdateProjectParams {
@@ -297,32 +305,17 @@ export async function updateProjectApi(projectId: string, params: UpdateProjectP
   if (params.tags !== undefined)               body.tags = params.tags
   if (params.visibility !== undefined)        body.visibility = params.visibility
 
-  const project = await apiFetchJson<ProjectResponse>(PROJECT_DETAIL_ENDPOINT(projectId), {
+  const project = await apiFetchJson<unknown>(PROJECT_DETAIL_ENDPOINT(projectId), {
     method: 'PATCH',
     body:   JSON.stringify(body),
   })
-  return normalizeProject(project, currentUserId)
+  return normalizeProject(projectResponseSchema.parse(project), currentUserId)
 }
 
 /** DELETE /projects/{project_id} */
 export async function deleteProjectApi(projectId: string): Promise<void> {
-  const res = await apiFetch(PROJECT_DETAIL_ENDPOINT(projectId), { method: 'DELETE' })
-  // Never checked res.ok — a rejected delete (e.g. the 404 requireDelete/
-  // requireOwned gives a non-owner, including the still-live client-side
-  // admin-bypass that lets the button render for someone the backend will
-  // reject) resolved silently. The caller's optimistic removal was never
-  // rolled back and no error ever surfaced, so the project just reappeared
-  // on the next full reload having never actually been deleted.
-  if (!res.ok) {
-    let message = `Failed to delete project (${res.status})`
-    try {
-      const data = await res.clone().json() as { detail?: string }
-      if (typeof data.detail === 'string') message = data.detail
-    } catch {
-      // non-JSON error body - keep the default message
-    }
-    throw new ApiError(res.status, 'delete_project_failed', message)
-  }
+  await apiFetchVoid(PROJECT_DETAIL_ENDPOINT(projectId), { method: 'DELETE' })
+  trackBrowserEvent('project_deleted')
 }
 
 export interface LeaveProjectParams {
@@ -346,13 +339,14 @@ export async function leaveProjectApi(projectId: string, params: LeaveProjectPar
     method: 'POST',
     body:   JSON.stringify(params),
   })
+  trackBrowserEvent('project_left', { as_owner: Boolean(params.successorUserId || params.aloneAction), alone_action: params.aloneAction })
 }
 
 /** POST /projects/{project_id}/restore — only workspace/shared projects,
  *  only within the 30-day recovery window (see fetchDeletedProjects). */
 export async function restoreProjectApi(projectId: string, currentUserId: string): Promise<ApiProject> {
-  const project = await apiFetchJson<ProjectResponse>(PROJECT_RESTORE_ENDPOINT(projectId), { method: 'POST' })
-  return normalizeProject(project, currentUserId)
+  const project = await apiFetchJson<unknown>(PROJECT_RESTORE_ENDPOINT(projectId), { method: 'POST' })
+  return normalizeProject(projectResponseSchema.parse(project), currentUserId)
 }
 
 /** PUT /projects/{project_id}/files (multipart/form-data) — uploads files. */
@@ -360,88 +354,63 @@ export async function addProjectFilesApi(projectId: string, files: File[], curre
   const form = new FormData()
   files.forEach(f => form.append('files', f))
   // Direct-to-backend: file uploads can exceed the 4.5 MB serverless proxy cap.
-  const project = await apiFetchJson<ProjectResponse>(directUpload(PROJECT_FILES_ENDPOINT(projectId)), {
+  const project = await apiFetchJson<unknown>(directUpload(PROJECT_FILES_ENDPOINT(projectId)), {
     method: 'PUT',
     body:   form,
   })
-  return normalizeProject(project, currentUserId)
+  return normalizeProject(projectResponseSchema.parse(project), currentUserId)
 }
 
 /** DELETE /projects/{project_id}/files/{document_id} */
 export async function removeProjectDocumentApi(projectId: string, documentId: string, currentUserId: string): Promise<ApiProject> {
-  const project = await apiFetchJson<ProjectResponse>(PROJECT_FILE_ENDPOINT(projectId, documentId), {
+  const project = await apiFetchJson<unknown>(PROJECT_FILE_ENDPOINT(projectId, documentId), {
     method: 'DELETE',
   })
-  return normalizeProject(project, currentUserId)
+  return normalizeProject(projectResponseSchema.parse(project), currentUserId)
 }
 
 /** GET /projects/{project_id}/chats */
 export async function fetchProjectChats(projectId: string, currentUserId: string): Promise<ApiProjectChat[]> {
-  const list = await apiFetchJson<ProjectChatSummary[]>(PROJECT_CHATS_ENDPOINT(projectId))
-  return list.map(c => normalizeProjectChat(c, currentUserId))
+  const list = await apiFetchJson<unknown>(PROJECT_CHATS_ENDPOINT(projectId))
+  return parseList(projectChatSummarySchema, list, "project chat").map(c => normalizeProjectChat(c, currentUserId))
 }
 
 /** POST /projects/{project_id}/chats/{chat_id} */
 export async function addChatToProject(projectId: string, chatId: string): Promise<void> {
-  const res = await apiFetch(PROJECT_CHAT_LINK_ENDPOINT(projectId, chatId), { method: 'POST' })
-  if (!res.ok) {
-    throw new ApiError(res.status, 'add_chat_failed', `Failed to link chat to project (${res.status})`)
-  }
+  await apiFetchVoid(PROJECT_CHAT_LINK_ENDPOINT(projectId, chatId), { method: 'POST' })
+  trackBrowserEvent('chat_moved_to_project')
 }
 
 /** DELETE /projects/{project_id}/chats/{chat_id} */
 export async function removeChatFromProject(projectId: string, chatId: string): Promise<void> {
-  const res = await apiFetch(PROJECT_CHAT_LINK_ENDPOINT(projectId, chatId), { method: 'DELETE' })
-  if (!res.ok) {
-    throw new ApiError(res.status, 'remove_chat_failed', `Failed to unlink chat from project (${res.status})`)
-  }
+  await apiFetchVoid(PROJECT_CHAT_LINK_ENDPOINT(projectId, chatId), { method: 'DELETE' })
 }
 
 /** GET /projects/{project_id}/members */
 export async function fetchProjectMembers(projectId: string): Promise<ApiProjectMember[]> {
-  const list = await apiFetchJson<ProjectMemberResponse[]>(PROJECT_MEMBERS_ENDPOINT(projectId))
-  return list.map(normalizeProjectMember)
+  const list = await apiFetchJson<unknown>(PROJECT_MEMBERS_ENDPOINT(projectId))
+  return parseList(projectMemberSchema, list, "project member").map(normalizeProjectMember)
 }
 
 /** POST /projects/{project_id}/invite */
 export async function inviteProjectMember(projectId: string, auth0Id: string): Promise<void> {
-  const res = await apiFetch(PROJECT_INVITE_ENDPOINT(projectId), {
+  await apiFetchVoid(PROJECT_INVITE_ENDPOINT(projectId), {
     method: 'POST',
     body:   JSON.stringify({ auth0Id }),
   })
-  if (!res.ok) {
-    throw new ApiError(res.status, 'invite_failed', `Failed to invite member (${res.status})`)
-  }
+  trackBrowserEvent('project_member_added', { count: 1 })
 }
 
 /** POST /projects/{project_id}/invites */
 export async function inviteProjectMembers(projectId: string, auth0Ids: string[]): Promise<void> {
-  const res = await apiFetch(PROJECT_INVITES_ENDPOINT(projectId), {
+  await apiFetchVoid(PROJECT_INVITES_ENDPOINT(projectId), {
     method: 'POST',
     body:   JSON.stringify({ auth0Ids }),
   })
-  if (!res.ok) {
-    throw new ApiError(res.status, 'invite_failed', `Failed to invite members (${res.status})`)
-  }
+  trackBrowserEvent('project_member_added', { count: auth0Ids.length })
 }
 
 /** DELETE /projects/{project_id}/members/{auth0_id} */
 export async function removeProjectMemberFromProject(projectId: string, auth0Id: string): Promise<void> {
-  const res = await apiFetch(PROJECT_MEMBER_ENDPOINT(projectId, auth0Id), { method: 'DELETE' })
-  // Same missing-response.ok bug as deleteProjectApi (bug 16) — a rejected
-  // removal (e.g. the backend's 400 "The project owner cannot be removed")
-  // resolved silently. ProjectMembersPanel's handleRemove has a real catch
-  // block that shows an error toast, but it never fired: the member was
-  // optimistically dropped from local state and a false "removed" success
-  // toast shown, then reappeared the next time the panel reloaded.
-  if (!res.ok) {
-    let message = `Failed to remove member (${res.status})`
-    try {
-      const data = await res.clone().json() as { detail?: string }
-      if (typeof data.detail === 'string') message = data.detail
-    } catch {
-      // non-JSON error body - keep the default message
-    }
-    throw new ApiError(res.status, 'remove_member_failed', message)
-  }
+  await apiFetchVoid(PROJECT_MEMBER_ENDPOINT(projectId, auth0Id), { method: 'DELETE' })
 }

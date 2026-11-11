@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { Slot } from '@radix-ui/react-slot'
+import { AnimatePresence, motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -40,6 +41,11 @@ export interface TabItemProps
    * shifts on switch. `null` falls back to the label's natural width.
    */
   reservedLabelWidth?: number | null
+  /**
+   * A count shown after the label as a round badge (shadcnspace Tabs 08): dark on the active tab,
+   * muted otherwise, and it pops when the number changes. Omit it (or pass undefined) for no badge.
+   */
+  count?: number | string
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -57,6 +63,7 @@ export function TabItem(
     fluid = false,
     collapse = false,
     reservedLabelWidth = null,
+    count,
     className,
     'data-state': dataState,
     ...props
@@ -93,8 +100,9 @@ export function TabItem(
           alignItems:     'center',
           justifyContent: fluid ? 'center' : undefined,
           flex:           fluid ? '1 0 0' : undefined,
-          gap:            isSmall ? '2px' : '4px',
-          padding:        isSmall ? '7px' : '7px 8px',
+          // Tabs 08 spacing: 14px each side on medium (12 + the label's 2), 11 on small.
+          gap:            isSmall ? '4px' : '6px',
+          padding:        isSmall ? '7px 9px' : '7px 12px',
           borderRadius:   isSmall ? '8px' : '10px',
           // ── Background / shadow - suppressed when parent handles the pill ──
           backgroundColor: !disableSelectedStyle && isSelected ? 'var(--tab-item-bg-selected)' : 'transparent',
@@ -192,9 +200,55 @@ export function TabItem(
             </span>
           )
         )}
+
+        {/* Count badge */}
+        {count !== undefined && <TabCount count={count} active={isSelected} small={isSmall} />}
       </Comp>
     )
 }
 
 TabItem.displayName = 'TabItem'
-export default TabItem
+
+// Count badges, sized to the tab's text line so they never change the tab's height: 20px with 12px
+// numbers on medium tabs (22px line), 16px with 10px numbers on small tabs (16px line). Medium tabs use
+// Tabs 08's colours (dark on the active tab, muted otherwise); small tabs use Tabs 04 - With Count's
+// (dark on every tab). Both pop when the number changes and widen into a pill for 2+ digits. A count
+// of 0 shows nothing.
+function TabCount({ count, active, small }: { count: number | string; active: boolean; small: boolean }) {
+  const size = small ? 16 : 20
+  const dark = small || active
+  // A zero count shows no badge; it springs in once the count reaches 1 and out again at 0.
+  const shown = typeof count === 'number' ? count >= 1 : count.trim() !== '' && count.trim() !== '0'
+  return (
+    <AnimatePresence mode="popLayout" initial={false}>
+      {shown && <motion.span
+        key={count}
+        initial={{ opacity: 0, scale: 0.5, y: -6 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.5, y: 6 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+        style={{
+          display:            'inline-flex',
+          alignItems:         'center',
+          justifyContent:     'center',
+          flexShrink:         0,
+          minWidth:           size,
+          height:             size,
+          padding:            small ? '0 4px' : '0 5px',
+          boxSizing:          'border-box',
+          borderRadius:       999,
+          fontFamily:         'var(--font-body)',
+          fontSize:           small ? 10 : 12,
+          fontWeight:         small ? 500 : 600,
+          lineHeight:         1,
+          fontVariantNumeric: 'tabular-nums',
+          backgroundColor:    dark ? 'var(--neutral-900)' : 'var(--neutral-200)',
+          color:              dark ? 'var(--neutral-50)' : 'var(--neutral-600)',
+          transition:         'background-color 150ms, color 150ms',
+        }}
+      >
+        {count}
+      </motion.span>}
+    </AnimatePresence>
+  )
+}

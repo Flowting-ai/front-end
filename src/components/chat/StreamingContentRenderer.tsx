@@ -3,7 +3,7 @@
 import React from 'react'
 import { ContentRenderer } from '@/lib/content-renderer'
 import { toConnector } from '@/lib/connector'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 
 // ── Connector result detection ─────────────────────────────────────────────────
 // When the model outputs a raw connector result JSON blob as content,

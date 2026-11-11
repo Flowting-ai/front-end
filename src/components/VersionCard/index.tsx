@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { Slot } from '@radix-ui/react-slot'
 import { Badge } from '@/components/Badge'
 import type { BadgeColor } from '@/components/Badge'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────

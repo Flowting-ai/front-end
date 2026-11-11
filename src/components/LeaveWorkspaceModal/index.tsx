@@ -2,18 +2,20 @@
 
 import React, { useMemo, useState } from 'react'
 import { ArrowDownOneIcon, TickTwoIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/Dropdown'
 import { toast } from 'sonner'
 import { useOrg } from '@/context/org-context'
 import { useAuth } from '@/context/auth-context'
 import { leaveOrganization } from '@/lib/api/organization'
 import { CHAT_ROUTE } from '@/lib/routes'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 
-// Same hand-rolled overlay shape as ConfirmModal — this one needs its own
+// Same Radix dialog shell as ConfirmModal — this one needs its own
 // component (not ConfirmModal) because the last-admin case adds a required
 // successor picker step ConfirmModal has no slot for.
-const SHADOW_MODAL = '0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px rgba(130,122,116,0.1)'
+// The successor picker's menu portals to document.body — a click in it isn't a click outside the dialog.
+const isInDropdown = (t: EventTarget | null) => t instanceof Element && !!t.closest('[data-kds-dropdown-panel]')
 
 export interface LeaveWorkspaceModalProps {
   onClose: () => void
@@ -63,33 +65,26 @@ export function LeaveWorkspaceModal({ onClose }: LeaveWorkspaceModalProps) {
   }
 
   return (
-    // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
-    <div
-      onClick={() => { if (!submitting) onClose() }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 9998, background: 'var(--overlay-bg)',
-        backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-      }}
-    >
-      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          background: 'var(--neutral-white)', borderRadius: 16, padding: 24, width: 420, maxWidth: 'calc(100vw - 32px)',
-          boxShadow: SHADOW_MODAL, display: 'flex', flexDirection: 'column', gap: 20,
-        }}
+    <Dialog open onOpenChange={(next) => { if (!next && !submitting) onClose() }}>
+      {/* Esc closes unless leaving is in flight or the successor menu is open (Esc closes that menu first). */}
+      <DialogContent
+        hideClose
+        role="alertdialog"
+        aria-modal="true"
+        aria-busy={submitting}
+        onEscapeKeyDown={(e) => { if (submitting || successorMenuOpen) e.preventDefault() }}
+        onInteractOutside={(e) => { if (submitting || isInDropdown(e.target)) e.preventDefault() }}
+        style={{ width: 420, padding: 24, gap: 20 }}
       >
         <div>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
-            Leave workspace?
-          </p>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '8px 0 0' }}>
+          <DialogTitle>Leave workspace?</DialogTitle>
+          <DialogDescription style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '8px 0 0' }}>
             {membersLoading
               ? 'Checking workspace admins…'
               : isLastAdmin
                 ? "You're the only admin — pick someone to take over admin duties before you leave."
                 : "You'll lose access to every project and chat in this workspace."}
-          </p>
+          </DialogDescription>
         </div>
 
         {!membersLoading && isLastAdmin && (
@@ -151,8 +146,8 @@ export function LeaveWorkspaceModal({ onClose }: LeaveWorkspaceModalProps) {
             Leave workspace
           </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

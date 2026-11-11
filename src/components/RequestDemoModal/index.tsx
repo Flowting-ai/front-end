@@ -3,7 +3,8 @@
 import React, { useState } from 'react'
 import { z } from 'zod'
 import { CancelOneIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 
 // ── Style constants (mirrors org/plans page tokens) ──────────────────────────
@@ -149,45 +150,29 @@ export function RequestDemoModal({ onClose, onSubmit }: RequestDemoModalProps) {
   }
 
   return (
-    // Backdrop
-    <div
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      style={{
-        position:        'fixed',
-        inset:           0,
-        zIndex:          1000,
-        background:      'var(--overlay-bg)',
-        display:         'flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        padding:         24,
-      }}
-    >
-      {/* Sheet */}
-      <div
-        className="kaya-scrollbar"
-        style={{
-          background:  'var(--neutral-50)',
-          borderRadius: 20,
-          padding:      8,
-          boxShadow:    SHADOW_MODAL,
-          width:        '100%',
-          maxWidth:     738,
-          maxHeight:    'calc(100dvh - 48px)',
-          overflow:     'auto',
+    <Dialog open onOpenChange={open => { if (!open) onClose() }}>
+      <DialogContent
+        hideClose
+        aria-describedby={undefined}
+        // Mid-submit, Esc and outside clicks wait; portaled dropdown menus don't count as "outside".
+        onEscapeKeyDown={e => { if (submitting) e.preventDefault() }}
+        onInteractOutside={e => {
+          if (submitting || (e.target instanceof Element && e.target.closest('[data-kds-dropdown-panel]'))) e.preventDefault()
         }}
+        className="kaya-scrollbar p-2"
+        style={{ width: 738, maxHeight: 'calc(100dvh - 48px)', overflow: 'auto', background: 'var(--neutral-50)', borderRadius: 20, boxShadow: SHADOW_MODAL }}
       >
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
           {/* Header */}
           <div style={{ padding: '12px 12px 0', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-            <p style={{ flex: '1 0 0', fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
+            <DialogTitle style={undefined} className="m-0 flex-[1_0_0] font-[family-name:var(--font-title)] text-2xl font-normal leading-8 text-[var(--neutral-900)]">
               Request a demo
-            </p>
+            </DialogTitle>
             <button
               onClick={onClose}
               aria-label="Close"
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8, display: 'flex', color: 'var(--neutral-700)', flexShrink: 0 }}
+              className="flex shrink-0 cursor-pointer rounded-lg border-none bg-transparent p-1.5 text-[var(--neutral-700)]"
             >
               <CancelOneIcon size={20} />
             </button>
@@ -247,8 +232,8 @@ export function RequestDemoModal({ onClose, onSubmit }: RequestDemoModalProps) {
           </div>
 
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

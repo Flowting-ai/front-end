@@ -11,6 +11,7 @@ import { createUser, updateUser, updateOnboarding } from "@/lib/api/user";
 import { StepCanvas, StepHeader, StepFooter, FieldLabel, TextField } from "../../../_components/step-shell";
 import { InviteStateScreen } from "../_components/invite-ui";
 import { CHAT_ROUTE, AUTH_LOGIN_ROUTE, WELCOME_ROUTE } from "@/lib/routes";
+import { redirectToLogin } from "@/lib/auth/logout-state";
 
 // ── Screen 2 — "Create your profile" ─────────────────────────────────────────
 // Figma: node 66:4341 (same visual system as onboarding/profile/page.tsx's A1
@@ -245,7 +246,7 @@ export default function TeamInviteProfilePage() {
   // Ensure the backend user record exists so the PATCH calls succeed.
   useEffect(() => {
     if (!isHydrated) return;
-    if (!isAuthenticated) { window.location.href = AUTH_LOGIN_ROUTE; return; }
+    if (!isAuthenticated) { redirectToLogin(AUTH_LOGIN_ROUTE); return; }
     void createUser();
   }, [isHydrated, isAuthenticated]);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { AUTH_LOGIN_ROUTE, ONBOARDING_TEAM_WELCOME_ROUTE } from "@/lib/routes";
 import { SouvenirLogo } from "@/components/SouvenirLogo";
 
@@ -46,11 +46,17 @@ function SouvenirMark({ size = 32 }: { size?: number }) {
 
 const BG = "var(--neutral-50)";
 
+// Invite links carry the invite's UUID. Anything else cannot be an invite, so say so here rather
+// than welcoming someone and failing only after they sign up. (Whether a well-formed id still
+// exists needs a sign-in to check; /onboarding/team/<id> does that.)
+const INVITE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default function InviteLandingPage() {
   const { inviteId } = useParams<{ inviteId: string }>();
   const returnTo = ONBOARDING_TEAM_WELCOME_ROUTE(inviteId);
   const signUpUrl = `${AUTH_LOGIN_ROUTE}?screen_hint=signup&returnTo=${encodeURIComponent(returnTo)}`;
   const signInUrl = `${AUTH_LOGIN_ROUTE}?returnTo=${encodeURIComponent(returnTo)}`;
+  const valid = INVITE_ID.test(inviteId ?? "");
 
   return (
     <div
@@ -79,23 +85,25 @@ export default function InviteLandingPage() {
               margin: 0,
             }}
           >
-            You&apos;re on the list!
+            {valid ? <>You&apos;re on the list!</> : "Invite not found"}
           </h1>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
           <p style={{ margin: 0, fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 15, lineHeight: "22px", color: "var(--neutral-800,#3b3632)" }}>
-            You&apos;ve been invited to join a workspace on Souvenir.
+            {valid
+              ? <>You&apos;ve been invited to join a workspace on Souvenir.</>
+              : "This invite link is incomplete or wrong. Ask the person who invited you to send it again."}
           </p>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {valid && <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <Button size="sm" fluid onClick={() => { window.location.href = signUpUrl; }}>
               Sign up
             </Button>
             <Button variant="ghost" size="sm" fluid onClick={() => { window.location.href = signInUrl; }}>
               Already have an account? Sign in
             </Button>
-          </div>
+          </div>}
         </div>
       </div>
 

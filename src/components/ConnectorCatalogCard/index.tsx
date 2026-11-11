@@ -5,8 +5,7 @@ import React from 'react'
 import { PlusSignIcon } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
 import type { BadgeColor } from '@/components/Badge'
-import { Button } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { Button, IconButton } from '@/components/ui/button'
 import { highlightMatch } from '@/lib/highlightMatch'
 import { cn } from '@/lib/utils'
 
@@ -112,6 +111,17 @@ export function ConnectorCatalogCard({
   const isCompact = density === 'compact'
   const logoSize = isCompact ? 40 : 36
   const artworkSize = isCompact ? '100%' : 32
+  // The whole card is a pointer target for its action (open/connect). Keyboard
+  // users reach the same action through the card's own button, so the card is
+  // not a second tab stop wrapping a nested button.
+  const cardClickable = resolvedAction !== 'none' && !!onAction && !actionPending
+  const handleCardClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    props.onClick?.(event)
+    if (event.defaultPrevented || !cardClickable) return
+    // The button handles its own clicks; links/inputs inside keep theirs.
+    if ((event.target as HTMLElement).closest('button, a, input, [role="button"]')) return
+    onAction?.()
+  }
 
   return (
     <Tooltip content={title} disabled={!title} maxWidth={280}><div
@@ -130,11 +140,13 @@ export function ConnectorCatalogCard({
         color: 'var(--color-text-default)',
         fontFamily: 'var(--font-body)',
         opacity: state === 'unavailable' ? 0.5 : 1,
+        cursor: cardClickable ? 'pointer' : undefined,
         ...style,
       }}
       aria-busy={isLoading || undefined}
       aria-label={isLoading ? `Loading ${name}` : undefined}
       {...props}
+      onClick={handleCardClick}
     >
       {/* 36/40px tile holding 32px artwork — the tile is the touch target, the artwork is the mark. */}
       <div

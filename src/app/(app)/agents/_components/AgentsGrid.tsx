@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { type Persona } from '@/lib/api/personas'
 import { can, agentRole, type AgentViewer } from '@/lib/agent-permissions'
 import { patchableVersionId, type ModelUnavailableReason } from '@/lib/agent-model-health'
@@ -10,6 +10,33 @@ import { PersonaCard, PERSONA_CARD_HEIGHT, PERSONA_CARD_WIDTH } from '@/componen
 import { PersonaCardSkeleton } from '@/components/PersonaCard/PersonaCardSkeleton'
 
 const GRID_GAP = 16
+
+/**
+ * How many 314px cards fit across: 3 when there is room, fewer when the details panel (or a
+ * narrow window) squeezes the list. Measured from the page's scroll container so it reacts to the
+ * panel opening and closing; the grid, its loading skeleton and the page header all use it.
+ */
+export function useAgentGridColumns(scrollRef: React.RefObject<HTMLDivElement | null>): number {
+  // Only the column count is state: the panel's slide resizes the container every frame, and
+  // storing the width would re-render the whole page each frame. This changes once, at the threshold.
+  const [columns, setColumns] = useState(3)
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const measure = () => {
+      const width = el.clientWidth
+      if (width > 0) setColumns(Math.min(3, Math.max(1, Math.floor((width + GRID_GAP) / (PERSONA_CARD_WIDTH + GRID_GAP)))))
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [scrollRef])
+  return columns
+}
+
+/** The width `columns` cards and their gaps take up. */
+export const agentGridWidth = (columns: number) => columns * PERSONA_CARD_WIDTH + (columns - 1) * GRID_GAP
 
 export interface AgentsGridProps {
   /** The page's scroll container — measured for column count and used by the virtualizer. */
@@ -49,22 +76,7 @@ export function AgentsGrid({
   handleCopyAndEdit, handleUseTeamSharedInChat, handleUseInChat, handlePauseToggle,
   onOpenDetails, onEdit, onShare, onChangeModel, onDelete,
 }: AgentsGridProps) {
-  // How many 314px cards fit across: 3 when there is room, fewer when the details panel (or a
-  // narrow window) squeezes the list. Measured from the scroll container so it reacts to the panel
-  // opening and closing; the loading skeleton uses the same number.
-  const [gridWidth, setGridWidth] = useState(0)
-  useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    const measure = () => setGridWidth(el.clientWidth)
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [scrollRef])
-  const GRID_COLS = gridWidth === 0
-    ? 3
-    : Math.min(3, Math.max(1, Math.floor((gridWidth + GRID_GAP) / (PERSONA_CARD_WIDTH + GRID_GAP))))
+  const GRID_COLS = useAgentGridColumns(scrollRef)
   const gridRows = useMemo(() => {
     const rows: Persona[][] = []
     for (let i = 0; i < filtered.length; i += GRID_COLS) rows.push(filtered.slice(i, i + GRID_COLS))
@@ -259,9 +271,7 @@ export function AgentsGrid({
                       onLink:            isOwned ? () => onShare({ repoId: persona.id, name: persona.name }) : undefined,
                       // Same "hand off via sessionStorage, land on a fresh /chat
                       // with the agent pre-attached" pattern as agents/published's
-                      // "Use this Agent" — this used to push AGENT_CHAT_ROUTE,
-                      // landing on the agent's own dedicated chat thread instead
-                      // of attaching it to a new regular chat.
+                      // "Use this Agent". Agents have no chat page of their own.
                       onUseInChat:       () => handleUseInChat(persona, isOwned),
                       onResume:          isOwned ? () => handlePauseToggle(persona.id, persona.name, persona.isPaused) : undefined,
                       onMenuEdit:        isOwned ? () => onEdit(persona.id) : undefined,

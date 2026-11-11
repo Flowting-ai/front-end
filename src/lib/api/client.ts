@@ -3,9 +3,11 @@
 import { API_BASE_URL } from "@/lib/config";
 import { getAuthHeaders, getAuth0AccessToken, ensureFreshToken } from "@/lib/jwt-utils";
 import { getFriendlyHttpErrorText } from "@/lib/http-errors";
-import { CHAT_NOT_FOUND_MESSAGE } from "@/lib/model-error";
+import { CHAT_NOT_FOUND_MESSAGE, OUT_OF_CREDITS_MESSAGE } from "@/lib/model-error";
 import { clientGeoHeaders } from "@/lib/geo-headers";
 import { toast } from "sonner";
+import { trackBrowserEvent } from "@/lib/analytics/events";
+import { isLoggingOut, pendingForever } from "@/lib/auth/logout-state";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -16,7 +18,31 @@ type ApiFetchOptions = RequestInit & {
   skipJson?: boolean;
 };
 
+/** Optional detail an API failure can carry. New fields only: every existing `new ApiError(status, code, message, raw)` call keeps working. */
+export interface ApiErrorExtra {
+  /** FastAPI 422 validation errors: field path (without the "body"/"query" prefix) to message. */
+  fieldErrors?: Record<string, string>;
+  /** The server's request id (x-request-id header or body), for support. */
+  requestId?: string;
+  /** Whether repeating the same request could succeed (network blips, 408, 429, 5xx). Defaults from the status. */
+  retryable?: boolean;
+  /** Seconds from a Retry-After header (429, 503). */
+  retryAfterSeconds?: number;
+  /** The error body's `details`, e.g. `{requested: true}` on a locked file the viewer already asked for. */
+  details?: Record<string, unknown>;
+}
+
+export function isRetryableStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500;
+}
+
 export class ApiError extends Error {
+  public readonly fieldErrors?: Record<string, string>;
+  public readonly requestId?: string;
+  public readonly retryable: boolean;
+  public readonly retryAfterSeconds?: number;
+  public readonly details?: Record<string, unknown>;
+
   constructor(
     public readonly status: number,
     public readonly code: string,
@@ -24,10 +50,26 @@ export class ApiError extends Error {
     /** The original backend message before friendlyApiError mapping. Useful
      *  for surfacing verbatim 5xx detail (e.g. Composio upstream errors). */
     public readonly rawMessage?: string,
+    extra: ApiErrorExtra = {},
   ) {
     super(message);
     this.name = "ApiError";
+    this.fieldErrors = extra.fieldErrors;
+    this.requestId = extra.requestId;
+    this.retryable = extra.retryable ?? isRetryableStatus(status);
+    this.retryAfterSeconds = extra.retryAfterSeconds;
+    this.details = extra.details;
   }
+}
+
+/** FastAPI validation `detail[]` to { "field.path": "message" }, dropping the request-part prefix. First message per field wins. */
+export function fieldErrorsFromDetail(detail: Array<{ loc: (string | number)[]; msg: string }>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const item of detail) {
+    const path = item.loc.filter((part, index) => !(index === 0 && (part === "body" || part === "query" || part === "path"))).join(".");
+    if (path && !(path in out)) out[path] = item.msg;
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -54,7 +96,10 @@ export function friendlyApiError(raw: string, statusCode?: number): string {
     return "You don't have permission to perform this action.";
   }
   if (statusCode === 402 || lower.includes("request failed with status 402") || lower.includes("insufficient credits")) {
-    return "You've run out of credits. Visit Settings → Billing to buy a top-up and continue chatting.";
+    // Same sentence the chat stream shows for 402 (model-error.ts): one real page
+    // name ("Plans & Billing" — there is no "Settings → Billing" nav item), and it
+    // does not send a Teams/Enterprise member to a page only an admin can open.
+    return OUT_OF_CREDITS_MESSAGE;
   }
   if (statusCode === 429 || lower.includes("rate limit") || lower.includes("too many requests")) {
     return "You're sending requests too quickly. Please wait a moment and try again.";
@@ -173,6 +218,7 @@ async function doFetch(path: string, options: ApiFetchOptions): Promise<Response
  * themselves.
  */
 export function apiFetch(path: string, options: ApiFetchOptions = {}): Promise<Response> {
+  if (isLoggingOut()) return pendingForever();
   if (!isDedupable(options)) return apiFetchOnce(path, options);
   // Identical GETs issued while one is already in flight (several components
   // mounting at once, React StrictMode's double effects) share one request.
@@ -200,7 +246,8 @@ async function apiFetchOnce(path: string, options: ApiFetchOptions): Promise<Res
 
   const response = await doFetch(path, options);
 
-  if (response.status === 401 && typeof window !== "undefined") {
+  // During a logout every call is expected to 401: no refresh, no "Session expired".
+  if (response.status === 401 && typeof window !== "undefined" && !isLoggingOut()) {
     // Try to recover the session with a fresh token. A single failed refresh is
     // often transient — e.g. a token-rotation race when several calls refresh at
     // once right after a full-page redirect back from Stripe checkout (the
@@ -230,6 +277,8 @@ async function apiFetchOnce(path: string, options: ApiFetchOptions): Promise<Res
     const inOnboardingOrCheckout =
       currentPath.startsWith("/onboarding") ||
       currentPath.includes("/billing/confirmation");
+    // Counts every unrecoverable refresh, including the ones not acted on.
+    trackBrowserEvent("auth_refresh_failed", { suppressed: inOnboardingOrCheckout });
     if (inOnboardingOrCheckout) {
       console.warn("[apiFetch] 401 during onboarding/checkout — not signing out");
     } else {
@@ -248,6 +297,62 @@ async function apiFetchOnce(path: string, options: ApiFetchOptions): Promise<Res
 // ---------------------------------------------------------------------------
 
 /**
+ * Turns a non-2xx response into a typed ApiError, reading the backend's `code`/`message`/FastAPI
+ * `detail`, the request id and Retry-After. Shared by every JSON helper so the error model is one.
+ */
+export async function buildApiError(response: Response): Promise<ApiError> {
+  let code = "api_error";
+  let message = `Request failed with status ${response.status}`;
+  const extra: ApiErrorExtra = {};
+  const headerRequestId = response.headers.get("x-request-id");
+  if (headerRequestId) extra.requestId = headerRequestId;
+  const retryAfter = Number(response.headers.get("retry-after"));
+  if (Number.isFinite(retryAfter) && retryAfter > 0) extra.retryAfterSeconds = retryAfter;
+  try {
+    const body = (await response.clone().json()) as {
+      error?: string;
+      code?: string;
+      message?: string;
+      requestId?: string;
+      details?: unknown;
+      // The backend's own field errors (C-01): one entry per field
+      fieldErrors?: Array<{ field?: string; message?: string }>;
+      // FastAPI validation error format
+      detail?: Array<{ loc: (string | number)[]; msg: string; type: string }> | string;
+    };
+    code = body.code ?? code;
+    if (!extra.requestId && typeof body.requestId === "string") extra.requestId = body.requestId;
+    if (body.details && typeof body.details === "object" && !Array.isArray(body.details)) extra.details = body.details as Record<string, unknown>;
+    if (Array.isArray(body.fieldErrors)) {
+      const fields: Record<string, string> = {};
+      for (const entry of body.fieldErrors) if (entry?.field && entry.message) fields[entry.field] = entry.message;
+      if (Object.keys(fields).length > 0) extra.fieldErrors = fields;
+    }
+    if (body.message ?? body.error) {
+      message = body.message ?? body.error ?? message;
+    } else if (Array.isArray(body.detail) && body.detail.length > 0) {
+      // Surface FastAPI pydantic validation errors
+      message = body.detail.map(d => `${d.loc.join('.')}: ${d.msg}`).join('; ');
+      extra.fieldErrors = fieldErrorsFromDetail(body.detail);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[apiFetchJson] 422 validation detail:', body.detail);
+      }
+    } else if (typeof body.detail === 'string') {
+      message = body.detail;
+    }
+  } catch {
+    // non-JSON error body - keep defaults
+  }
+  return new ApiError(
+    response.status,
+    code,
+    friendlyApiError(message, response.status),
+    message,  // raw backend message preserved for callers that want verbatim
+    extra,
+  );
+}
+
+/**
  * apiFetch + automatic JSON parsing + typed ApiError on failure.
  *
  * Use this for all non-streaming calls. Streaming callers use apiFetch
@@ -259,39 +364,13 @@ export async function apiFetchJson<T>(
 ): Promise<T> {
   const response = await apiFetch(path, options);
 
-  if (!response.ok) {
-    let code = "api_error";
-    let message = `Request failed with status ${response.status}`;
-    try {
-      const body = (await response.clone().json()) as {
-        error?: string;
-        code?: string;
-        message?: string;
-        // FastAPI validation error format
-        detail?: Array<{ loc: (string | number)[]; msg: string; type: string }> | string;
-      };
-      code = body.code ?? code;
-      if (body.message ?? body.error) {
-        message = body.message ?? body.error ?? message;
-      } else if (Array.isArray(body.detail) && body.detail.length > 0) {
-        // Surface FastAPI pydantic validation errors
-        message = body.detail.map(d => `${d.loc.join('.')}: ${d.msg}`).join('; ');
-        if (process.env.NODE_ENV === 'development') {
-          console.error('[apiFetchJson] 422 validation detail:', body.detail);
-        }
-      } else if (typeof body.detail === 'string') {
-        message = body.detail;
-      }
-    } catch {
-      // non-JSON error body - keep defaults
-    }
-    throw new ApiError(
-      response.status,
-      code,
-      friendlyApiError(message, response.status),
-      message,  // raw backend message preserved for callers that want verbatim
-    );
-  }
+  if (!response.ok) throw await buildApiError(response);
 
   return response.json() as Promise<T>;
+}
+
+/** apiFetch for calls whose success response has no body (204, or a body the caller ignores). Throws a typed ApiError on non-2xx. */
+export async function apiFetchVoid(path: string, options: ApiFetchOptions = {}): Promise<void> {
+  const response = await apiFetch(path, options);
+  if (!response.ok) throw await buildApiError(response);
 }

@@ -2,12 +2,6 @@
 
 export type EnhanceMode = 'BUILD' | 'AUDIT'
 
-export interface PersonaContext {
-  knowledgeCount:    number
-  connectorsEnabled: string[]
-  sharing:           'private' | 'shared'
-}
-
 export interface QuestionOption {
   id:    string
   label: string
@@ -154,7 +148,6 @@ export function classifyMode(scores: PromptScores): EnhanceMode {
 export function selectQuestions(
   mode: EnhanceMode,
   scores: PromptScores,
-  _personaContext: PersonaContext,
 ): Question[] {
   if (mode === 'AUDIT') {
     return [QUESTION_BANK.constraints, QUESTION_BANK.examples]
@@ -248,9 +241,6 @@ export function diffLines(original: string, rewrite: string): DiffSegment[] {
   for (; j < b.length; j++) result.push({ type: 'added', text: b[j] })
   return result
 }
-
-/** @deprecated Kept for callers of the old name; the diff is line-based now. */
-export const diffSentences = diffLines
 
 /** Backend questions (`/persona/enhance-prompt`) → the card's `Question` shape, plus an "Other" row. */
 export function fromBackendQuestions(

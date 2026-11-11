@@ -18,7 +18,13 @@
   --sidebar-icon-muted: var(--sidebar-selected-text);
 }
 
-/* Search fields: pink ring while active (see components/SearchFieldRing). Same 2px --focus-ring outline
+/* Base font: Geist (--font-body) everywhere. Without this, anything that does not set its own
+   font-family (raw buttons, menus, labels) falls back to Tailwind's system-ui stack and looks like a different font. */
+body {
+  font-family: var(--font-body);
+}
+
+/* Search fields: blue ring while active (see components/SearchFieldRing). Same 2px --focus-ring outline
    InputField draws, so a field that already has it is unchanged. !important beats InputField's inline
    outline, and this works for search boxes built from a raw <input> too.
 
@@ -48,8 +54,11 @@
      rows don't shift width the moment a scrollbar appears/disappears. */
   scrollbar-gutter: stable;
 }
+/* Height styles horizontal scrollbars (wide tables, code) the same way; without it WebKit draws them
+   at its default size. */
 .kaya-scrollbar::-webkit-scrollbar {
   width: 3px;
+  height: 3px;
 }
 .kaya-scrollbar::-webkit-scrollbar-track {
   background: transparent;
@@ -80,6 +89,7 @@
 }
 .kaya-scrollbar-sm::-webkit-scrollbar {
   width: 2px;
+  height: 2px;
 }
 .kaya-scrollbar-sm::-webkit-scrollbar-track {
   background: transparent;
@@ -115,6 +125,48 @@
 }
 
 /* LoadingSpinner rotation */
+/* Tabs: the label that becomes active pops in (shadcnspace Tabs 08) */
+@keyframes kaya-tab-pop {
+  from { transform: scale(0.9); }
+  to   { transform: scale(1); }
+}
+.kaya-tab-pop[data-state="active"] { animation: kaya-tab-pop 320ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+@media (prefers-reduced-motion: reduce) { .kaya-tab-pop[data-state="active"] { animation: none; } }
+
+/* ── Buttons (shadcnspace button set; see components/ui/button.tsx) ── */
+/* 04 Heartbeat: a ring pulses out while the button gently swells */
+@keyframes kaya-btn-heartbeat {
+  0%   { box-shadow: 0 0 0 0 var(--heartbeat-color, var(--button-danger-bg)); scale: 1; }
+  50%  { box-shadow: 0 0 0 7px transparent; scale: 1.05; }
+  100% { box-shadow: 0 0 0 0 transparent; scale: 1; }
+}
+.kaya-btn-heartbeat { animation: kaya-btn-heartbeat 2s ease-in-out infinite; }
+/* 03 Shine Hover: a diagonal light sweeps across once per hover */
+/* A near-vertical band exactly the button's height (no vertical overflow), so on any shape it moves
+   straight left → right: it rests off the left edge (position 100%) and crosses to off the right (0%). */
+.kaya-btn-shine::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(100deg, transparent 40%, rgba(255, 255, 255, 0.5) 50%, transparent 60%) no-repeat;
+  background-size: 300% 100%; background-position: 100% 0; transition: background-position 0s linear;
+}
+.kaya-btn-shine:hover::before { background-position: 0% 0; transition-duration: 700ms; transition-timing-function: ease-out; }
+/* 02 Shiny Text: a highlight keeps sweeping across the icon */
+@keyframes kaya-btn-shiny { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+.kaya-btn-shiny::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(120deg, transparent 40%, rgba(255, 255, 255, 0.45) 50%, transparent 60%);
+  background-size: 200% 100%; animation: kaya-btn-shiny 3s linear infinite;
+}
+/* 23 Permissions: Reject's cross shakes, Approve's tick bounces, on hover (the button carries .kaya-btn-perm) */
+@keyframes kaya-btn-reject-icon { 0%,100% { rotate: 0deg; } 20%,60% { rotate: -10deg; } 40%,80% { rotate: 10deg; } }
+@keyframes kaya-btn-approve-icon { 0%,100% { translate: 0 0; } 25% { translate: 0 -4px; } 50% { translate: 0 2px; } 75% { translate: 0 -1px; } }
+.kaya-btn-perm:hover .kaya-btn-reject-icon { animation: kaya-btn-reject-icon 450ms ease-in-out; scale: 1.1; }
+.kaya-btn-perm:hover .kaya-btn-approve-icon { animation: kaya-btn-approve-icon 500ms ease-out; scale: 1.15; }
+@media (prefers-reduced-motion: reduce) {
+  .kaya-btn-heartbeat, .kaya-btn-shiny::after, .kaya-btn-perm:hover .kaya-btn-reject-icon, .kaya-btn-perm:hover .kaya-btn-approve-icon { animation: none; }
+  .kaya-btn-shine::before { display: none; }
+}
+
 @keyframes kaya-spin {
   to { transform: rotate(360deg); }
 }
@@ -854,7 +906,7 @@
 
 /* ── Field focus ring ─────────────────────────────────────────────────────────
    Boxed text fields (a bordered wrapper around a bare <input>/<textarea>) get the same
-   pink focus ring as InputField: a 2px outline offset 3px outside the box, drawn when
+   blue focus ring as InputField: a 2px outline offset 3px outside the box, drawn when
    anything inside it has focus. Outlines paint outside layout, so nothing shifts. A
    scroll container that clips it needs ~6px of padding around the field. */
 .kaya-field {
@@ -915,4 +967,49 @@
 /* The front flap is the second path: a dark grey fill so it hides the back panel's lines behind it. */
 :root[data-theme="dark"] .kds-folder-icon path:last-child {
   fill: #2B2B2B;
+}
+
+/* Every enabled button shows the pointer cursor. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+/* Every disabled control shows the not-allowed cursor (a busy one shows progress). Keep pointer
+   events on disabled controls, or the cursor never appears. */
+button:disabled,
+[role="button"][aria-disabled="true"],
+[role="radio"][aria-disabled="true"],
+[role="menuitem"][aria-disabled="true"],
+[role="tab"]:disabled,
+[role="tab"][aria-disabled="true"],
+a[aria-disabled="true"],
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+}
+button:disabled[aria-busy="true"] {
+  cursor: progress;
+}
+
+/* Dark mode: the page layout border (AppLayout content card, agent cards, panels) is a darkish grey.
+   Kept here as a literal, outside the generated theme.css, so regenerating the theme can never
+   drop it and leave the light-mode tan (#D3CEC8) showing. */
+:root[data-theme="dark"] {
+  --border-default: #383838;
+}
+
+
+/* Chat input model selector: a ghost button whose fill matches the chat input surface in dark mode
+   (the default ghost fill, --field-surface, is a lighter grey than --chat-input-bg). */
+:root[data-theme="dark"] .kaya-model-btn {
+  --field-surface: var(--chat-input-bg);
+}
+
+/* A search field that draws its own clear (×) button: hide the browser's native one so there aren't two. */
+.kaya-search-own-clear::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
 }

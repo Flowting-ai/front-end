@@ -6,7 +6,8 @@ import {
   STRIPE_TRIAL_ENDPOINT,
   STRIPE_USAGE_ENDPOINT,
 } from "@/lib/config";
-import { apiFetch } from "./client";
+import { apiFetch, buildApiError } from "./client";
+import { BillingActionError, errorReason } from "@/lib/billing/billing-actions";
 import {
   billingInfoSchema,
   parseInvoices,
@@ -90,9 +91,7 @@ export class Usage {
 
   static async fetch(): Promise<Usage> {
     const response = await apiFetch(STRIPE_USAGE_ENDPOINT, { method: "GET" });
-    if (!response.ok) {
-      throw new Error("Could not load usage");
-    }
+    if (!response.ok) throw await buildApiError(response);
     return Usage.parse(await response.json());
   }
 
@@ -190,7 +189,7 @@ export class Invoice {
 
   static async list(): Promise<Invoice[]> {
     const response = await apiFetch(STRIPE_INVOICES_ENDPOINT, { method: "GET" });
-    if (!response.ok) return [];
+    if (!response.ok) throw await buildApiError(response);
     return Invoice.parseAll(await response.json());
   }
 
@@ -307,11 +306,11 @@ export class Billing {
     return new Billing(billingInfoSchema.parse(root));
   }
 
-  /** Admin-only. Members and solo users get 403 — that is a null, not an error. */
+  /** Admin-only. Members and solo users get 403 — that is a null, not an error. Other failures throw ApiError. */
   static async fetch(): Promise<Billing | null> {
     const response = await apiFetch(STRIPE_BILLING_ENDPOINT, { method: "GET" });
     if (response.status === 403) return null;
-    if (!response.ok) return null;
+    if (!response.ok) throw await buildApiError(response);
     return Billing.parse(await response.json());
   }
 
@@ -322,7 +321,9 @@ export class Billing {
 
 export async function setupEnterprisePayment(): Promise<string> {
   const response = await apiFetch(`${STRIPE_BILLING_ENDPOINT.replace(/\/billing$/, "")}/enterprise/setup`, { method: "POST" });
-  if (!response.ok) throw new Error("Could not start payment setup");
-  const session: { checkout_url: string } = await response.json();
-  return session.checkout_url;
+  const body: unknown = await response.json().catch(() => null);
+  if (!response.ok) throw new BillingActionError(errorReason(body, "Could not start payment setup."), response.status);
+  const url = (body as { checkout_url?: unknown } | null)?.checkout_url;
+  if (typeof url !== "string" || !url) throw new BillingActionError("Payment setup returned no checkout link.", response.status);
+  return url;
 }

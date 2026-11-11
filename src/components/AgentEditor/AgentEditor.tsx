@@ -3,7 +3,7 @@
 import React from 'react'
 import { RedoIcon } from '@strange-huge/icons'
 import { EnhancePromptField } from '@/components/EnhancePromptField'
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/ui/button'
 import { Tooltip } from '@/components/Tooltip'
 import type { AIModel } from '@/types/ai-model'
 import { DESCRIPTION_MAX, NAME_MAX, type AgentDraft } from '@/lib/agent-draft'

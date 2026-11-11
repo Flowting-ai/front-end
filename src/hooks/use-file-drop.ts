@@ -46,8 +46,12 @@ export function useFileDrop({ onFiles, disabled }: UseFileDropOptions) {
     };
 
     const handleDrop = (e: DragEvent) => {
+      // A drop target inside the page (the attachment strip) that already took these files
+      // calls preventDefault first; handling them again would add them twice.
+      const alreadyHandled = e.defaultPrevented;
       e.preventDefault();
       reset();
+      if (alreadyHandled) return;
 
       if (e.dataTransfer?.files.length) {
         onFilesRef.current(Array.from(e.dataTransfer.files));

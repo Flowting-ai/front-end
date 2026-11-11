@@ -6,15 +6,15 @@ import { toast } from 'sonner'
 import { AnimatePresence, m } from 'framer-motion'
 import { SearchOneIcon, CancelCircleIcon, ArrowDownOneIcon, ArrowLeftOneIcon, UserAiIcon, PlusSignIcon } from '@strange-huge/icons'
 import { InputField } from '@/components/InputField'
-import { Button } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { Button, IconButton } from '@/components/ui/button'
 import { Tooltip } from '@/components/Tooltip'
 import { Dropdown } from '@/components/Dropdown'
 import { CompactAgentCard } from './CompactAgentCard'
 import { TemplateCardList } from '@/components/chat/TemplateCardList'
 import { AgentDetailsBody } from '@/components/AgentEditor/AgentDetailsSidebar'
 import { useSelectableChatPersonas } from '@/hooks/use-selectable-chat-personas'
-import { listShares } from '@/lib/api/persona-shares'
+import { useQuery } from '@tanstack/react-query'
+import { activeLinkRepoIds, personaSharesQuery } from '@/lib/share/share-queries'
 import { useProjectPanel } from '@/context/project-panel-context'
 import { AGENTS_ROUTE, AGENTS_NEW_ROUTE } from '@/lib/routes'
 import type { SelectedPersonaInfo } from '@/lib/chat-personas'
@@ -24,6 +24,7 @@ import { agentFixModelHref } from '@/lib/notifications/build'
 import { useDevNotificationsVersion } from '@/lib/notifications/dev'
 import { useActiveChatAgentId } from '@/lib/active-chat-agent-store'
 import { toastAgentDetailsOpened, toastAgentDetailsClosed } from '@/lib/agent-details-toast'
+import { agentChatBlocked } from '@/lib/agent-chat-gate'
 
 export const AGENT_SELECT_EVENT = 'agent:select'
 
@@ -32,6 +33,7 @@ export const AGENT_SELECT_EVENT = 'agent:select'
  *  shared AppLayout tree (via ProjectPanelSidebar), outside the page's own
  *  component tree. Same cross-tree pattern Pinboard uses for "pin:insert". */
 export function emitAgentSelect(persona: SelectedPersonaInfo) {
+  if (agentChatBlocked()) return
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent<SelectedPersonaInfo>(AGENT_SELECT_EVENT, { detail: persona }))
   }
@@ -112,21 +114,8 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
   // Active-link Super Link ids, keyed by persona repo id — shares are
   // repo-scoped (a later publish moves an existing link with it), same as
   // agents/page.tsx's activeShareRepoIds.
-  const [activeSuperlinkRepoIds, setActiveSuperlinkRepoIds] = useState<Set<string>>(new Set())
-
-  useEffect(() => {
-    let cancelled = false
-    listShares()
-      .then(shares => {
-        if (cancelled) return
-        const ids = shares
-          .filter(share => share.is_active && share.share_type === 'link')
-          .map(share => share.persona_repo_id)
-        setActiveSuperlinkRepoIds(new Set(ids))
-      })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [])
+  const sharesQ = useQuery(personaSharesQuery())
+  const activeSuperlinkRepoIds = useMemo(() => activeLinkRepoIds(sharesQ.data), [sharesQ.data])
 
   const isSuperlink = (p: SelectedPersonaInfo) => activeSuperlinkRepoIds.has(p.id)
 
@@ -475,7 +464,7 @@ export function AgentsPanelContent({ inProject = false }: { inProject?: boolean 
           extra space when the list is short). */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', paddingTop: 12, flexShrink: 0 }}>
         <Button
-          variant="ghost"
+          variant="default"
           size="md"
           fluid
           leftIcon={<PlusSignIcon size={16} />}

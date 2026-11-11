@@ -20,7 +20,7 @@ import Brain02Icon from "@hugeicons/core-free-icons/Brain02Icon";
 import Checkmark from "@hugeicons/core-free-icons/Tick01Icon";
 import { LineRenderer } from "@/lib/line-renderer";
 import { ActivitiesSection, PromptMarkerRow, type PromptMarkerState } from "./ActivityRow";
-import { ACTIVITY_VERB } from "@/lib/activity";
+import { activityVerb } from "@/lib/activity";
 import { springs } from "@/lib/springs";
 import {
   cleanReasoningHeading,
@@ -36,10 +36,6 @@ import type { ActivityItem, ModelSelectedMeta } from "@/types/chat";
 
 function isActivityRunning(activity: ActivityItem) {
   return activity.status === "start" || activity.status === "executing" || activity.status === "reading";
-}
-
-function activityVerb(activity: ActivityItem) {
-  return activity.label ?? ACTIVITY_VERB[activity.type] ?? "Processing";
 }
 
 // ── SouvenirMark - inline SVG logo ────────────────────────────────────────────
@@ -67,7 +63,7 @@ export function ModelLogo({
   const preventDrag = (e: React.DragEvent) => e.preventDefault();
   return (
     <span draggable={false} onDragStart={preventDrag} style={{ userSelect: "none", lineHeight: 0 }}>
-      <ModelIcon model={modelMeta?.company ?? modelMeta?.modelName ?? modelName} size={size} />
+      <ModelIcon model={modelMeta?.modelName ?? modelName ?? modelMeta?.company} size={size} />
     </span>
   );
 }
@@ -116,7 +112,7 @@ export function AnimatedLogo({
             animate={{ opacity: 1, scale: 1, rotate: 0, filter: "blur(0px)", transitionEnd: { filter: "none" } }}
             transition={{ type: "spring", stiffness: 220, damping: 11, mass: 0.9 }}
             style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <ModelIcon model={modelMeta?.company ?? modelMeta?.modelName ?? modelName} size={16} />
+            <ModelIcon model={modelMeta?.modelName ?? modelName ?? modelMeta?.company} size={16} />
           </m.div>
         )}
       </AnimatePresence>

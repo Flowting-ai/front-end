@@ -32,8 +32,21 @@ const MODEL_GENERIC_ERROR_MESSAGE =
   "Something went wrong generating a response. Please try again.";
 export const TURN_RUNNING_MESSAGE =
   "A response is still being generated in this chat. Wait for it to finish, or stop it, then send again.";
+export const FILE_NOT_READY_MESSAGE =
+  "An attached file is still being processed. Try again in a moment.";
 export const CHAT_NOT_FOUND_MESSAGE =
   "This chat no longer exists — it may have been deleted. Start a new chat to continue.";
+/**
+ * 402 from this product always means "no credit left to spend", never "you have
+ * no plan" — so the shared HTTP table's "Payment required / check your billing
+ * settings" is both wrong and a dead end: on a Teams or Enterprise workspace
+ * Plans & Billing is admin-only (it isn't in a member's settings nav, and the
+ * route redirects a non-admin to Usage — see settings/plans-and-billing/page.tsx).
+ * Worded for whoever hits it, since neither this module nor friendlyApiError
+ * knows the viewer's role.
+ */
+export const OUT_OF_CREDITS_MESSAGE =
+  "You're out of credits, so this couldn't run. Add credits under Settings → Plans & Billing, or ask your workspace admin if they manage billing.";
 
 // Keyed by HTTP status code. Add an entry here for any new status-specific
 // copy; anything not listed falls back to a generic message below instead
@@ -41,6 +54,7 @@ export const CHAT_NOT_FOUND_MESSAGE =
 const STATUS_MESSAGES: Record<number, string> = {
   400: "That request couldn't be processed. Try rephrasing your message.",
   401: "There's an authentication issue reaching this model right now. Please try again shortly.",
+  402: OUT_OF_CREDITS_MESSAGE,
   403: "Access to this model was denied. Try a different model or contact support.",
   404: MODEL_UNRESPONSIVE_MESSAGE, // e.g. "No endpoints found for <model>" — model discontinued/unavailable
   408: MODEL_UNRESPONSIVE_MESSAGE,
@@ -97,6 +111,11 @@ export function friendlyModelError(raw?: string | null, statusCode?: number): st
   // A second send while the chat's reply is still running: the 409 entry below would blame the model.
   if (lower.includes("turn_running")) {
     return TURN_RUNNING_MESSAGE;
+  }
+  // Also before the table: the chat endpoints answer 409 `not_ready` when an attached Library file is
+  // still being processed, which the 409 entry below would blame on the model.
+  if (lower.includes("not_ready") || lower.includes("isn't ready yet")) {
+    return FILE_NOT_READY_MESSAGE;
   }
 
   const code = statusCode ?? (() => {

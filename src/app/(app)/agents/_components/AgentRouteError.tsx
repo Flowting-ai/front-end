@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react'
 import Link from 'next/link'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { logger } from '@/lib/logger'
 import { AGENTS_ROUTE } from '@/lib/routes'
 

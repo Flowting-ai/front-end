@@ -5,7 +5,7 @@ import { AnimatePresence, m, useReducedMotion } from "framer-motion";
 import { PenOneIcon, DeleteTwoIcon } from "@strange-huge/icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Clock01Icon from "@hugeicons/core-free-icons/Clock01Icon";
-import { IconButton } from "@/components/IconButton";
+import { IconButton } from "@/components/ui/button";
 import { Tooltip } from "@/components/Tooltip";
 import { PINS_ENABLED } from "@/lib/feature-flags";
 import type { QueuedMessage } from "@/lib/message-queue";

@@ -77,9 +77,12 @@ export function routeToScreen(pathname: string): ScreenName | null {
       return segments[1] === "configure" ? "agent_configure" : null;
     case "agents":
       if (segments[1] === "new") return "agent_onboarding"; // new-agent purpose → editor flow
-      if (segments[2] === "chat") return "chat"; // /agents/[personaId]/chat
+      if (segments[2] === "chat") return "chat"; // /agents/[personaId]/chat: old links, redirects to /chat
       if (segments[2] === "edit") return "agent_configure"; // /agents/[personaId]/edit
       return "agent_library"; // /agents, /agents/templates, /agents/published
+    case "library":
+      // /library, /library/trash and /library/files/[id]: the file page is its own concept.
+      return segments[1] === "files" ? "library_file" : "library";
     case "projects":
       return "projects";
     case "project":
@@ -106,7 +109,28 @@ export function routeToScreen(pathname: string): ScreenName | null {
     case "share":
     case "chat-shares":
       return "share_view";
+    case "template":
+      return "template_view"; // /template/[uuid], a stored HTML page
     default:
       return null;
   }
+}
+
+export interface ScreenView {
+  screen: ScreenName
+  /** Which page inside a collapsed concept (`org_manage`): members, plans-and-billing, connectors… */
+  tab?: string
+}
+
+/**
+ * The screen plus, for the `org_manage` concept that several pages share, the
+ * page itself as `tab` — so Mixpanel can split them without renaming the concept.
+ */
+export function routeToScreenView(pathname: string): ScreenView | null {
+  const screen = routeToScreen(pathname)
+  if (!screen) return null
+  if (screen !== "org_manage") return { screen }
+  const segments = pathname.replace(/\/+$/, "").split("/").filter(Boolean)
+  const tab = segments[0] === "settings" || segments[0] === "org" ? segments[1] : segments[0]
+  return tab ? { screen, tab } : { screen }
 }

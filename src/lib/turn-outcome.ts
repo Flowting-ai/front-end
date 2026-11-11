@@ -9,6 +9,9 @@ import type { UIMessage } from '@/types/chat'
 
 /** The stream closed without a `done` or `error` event and nothing was shown. */
 export const INTERRUPTED_MESSAGE = 'Generation interrupted. Please retry.'
+/** The stream closed without a `done` or `error` event after text was shown: the backend always ends a
+ *  finished run with RUN_FINISHED, so the answer was cut off. The text stays; this sits under it. */
+export const CUT_OFF_MESSAGE = 'The response was cut off before it finished. Please retry.'
 /** The model opened a leading <think> block and the stream ended inside it. */
 export const INCOMPLETE_ANSWER_MESSAGE = 'The response ended before the answer was written. Please try again.'
 
@@ -59,6 +62,7 @@ export function resolveTurnOutcome({
   const notice =
     end === 'error' ? error ?? INTERRUPTED_MESSAGE
     : thinkingOpen ? INCOMPLETE_ANSWER_MESSAGE
+    : end === 'ended' && !nothingShown ? CUT_OFF_MESSAGE
     : !nothingShown ? undefined
     : end === 'done' ? EMPTY_TURN_MESSAGE
     : INTERRUPTED_MESSAGE

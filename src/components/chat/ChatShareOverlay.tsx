@@ -1,18 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { AnimatePresence, m } from 'framer-motion'
-import { toast } from 'sonner'
-import { ShareOneIcon, CancelOneIcon } from '@strange-huge/icons'
+import { ShareOneIcon, CancelOneIcon, SidebarRightIcon } from '@strange-huge/icons'
+import { usePathname } from 'next/navigation'
+import { useOpenChatPanel } from '@/hooks/use-open-chat-panel'
 import { Avatar } from '@/components/Avatar'
 import { Checkbox } from '@/components/Checkbox'
-import { Button } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { Button, IconButton } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/Tabs'
-import { copyChat } from '@/lib/api/chat'
-import { createChatShare, listChatShares, deleteChatShare, type ChatShare } from '@/lib/api/chat-shares'
-import { useOrg } from '@/context/org-context'
-import { useAuth } from '@/context/auth-context'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { trackFeature } from '@/lib/analytics/events'
+import { TopBarPortal } from '@/components/layout/TopBarSlots'
 
 // ── Top-right chat overlay: Share button + modal for chat owners, ──────────
 // "Create a copy" button for viewers of a chat shared/published to them. ────
@@ -51,203 +48,81 @@ type ChatShareTab = 'share' | 'manage'
 // internally past this via their own `overflowY: auto`.
 const MODAL_HEIGHT = 640
 
+import { useChatShare } from './use-chat-share'
+
 export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOpen }: ChatShareOverlayProps) {
-  const { orgId, members: orgMembers } = useOrg()
-  const { user } = useAuth()
+  const { orgId, chatShareOpen, setChatShareOpen, activeTab, setActiveTab, existingShares, sharesLoading, revokingShareId, selectedIds, creatingShare, copyingChat, handleOpenChatShare, toggleSelected, handleCreateShare, handleRevokeShare, handleCopyReadableChat, shareableMembers, memberRowStyle } = useChatShare({ chatId, canManage, onCopied, autoOpen })
 
-  const [chatShareOpen,       setChatShareOpen]       = useState(false)
-  const [activeTab,           setActiveTab]           = useState<ChatShareTab>('share')
-  const [existingShares,      setExistingShares]      = useState<ChatShare[]>([])
-  const [sharesLoading,       setSharesLoading]       = useState(false)
-  const [revokingShareId,     setRevokingShareId]     = useState<string | null>(null)
-  const [selectedIds,         setSelectedIds]         = useState<Set<string>>(new Set())
-  const [creatingShare,       setCreatingShare]       = useState(false)
-  const [copyingChat,         setCopyingChat]         = useState(false)
-
-  function handleOpenChatShare() {
-    setExistingShares([])
-    setSelectedIds(new Set())
-    setActiveTab('share')
-    setChatShareOpen(true)
-    if (chatId) {
-      setSharesLoading(true)
-      listChatShares(chatId)
-        .then(setExistingShares)
-        .catch((err) => toast.error(err instanceof Error ? err.message : 'Failed to load active shares'))
-        .finally(() => setSharesLoading(false))
-    }
-  }
-
-  function toggleSelected(userId: string) {
-    setSelectedIds(prev => {
-      const next = new Set(prev)
-      if (next.has(userId)) next.delete(userId)
-      else next.add(userId)
-      return next
-    })
-  }
-
-  // Fires one createChatShare per selected person — there's no batch-create
-  // endpoint. Partial failures keep only the failed ids selected (so Share
-  // can just be pressed again for those), and the toast reflects exactly
-  // what happened rather than a blanket success/failure.
-  async function handleCreateShare() {
-    if (!chatId || selectedIds.size === 0) return
-    setCreatingShare(true)
-    const ids = Array.from(selectedIds)
-    const settled = await Promise.allSettled(ids.map(id => createChatShare({ chatId, userId: id })))
-    const created: ChatShare[] = []
-    const failedIds = new Set<string>()
-    settled.forEach((result, i) => {
-      if (result.status === 'fulfilled') created.push(result.value)
-      else failedIds.add(ids[i]!)
-    })
-    if (created.length > 0) setExistingShares(prev => [...prev, ...created])
-    setSelectedIds(failedIds)
-    if (failedIds.size === 0) {
-      toast.success(created.length === 1 ? 'Chat shared' : `Chat shared with ${created.length} people`)
-    } else if (created.length > 0) {
-      toast.error(`Shared with ${created.length}, failed for ${failedIds.size}`)
-    } else {
-      toast.error('Failed to share chat')
-    }
-    setCreatingShare(false)
-  }
-
-  async function handleRevokeShare(shareId: string) {
-    setRevokingShareId(shareId)
-    try {
-      await deleteChatShare(shareId)
-      setExistingShares(prev => prev.filter(s => s.id !== shareId))
-      toast.success('Share revoked')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to revoke share')
-    } finally {
-      setRevokingShareId(null)
-    }
-  }
-
-  async function handleCopyReadableChat() {
-    if (!chatId || copyingChat) return
-    setCopyingChat(true)
-    try {
-      const copy = await copyChat(chatId)
-      onCopied(copy)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to copy chat')
-    } finally {
-      setCopyingChat(false)
-    }
-  }
-
-  useEffect(() => {
-    if (!chatShareOpen) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setChatShareOpen(false) }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [chatShareOpen])
-
-  // Deep-link open — fires once when autoOpen/chatId/canManage settle true
-  // (e.g. canManage flips true once the chat record finishes loading), not on
-  // every render, so dismissing the modal doesn't reopen it on an unrelated
-  // re-render of the parent. This effect's whole purpose is opening the
-  // modal in response to a one-time deep-link signal, not synchronizing
-  // render-derived state — hence the two rule exceptions below.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (autoOpen && chatId && canManage) handleOpenChatShare()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoOpen, chatId, canManage])
-
-  // Eligible for a new share: everyone in the org except me and anyone who
-  // already has an active share of this chat (they're already covered in
-  // the Active shares tab — offering them again here would just 400).
-  const alreadySharedIds = new Set(existingShares.map(s => s.targetUserId))
-  const shareableMembers = orgMembers.filter(
-    member => member.email.toLowerCase() !== user?.email?.toLowerCase() && !alreadySharedIds.has(member.id),
-  )
-
-  const memberRowStyle: React.CSSProperties = {
-    display:      'flex',
-    alignItems:   'center',
-    gap:          10,
-    width:        '100%',
-    padding:      '8px 10px',
-    borderRadius: 10,
-    boxSizing:    'border-box',
-  }
+  // The chat panel (Context · Browser · Agents) toggle shares this row, right of Share, so the two
+  // stay level with the chat-name chip on the left (TopBar).
+  const inProject = usePathname().startsWith('/project/')
+  const chatPanel = useOpenChatPanel({ inProject, agentsDisabled: readOnly })
 
   return (
     <>
-      {chatId && canManage && !chatShareOpen && !!orgId && (
-        <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 10 }}>
+      {/* Share and the side panel toggle, at the right end of the TopBar. */}
+      <TopBarPortal side="right">
+      {chatId && canManage && !!orgId && (
+        // With the side panel open the chat column is narrower, so Share drops to its icon.
+        chatPanel.isOpen ? (
+          <IconButton
+            variant="default"
+            size="sm"
+            aria-label="Share chat"
+            title="Share"
+            icon={<ShareOneIcon size={18} animated />}
+            onClick={() => { trackFeature('share_button', { surface: 'chat' }); handleOpenChatShare() }}
+          />
+        ) : (
           <Button
-            variant="outline"
+            variant="default"
             size="sm"
             aria-label="Share chat"
             leftIcon={<ShareOneIcon animated />}
-            onClick={handleOpenChatShare}
+            onClick={() => { trackFeature('share_button', { surface: 'chat' }); handleOpenChatShare() }}
           >
             Share
           </Button>
-        </div>
+        )
       )}
       {chatId && readOnly && (
-        <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 10 }}>
           <Button variant="secondary" size="sm" loading={copyingChat} onClick={() => void handleCopyReadableChat()}>
             Create a copy
           </Button>
-        </div>
       )}
+        <IconButton
+          variant="outline"
+          size="sm"
+          aria-label={chatPanel.isOpen ? 'Close side panel' : 'Open side panel'}
+          aria-expanded={chatPanel.isOpen}
+          title={chatPanel.isOpen ? 'Close side panel' : 'Context, browser and agents'}
+          active={chatPanel.isOpen}
+          icon={<SidebarRightIcon size={18} />}
+          onClick={chatPanel.toggle}
+        />
+      </TopBarPortal>
 
-      <AnimatePresence>
-        {chatShareOpen && (
-          <m.div
-            key="share-chat-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            onClick={() => setChatShareOpen(false)}
-            style={{
-              position:        'fixed',
-              inset:           0,
-              zIndex:          51,
-              display:         'flex',
-              alignItems:      'center',
-              justifyContent:  'center',
-              backgroundColor: 'color-mix(in srgb, var(--yellow-950) 40%, transparent)',
-              backdropFilter:  'blur(2px)',
-            }}
-          >
-            <m.div
-              key="share-chat-modal"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Share chat"
-              onClick={(e) => e.stopPropagation()}
-              initial={{ opacity: 0, scale: 0.96, y: 8 }}
-              animate={{ opacity: 1, scale: 1,    y: 0 }}
-              exit={{    opacity: 0, scale: 0.96, y: 8 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 32, mass: 0.8 }}
-              style={{
-                background:    'var(--modal-bg)',
-                borderRadius:  '20px',
-                boxShadow:     '0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)',
-                width:         '560px',
-                maxWidth:      'calc(100vw - 32px)',
-                height:        MODAL_HEIGHT,
-                maxHeight:     'calc(100vh - 64px)',
-                display:       'flex',
-                flexDirection: 'column',
-                overflow:      'hidden',
-              }}
-            >
+      <Dialog open={chatShareOpen} onOpenChange={setChatShareOpen}>
+        <DialogContent
+          hideClose
+          aria-describedby={undefined}          style={{
+            background:    'var(--modal-bg)',
+            borderRadius:  '20px',
+            boxShadow:     '0px 8px 32px 0px rgba(26,23,20,0.24), 0px 0px 0px 1px rgba(59,54,50,0.12)',
+            width:         '560px',
+            maxWidth:      'calc(100vw - 32px)',
+            height:        MODAL_HEIGHT,
+            maxHeight:     'calc(100vh - 64px)',
+            display:       'flex',
+            flexDirection: 'column',
+            overflow:      'hidden',
+          }}
+        >
               {/* Header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 20px 16px', flexShrink: 0 }}>
-                <p style={{ fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-regular)', fontSize: '24px', lineHeight: '32px', color: 'var(--legacy-1a1714)', margin: 0 }}>
+                <DialogTitle style={{ fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-regular)', fontSize: '24px', lineHeight: '32px', color: 'var(--legacy-1a1714)', margin: 0 }}>
                   Share chat
-                </p>
+                </DialogTitle>
                 <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" onClick={() => setChatShareOpen(false)} />
               </div>
 
@@ -261,21 +136,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                 <div style={{ padding: '16px 20px 0', flexShrink: 0 }}>
                   <TabsList size="small">
                     <TabsTrigger value="share">Share</TabsTrigger>
-                    <TabsTrigger value="manage">
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                        Active shares
-                        {existingShares.length > 0 && (
-                          <span style={{
-                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                            minWidth: 16, height: 16, borderRadius: 8, padding: '0 4px',
-                            backgroundColor: 'var(--blue-100)', fontFamily: 'var(--font-body)',
-                            fontWeight: 600, fontSize: 9, color: 'var(--blue-700)', flexShrink: 0,
-                          }}>
-                            {existingShares.length}
-                          </span>
-                        )}
-                      </span>
-                    </TabsTrigger>
+                    <TabsTrigger value="manage" count={existingShares.length > 0 ? existingShares.length : undefined}>Active shares</TabsTrigger>
                   </TabsList>
                 </div>
 
@@ -334,10 +195,15 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                         shareableMembers.map(member => {
                           const checked = selectedIds.has(member.id)
                           return (
-                            <button
+                            // A div, not a button: the Checkbox is itself a button, and a button inside a button both
+                            // breaks HTML and fired the toggle twice, so a click on the box changed nothing.
+                            <div
                               key={member.id}
-                              type="button"
+                              role="button"
+                              tabIndex={0}
+                              aria-pressed={checked}
                               onClick={() => toggleSelected(member.id)}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSelected(member.id) } }}
                               style={{
                                 ...memberRowStyle,
                                 border: 'none',
@@ -348,7 +214,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                                   : '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
                               }}
                             >
-                              <Checkbox checked={checked} onCheckedChange={() => toggleSelected(member.id)} />
+                              <Checkbox checked={checked} tabIndex={-1} onClick={(e) => e.stopPropagation()} onCheckedChange={() => toggleSelected(member.id)} />
                               <Avatar name={member.name || member.email} size="sm" />
                               <div style={{ minWidth: 0, flex: '1 0 0', textAlign: 'left' }}>
                                 <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, lineHeight: '18px', color: 'var(--neutral-800)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -360,7 +226,7 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                                   </p>
                                 )}
                               </div>
-                            </button>
+                            </div>
                           )
                         })
                       )}
@@ -465,10 +331,8 @@ export function ChatShareOverlay({ chatId, canManage, readOnly, onCopied, autoOp
                   </Button>
                 )}
               </div>
-            </m.div>
-          </m.div>
-        )}
-      </AnimatePresence>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

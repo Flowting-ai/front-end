@@ -252,6 +252,8 @@ export interface AnimatedPersonaAvatarProps {
   mood?:   AvatarMood
   /** What the eyes follow — see gaze.ts. Without it they look ahead. */
   gaze?:   GazeChannel
+  /** Draws a single resting frame and runs no animation loop — for grids of many small avatars. */
+  still?:  boolean
 }
 
 // Eyes — two vertical pills side by side.
@@ -275,6 +277,7 @@ export function AnimatedPersonaAvatar({
   backdrop  = 'var(--avatar-backdrop, var(--neutral-50))',
   mood: moodProp,
   gaze,
+  still     = false,
 }: AnimatedPersonaAvatarProps) {
   const reduceMotion = useReducedMotion() ?? false
   const uid  = useId().replace(/[^a-zA-Z0-9_-]/g, '')
@@ -392,8 +395,6 @@ export function AnimatedPersonaAvatar({
       return box.width > 0 ? [(client.x - box.left) * 64 / box.width, (client.y - box.top) * 64 / box.height] : null
     }
     const dropRect = () => { st.current.rect = null }
-    window.addEventListener('scroll', dropRect, true)
-    window.addEventListener('resize', dropRect)
 
     const blink = (now: number, s: typeof st.current) => {
       s.blinkAt = now
@@ -494,13 +495,16 @@ export function AnimatedPersonaAvatar({
     // First frame synchronously so the initial paint is never an unpositioned
     // interior; under reduced motion that static frame is all we draw.
     draw(last, 0)
+    if (still) return
+    window.addEventListener('scroll', dropRect, true)
+    window.addEventListener('resize', dropRect)
     if (!reduceMotion) raf = requestAnimationFrame(frame)
     return () => {
       cancelAnimationFrame(raf)
       window.removeEventListener('scroll', dropRect, true)
       window.removeEventListener('resize', dropRect)
     }
-  }, [interior, phase, reduceMotion, eyes, gaze, mood])
+  }, [interior, phase, reduceMotion, eyes, gaze, mood, still])
 
 
   const gradId = `pa-g-${uid}`

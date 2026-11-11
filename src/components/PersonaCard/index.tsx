@@ -5,7 +5,7 @@ import React, { useState } from 'react'
 import { m } from 'framer-motion'
 import { Slot } from '@radix-ui/react-slot'
 import { CopyOneIcon, BookmarkTwoIcon } from '@strange-huge/icons'
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useStoredAvatarChoice } from '@/lib/avatar-choice'
 import {
@@ -17,7 +17,15 @@ import {
   type AvatarTheme,
 } from './AnimatedPersonaAvatar'
 import { agentHeroStyle } from './AgentHero'
-import { HeroScene, sceneFor, type AnySceneKind } from './HeroScene'
+import dynamic from 'next/dynamic'
+import type { AnySceneKind } from './HeroScene'
+import type { SceneKind } from './scenes'
+
+// The animated scenery (scenes + job-scenes, ~1.5k lines of SVG builders) is decorative and
+// absolutely positioned, so it loads after first paint with no placeholder and no layout shift.
+const HeroScene = dynamic(() => import('./HeroScene').then((m) => m.HeroScene), { ssr: false })
+/** Mirrors HeroScene.sceneFor without pulling the scene modules into this chunk. */
+const sceneFor = (theme: AvatarTheme | null): SceneKind => theme ?? 'orbit'
 import { GazeChannel, type AvatarMood } from './gaze'
 import { AgentOrb } from './AgentOrb'
 import { Badge } from '@/components/Badge'

@@ -20,7 +20,7 @@ export function AgentPageShell({
       style={{
         background:     'var(--color-surface-container)',
         border:         '1px solid var(--border-default)',
-        borderRadius:   22,
+        borderRadius:   'var(--layout-radius)',
         flex:           '1 0 0',
         display:        'flex',
         flexDirection:  'column',

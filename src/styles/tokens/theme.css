@@ -250,8 +250,10 @@
   --blue-950-20: rgba(231, 244, 253, 0.2);
 
   /* ── Shadows: stay shadows (dark-neutral colours → black; hairline → soft ring) ── */
-  --shadow-button-secondary-outer: 0px 1.091px 1.091px 0px rgba(0, 0, 0, 0.1), 0px 1.455px 3.127px 0px rgba(0, 0, 0, 0.3), 0px 0px 0px 1px var(--neutral-100);
-  --shadow-button-secondary-outer-hover: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--neutral-300-40);
+  --shadow-button-primary-outer: 0px 1.091px 1.091px 0px rgba(0, 0, 0, 0.1), 0px 1.455px 3.127px 0px rgba(0, 0, 0, 0.3), inset 0px 0px 0px 1px var(--neutral-900), inset 0px -2.182px 0.364px 0px rgba(0, 0, 0, 0.45);
+  --shadow-button-primary-outer-hover: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), inset 0px 0px 0px 1px var(--neutral-700);
+  --shadow-button-secondary-outer: 0px 1.091px 1.091px 0px rgba(0, 0, 0, 0.1), 0px 1.455px 3.127px 0px rgba(0, 0, 0, 0.3), inset 0px 0px 0px 1px var(--neutral-100);
+  --shadow-button-secondary-outer-hover: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), inset 0px 0px 0px 1px var(--neutral-300-40);
   --shadow-button-default-outer: drop-shadow(0px 1.091px 1.091px rgba(0, 0, 0, 0.2)) drop-shadow(0px 1.455px 3.127px rgba(0, 0, 0, 0.6));
   --shadow-button-default-icon-emboss: drop-shadow(0px 0.364px 0.364px var(--neutral-white-25)) drop-shadow(0px -0.727px 0.364px rgba(0, 0, 0, 0.5));
   --shadow-button-default-icon-emboss-disabled: drop-shadow(0px 0.364px 0.364px var(--neutral-700)) drop-shadow(0px -0.727px 0.364px rgba(0, 0, 0, 0.5));
@@ -263,8 +265,6 @@
   --shadow-sidebar-item-shortcut: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--neutral-300-40);
   --shadow-sidebar-item-avatar: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.3), 0px 0px 0px 1px var(--neutral-300-40);
   --shadow-tooltip: 0px 1px 4px 0px rgba(0, 0, 0, 0.6), 0px 0px 0px 0.5px rgba(255, 255, 255, 0.12);
-  --shadow-tab-item-selected: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--neutral-100);
-  --shadow-tab-item-selected-inner: inset 0px -1px 0px 0px rgba(0, 0, 0, 0.2);
   --shadow-dropdown-item-danger-hover: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--red-600-51);
   --shadow-dropdown-item-hover: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px var(--neutral-300-40);
   --shadow-item-inner: inset 0px 1px 0px 0px var(--neutral-50-61), inset 0px -1px 0px 0px rgba(0, 0, 0, 0.1);
@@ -293,19 +293,26 @@
   --shadow-surface-card-selected: 0px 2px 2.8px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1.5px rgba(0, 0, 0, 0.3);
 
   /* ── Role overrides ─────────────────────────────────────────────────────── */
-  --color-interactive-primary-surface-from: #F92064;
-  --color-interactive-primary-surface-to: #C4124C;
+  --color-interactive-primary-surface-from: #EDEDED;
+  --color-interactive-primary-surface-to: #FFFFFF;
   --color-interactive-primary-surface-disabled-from: #4A4A4A;
   --color-interactive-primary-surface-disabled-to: #383838;
-  --color-interactive-primary-border: #FF6B97;
+  --color-interactive-primary-border: #FFFFFF;
   --color-interactive-primary-border-disabled: #5C5C5C;
-  --color-interactive-primary-text: #FFFFFF;
+  --color-interactive-primary-text: #1C1C1C;
+  --color-focus-ring: #F92064;
+  --switch-track-bg-on: #F92064;
+  --checkbox-bg-on: #F92064;
+  --effort-range-bg: #F92064;
+  --shadow-switch-track-on: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px rgba(249, 32, 100, 0.7), inset 0px 1px 0px 0px rgba(255, 255, 255, 0.25), inset 0px -1px 0px 0px rgba(0, 0, 0, 0.15);
+  --shadow-switch-thumb-on: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px rgba(249, 32, 100, 0.4), inset 0px -1px 0px 0px rgba(0, 0, 0, 0.15);
+  --shadow-checkbox-on: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px rgba(249, 32, 100, 0.7), inset 0px 1px 0px 0px rgba(255, 255, 255, 0.25), inset 0px -1px 0px 0px rgba(0, 0, 0, 0.15);
   --color-interactive-primary-text-disabled: #BDBDBD;
   --color-interactive-subtle-text-disabled: #A3A3A3;
   --button-outline-border-disabled: rgba(255, 255, 255, 0.32);
   --icon-button-outline-border-disabled: rgba(255, 255, 255, 0.32);
-  --button-default-hover-glow: linear-gradient(180deg, rgb(255,240,246) 0%, rgb(255,140,178) 12%, rgb(249,32,100) 24%, rgb(150,10,70) 36%, rgb(40,4,20) 48%, rgb(10,0,6) 56%, rgb(110,8,52) 68%, rgb(215,25,92) 80%, rgb(255,92,140) 90%, rgb(255,158,191) 100%);
-  --shadow-button-default-inner: inset 0px 1px 0.364px 0px rgba(255, 179, 204, 0.4), inset 0px -2.182px 0.364px 0px #FFB3CC, inset 0px -2.545px 4px -2.182px rgba(255, 179, 204, 0.5);
+  --button-default-hover-glow: linear-gradient(180deg, rgb(255,255,255) 0%, rgb(235,235,235) 50%, rgb(255,255,255) 100%);
+  --shadow-button-default-inner: inset 0px 1px 0.364px 0px rgba(255, 255, 255, 0.4), inset 0px -2.182px 0.364px 0px #FFFFFF;
   --shadow-popover: 0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 1px 2px 0px rgba(192, 192, 192, 0.12), 0px 0px 0px 1px var(--neutral-200);
   --shadow-floating-menu-outer: 0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 1px 2px 0px rgba(192, 192, 192, 0.12), 0px 0px 0px 1px var(--neutral-200);
   --shortcut-pill-bg: #383838;
@@ -339,16 +346,25 @@
   --icon-button-secondary-bg-hover: #3A3A3A;
   --tab-item-bg-selected: #404040;
   --tab-item-text-selected: #FFFFFF;
-  --shadow-button-secondary-outer: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.10);
-  --shadow-button-secondary-outer-hover: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.18);
+  --shadow-button-secondary-outer: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), inset 0px 0px 0px 1px rgba(255, 255, 255, 0.10);
+  --shadow-button-secondary-outer-hover: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), inset 0px 0px 0px 1px rgba(255, 255, 255, 0.18);
   --shadow-button-secondary-inner: inset 0px 1px 0px 0px rgba(255, 255, 255, 0.08);
   --shadow-button-secondary-inner-hover: inset 0px 1px 0px 0px rgba(255, 255, 255, 0.12);
   --shadow-tab-item-selected: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.14);
   --shadow-tab-item-selected-inner: inset 0px 1px 0px 0px rgba(255, 255, 255, 0.10);
+  --button-primary-bg-hover: rgba(0, 0, 0, 0.06);
+  --shadow-button-primary-outer: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), inset 0px 0px 0px 1px rgba(255, 255, 255, 0.10);
+  --shadow-button-primary-outer-hover: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), inset 0px 0px 0px 1px rgba(255, 255, 255, 0.18);
+  --button-approve-bg: rgba(74, 222, 128, 0.12);
+  --button-approve-bg-hover: rgba(74, 222, 128, 0.2);
+  --button-approve-text: #4ADE80;
+  --shadow-tab-pill: 0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.14);
   --field-surface: #2E2E2E;
   --text-field-bg: #2E2E2E;
   --text-field-ring: rgba(255, 255, 255, 0.22);
   --text-field-ring-hover: rgba(255, 255, 255, 0.34);
+  --floating-menu-item-active-bg: #FFFFFF;
+  --floating-menu-item-active-fg: #1C1C1C;
   --message-bubble-user-bg: #2A2A2A;
   --message-bubble-user-text: var(--neutral-900);
   --chat-input-bg: #262626;
@@ -415,12 +431,12 @@
   /* ── Pinned light values (none: secondary buttons and tabs are dark surfaces in dark) ── */
 
   /* ── Project overrides (set in scripts/generate-dark-theme.mjs) ───────────────── */
-  --chip-bg: #FFD9E5;
-  --chip-text: #4A0B20;
-  --chip-shadow: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.4), 0px 0px 0px 1px rgba(249, 32, 100, 0.45);
-  --chip-inner-shadow: inset 0px 1px 0px 0px rgba(255, 255, 255, 0.8), inset 0px -1px 0px 0px rgba(196, 18, 76, 0.18);
-  --chip-button-bg-hover: rgba(249, 32, 100, 0.14);
-  --chip-button-inner-shadow: inset 0px -1px 0px 0px rgba(255, 255, 255, 0.7), inset 0px 1px 0px 0px rgba(196, 18, 76, 0.22);
+  --chip-bg: #F5F2EF;
+  --chip-text: #1C1C1C;
+  --chip-shadow: 0px 1px 1.5px 0px rgba(0, 0, 0, 0.4), 0px 0px 0px 1px rgba(255, 255, 255, 0.45);
+  --chip-inner-shadow: inset 0px 1px 0px 0px rgba(255, 255, 255, 0.8), inset 0px -1px 0px 0px rgba(0, 0, 0, 0.12);
+  --chip-button-bg-hover: rgba(0, 0, 0, 0.08);
+  --chip-button-inner-shadow: inset 0px -1px 0px 0px rgba(255, 255, 255, 0.7), inset 0px 1px 0px 0px rgba(0, 0, 0, 0.14);
   --popover-bg: var(--color-surface-default);
   --modal-bg: var(--color-surface-default);
   --card-bg: var(--color-surface-default);
@@ -428,12 +444,16 @@
   --toast-bg: #1C1C1C;
   --surface-cream: #1C1C1C;
   --widget-bg-from: #0A0A0A;
-  --widget-bg-to: #F92064;
+  --widget-bg-to: #4A4A4A;
   --widget-accent: #FFFFFF;
   --widget-on-accent: #1C1C1C;
   --shadow-avatar-ring: 0px 2px 6px 0px rgba(255, 255, 255, 0.16);
   --shadow-card-deep: 0px 4px 12px -2px rgba(255, 255, 255, 0.14), 0px 1px 3px 0px rgba(255, 255, 255, 0.12);
   --shadow-agent-card: 0px 4px 12px -2px rgba(255, 255, 255, 0.14), 0px 1px 3px 0px rgba(255, 255, 255, 0.12), 0px 0px 0px 1px var(--neutral-100);
+  --button-danger-bg: rgb(220 38 38 / 0.6);
+  --button-danger-bg-hover: rgb(220 38 38 / 0.85);
+  --button-danger-text: #FFFFFF;
+  --button-danger-text-disabled: #FFFFFF;
   --shadow-agent-card-hover: 0px 6px 16px -3px rgba(255, 255, 255, 0.2), 0px 1px 3px 0px rgba(255, 255, 255, 0.14), 0px 0px 0px 1px var(--neutral-400);
 }
 
@@ -515,6 +535,7 @@
   --shadow-button-default-inner-disabled: inset 0px 1.455px 0.364px 0px var(--neutral-600), inset 0px -2.182px 0.364px 0px var(--neutral-800), inset 0px -2.545px 6.9px -2.182px var(--neutral-500);
   --sidebar-menu-item-muted: var(--color-text-muted);
   --tab-item-text-disabled: var(--neutral-500);
+  --border-default: var(--neutral-200);
   --shadow-agent-card-hover: 0px 6px 16px -3px rgba(255, 255, 255, 0.2), 0px 1px 3px 0px rgba(255, 255, 255, 0.14), 0px 0px 0px 1px var(--neutral-400);
   --shadow-popover: 0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 1px 2px 0px rgba(192, 192, 192, 0.12), 0px 0px 0px 1px var(--neutral-200);
   --dropdown-menu-item-muted: var(--sidebar-menu-item-muted);

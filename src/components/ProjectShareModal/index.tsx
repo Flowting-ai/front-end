@@ -1,11 +1,11 @@
 'use client'
 
 import React from 'react'
-import { createPortal } from 'react-dom'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog'
 import { CancelOneIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button, IconButton } from '@/components/ui/button'
 import { Badge } from '@/components/Badge'
-import { IconButton } from '@/components/IconButton'
 import { ProjectAddMembersList } from '@/components/ProjectAddMembersList'
 import type { ProjectVisibility } from '@/lib/api/projects'
 
@@ -17,10 +17,9 @@ export interface ProjectShareModalProps {
    *  opens this modal is itself hidden on personal projects. */
   projectVisibility: Exclude<ProjectVisibility, 'personal'>
   orgName:           string
-  onMemberAdded:     () => void
 }
 
-// Portaled to document.body: AppLayout's rounded content container sets
+// Built on the shared Radix dialog shell, which portals to document.body: AppLayout's rounded content container sets
 // `isolation: isolate` for its own z-index scoping, which traps any z-index
 // set on a descendant — including a `position: fixed` one — inside that
 // local stacking context. Since the Instructions/Team panel and Pinboard
@@ -40,61 +39,43 @@ export interface ProjectShareModalProps {
 // current members, to avoid duplicating that same list in two places.
 // Workspace projects have nothing to manage: access is automatic for the
 // whole workspace, per spec ("membership = whole workspace, not managed").
-export function ProjectShareModal({ open, onClose, projectId, projectVisibility, orgName, onMemberAdded }: ProjectShareModalProps) {
-  if (!open || typeof document === 'undefined') return null
-
-  return createPortal(
-    <>
-      <div
-        onClick={onClose}
-        style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--overlay-bg)', backdropFilter: 'blur(2px)', zIndex: 100 }}
-      />
-      <div
+export function ProjectShareModal({ open, onClose, projectId, projectVisibility, orgName }: ProjectShareModalProps) {
+  return (
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
+      <DialogContent
+        hideClose
+        aria-label="Sharing"
+        aria-describedby={undefined}
         style={{
-          position:        'fixed',
-          top:             '50%',
-          left:            '50%',
-          transform:       'translate(-50%, -50%)',
-          zIndex:          101,
           width:           600,
           maxWidth:        'calc(100vw - 48px)',
           maxHeight:       'calc(100vh - 96px)',
           // Only the Shared branch (real member list below) gets a real
           // `height`, not just a cap — `flex: 1 1 0` on that list region
           // has flex-basis 0 and only grows into space the container
-          // actually has; an auto-sized (maxHeight-only) column has none
-          // to give it, so it rendered at ~0px. The Workspace branch is a
-          // couple lines of static text with nothing to scroll, so it
-          // stays auto-height (no wasted white space below short text).
+          // actually has. The Workspace branch stays auto-height.
           height:          projectVisibility === 'shared' ? 600 : undefined,
-          overflow:        'hidden',
-          borderRadius:    16,
-          backgroundColor: 'var(--neutral-white)',
           boxShadow:       '0px 8px 32px rgba(18,12,8,0.18), 0px 0px 0px 1px var(--neutral-100)',
           padding:         24,
-          display:         'flex',
-          flexDirection:   'column',
           gap:             16,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div>
-            <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: '0 0 4px' }}>
-              Sharing
-            </p>
+            <DialogPrimitive.Title asChild>
+              <p style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: '0 0 4px' }}>
+                Sharing
+              </p>
+            </DialogPrimitive.Title>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-500)', margin: 0 }}>
               {projectVisibility === 'workspace'
                 ? `Everyone in ${orgName || 'your workspace'} can see this project.`
                 : 'Add teammates from your workspace to this project.'}
             </p>
           </div>
-          <IconButton
-            variant="ghost"
-            size="xs"
-            icon={<CancelOneIcon />}
-            aria-label="Close"
-            onClick={onClose}
-          />
+          <DialogClose asChild>
+            <IconButton variant="ghost" size="xs" icon={<CancelOneIcon />} aria-label="Close" />
+          </DialogClose>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
@@ -127,16 +108,15 @@ export function ProjectShareModal({ open, onClose, projectId, projectVisibility,
           // header/badge/footer leave (bounded by the card's own
           // maxHeight above) and scroll internally once it overflows.
           <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex' }}>
-            <ProjectAddMembersList projectId={projectId} onAdded={onMemberAdded} />
+            <ProjectAddMembersList projectId={projectId} />
           </div>
         )}
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 4 }}>
           <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
         </div>
-      </div>
-    </>,
-    document.body,
+      </DialogContent>
+    </Dialog>
   )
 }
 

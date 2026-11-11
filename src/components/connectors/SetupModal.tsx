@@ -1,7 +1,7 @@
 'use client'
 
 // Setup modal — S11 (reconnect) and S18 (connect), wired to the connect flow
-// in useConnectorSetupFlow. See docs v1.5/connectors-v1.5-migration-plan.md §4
+// in useConnectorSetupFlow. See docs-v1.5/connectors-v1.5-migration-plan.md §4
 // (edge cases).
 //
 // Anyone can connect an account and anyone can share their own: sharing is a
@@ -12,10 +12,13 @@
 // already in use is parked: it does not take over what automations already
 // run through, and switching is its own deliberate act on the Access tab.
 
-import React, { useState } from 'react'
+import React from 'react'
+import { z } from 'zod'
 import { toast } from 'sonner'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { useZodForm } from '@/hooks/use-zod-form'
 import { InputField } from '@/components/InputField'
 import { VisibilityRow } from '@/components/VisibilityRow'
 import {
@@ -31,30 +34,55 @@ import {
 import { useConnectorSetupFlow, type SetupFlowResult } from '@/lib/useConnectorSetupFlow'
 import { isZapierProviderConnector } from '@/lib/connectorProvider'
 
-const SPACE = { xs: 4, sm: 6, md: 8, lg: 12, xl: 16, xxl: 24 } as const
-const heading: React.CSSProperties = { margin: 0, color: 'var(--neutral-900)', fontFamily: 'var(--font-title)', fontSize: 22, fontWeight: 400, lineHeight: 1.2 }
-const muted: React.CSSProperties = { margin: 0, color: 'var(--color-text-muted)', fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)' }
-const panel: React.CSSProperties = { borderRadius: 12, background: 'var(--neutral-white)', boxShadow: '0 0 0 1px var(--neutral-100)' }
+const heading = 'm-0 font-[family-name:var(--font-title)] text-[22px] font-normal leading-[1.2] text-[var(--neutral-900)]'
+const muted = 'm-0 font-[family-name:var(--font-body)] text-[length:var(--font-size-body)] leading-[var(--line-height-body)] text-[var(--color-text-muted)]'
+const panel = 'rounded-xl bg-[var(--neutral-white)] shadow-[0_0_0_1px_var(--neutral-100)]'
 
-export function Modal({ label, onDismiss, children }: { label: string; onDismiss: () => void; children: React.ReactNode }) {
+export function Modal({ label, onDismiss, busy = false, dirty = false, children }: {
+  label: string
+  onDismiss: () => void
+  /** A save is running: Esc and outside clicks do nothing, so its result has somewhere to land. */
+  busy?: boolean
+  /** Something is typed: an outside click keeps it open (Esc, Cancel and the X still close). */
+  dirty?: boolean
+  children: React.ReactNode
+}) {
+  // Radix keeps Tab inside, wires Esc/outside click, and returns focus to the opener on close.
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'grid', placeItems: 'center', padding: SPACE.xxl, background: 'var(--overlay-bg)' }} onClick={onDismiss}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={label}
-        onClick={e => e.stopPropagation()}
-        style={{ ...panel, width: '100%', maxWidth: 520, maxHeight: 'min(760px, calc(100vh - 48px))', overflowY: 'auto', padding: SPACE.xxl, boxShadow: '0 24px 72px rgba(30,28,27,.28)' }}
+    <Dialog open onOpenChange={open => { if (!open) onDismiss() }}>
+      <DialogContent
+        hideClose
+        aria-describedby={undefined}
+        onEscapeKeyDown={event => { if (busy) event.preventDefault() }}
+        onInteractOutside={event => { if (busy || dirty) event.preventDefault() }}
+        className="p-6"
+        style={{ width: 520, maxHeight: 'min(760px, calc(100vh - 48px))', overflowY: 'auto', boxShadow: '0 24px 72px rgba(30,28,27,.28)', borderRadius: 12 }}
       >
+        <DialogTitle className="sr-only">{label}</DialogTitle>
         {children}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
 function credentialFields(catalog: ConnectorCatalog): ApiKeyField[] {
   if (catalog.apiKeyFields.length > 0) return catalog.apiKeyFields
   return catalog.authMode === 'api_key' ? [DEFAULT_API_KEY_FIELD] : []
+}
+
+type SetupFormValues = {
+  name: string
+  visibility: AccountVisibility
+  credentials: Record<string, string>
+}
+
+/** Account name must not repeat another of this app's accounts; required credentials must be filled when asked for. */
+function setupFormSchema(existingNames: string[], required: string[]) {
+  return z.object({
+    name: z.string().refine(v => !v.trim() || !existingNames.includes(v.trim().toLowerCase()), 'That account name is already used.'),
+    visibility: z.enum(['private', 'shared']),
+    credentials: z.record(z.string(), z.string()).refine(c => required.every(k => (c[k] ?? '').trim()), 'Fill in the required fields.'),
+  })
 }
 
 export function SetupModal({
@@ -69,11 +97,6 @@ export function SetupModal({
   onConnected: (result: SetupFlowResult) => void
 }) {
   const reconnecting = mode === 'reconnect'
-  const [name, setName] = useState(reconnecting ? (initialAccount?.nickname ?? '') : '')
-  const [visibility, setVisibility] = useState<AccountVisibility>(
-    reconnecting ? (initialAccount?.visibility ?? 'private') : 'private',
-  )
-  const [values, setValues] = useState<Record<string, string>>({})
 
   const flow = useConnectorSetupFlow({
     connectorSlug: catalog.slug,
@@ -82,101 +105,103 @@ export function SetupModal({
     onConnected,
   })
 
-  const existingNames = catalog.connections.filter(a => a.id !== initialAccount?.id).map(a => a.nickname.toLowerCase())
   // What this link may name and share is whatever row it produces, and only a
   // row it produces: authorizing a remote account already on file re-uses that
   // row, and the flow leaves it alone rather than PATCHing whichever account
   // was handy — which is what turned a connected private account shared.
   const addingToExisting = catalog.ownedConnections.length > 0
   const showAccountName = mode === 'connect'
-  const duplicate = showAccountName && Boolean(name.trim()) && existingNames.includes(name.trim().toLowerCase())
   const fields = credentialFields(catalog)
   const needsInitFields = catalog.needsOAuthInitFields
   const hosted = isZapierProviderConnector(catalog.provider)
   const needsForm = !hosted && (catalog.authMode === 'api_key' || needsInitFields)
-  const allRequiredFilled = fields.filter(f => f.required).every(f => (values[f.name] ?? '').trim())
   const busy = flow.state === 'opening' || flow.state === 'polling' || flow.state === 'submitting'
 
   // Re-authorizing writes to the row, and only its owner may do that. An
   // account shared with you is usable but not yours to reconnect.
-  const reconnectNotOwned = reconnecting && initialAccount != null && !initialAccount.owned
+  const reconnectNotOwned = reconnecting && initialAccount != null && !initialAccount.canManage
 
-  function submit() {
+  // Rebuilt per render on purpose: the React Compiler memoizes it on catalog/initialAccount.
+  const schema = setupFormSchema(
+    showAccountName ? catalog.connections.filter(a => a.id !== initialAccount?.id).map(a => a.nickname.toLowerCase()) : [],
+    needsForm && !reconnectNotOwned ? fields.filter(f => f.required).map(f => f.name) : [],
+  )
+  const form = useZodForm<SetupFormValues>(schema, {
+    name: reconnecting ? (initialAccount?.nickname ?? '') : '',
+    visibility: reconnecting ? (initialAccount?.visibility ?? 'private') : 'private',
+    credentials: {},
+  })
+  const { name, visibility, credentials } = form.values
+  const duplicate = Boolean(form.errors.name)
+  const typedCredentials = Object.values(credentials).some(v => v.trim() !== '')
+
+  const submit = form.handleSubmit(data => {
     if (reconnectNotOwned) {
       toast.error(`Only ${initialAccount?.nickname ?? 'the owner'}'s owner can reconnect it.`)
       return
     }
     flow.connect({
-      initData: needsForm ? values : undefined,
-      shared: !reconnecting && visibility === 'shared',
-      accountLabel: showAccountName ? name.trim() || undefined : undefined,
+      initData: needsForm ? data.credentials : undefined,
+      shared: !reconnecting && data.visibility === 'shared',
+      accountLabel: showAccountName ? data.name.trim() || undefined : undefined,
       knownAccountIds: catalog.connections.map(row => row.id),
       reconnecting: reconnecting ? initialAccount?.id : undefined,
     })
-  }
+  })
 
   return (
-    <Modal label={`${reconnecting ? 'Reconnect' : 'Connect'} ${catalog.name}`} onDismiss={cancel}>
-      <div style={{ display: 'flex', gap: SPACE.lg, marginBottom: SPACE.xl }}>
+    <Modal label={`${reconnecting ? 'Reconnect' : 'Connect'} ${catalog.name}`} onDismiss={cancel} busy={flow.state === 'submitting'} dirty={typedCredentials}>
+      <div className="mb-4 flex gap-3">
         <ConnectorGlyph slug={catalog.slug} name={catalog.name} logoUrl={catalog.logoUrl} size={36} />
         <div>
-          <h2 style={heading}>{reconnecting ? `Reconnect ${initialAccount?.nickname ?? catalog.name}` : `Connect ${catalog.name}`}</h2>
-          <p style={{ ...muted, marginTop: SPACE.xs }}>{reconnecting ? 'Authorize this account again.' : 'Choose access before authorizing.'}</p>
+          <h2 className={heading}>{reconnecting ? `Reconnect ${initialAccount?.nickname ?? catalog.name}` : `Connect ${catalog.name}`}</h2>
+          <p className={`${muted} mt-1`}>{reconnecting ? 'Authorize this account again.' : 'Choose access before authorizing.'}</p>
         </div>
       </div>
 
       {showAccountName && (
         <InputField
           label="Account name (optional)"
-          subtitle={duplicate ? 'That account name is already used.' : 'Shown wherever this account appears.'}
+          subtitle={form.errors.name ?? 'Shown wherever this account appears.'}
           error={duplicate}
           value={name}
-          onChange={setName}
+          onChange={v => form.setField('name', v)}
           placeholder="you@company.com"
           fluid
         />
       )}
 
       {!reconnecting && (
-        <fieldset style={{ border: 0, padding: 0, margin: `${SPACE.xxl}px 0 0` }}>
-          <legend style={{
-            display:      'block',
-            padding:      0,
-            marginBottom: SPACE.md,
-            fontFamily:   'var(--font-body)',
-            fontWeight:   'var(--font-weight-regular)',
-            fontSize:     'var(--font-size-body)',
-            lineHeight:   'var(--line-height-body)',
-            color:        'var(--text-field-label)',
-          }}>
+        <fieldset className="m-0 mt-6 border-0 p-0">
+          <legend className="mb-2 block p-0 font-[family-name:var(--font-body)] font-[var(--font-weight-regular)] text-[length:var(--font-size-body)] leading-[var(--line-height-body)] text-[var(--text-field-label)]">
             Who can use it?
           </legend>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.md }}>
+          <div className="flex flex-col gap-2">
             <VisibilityRow
               label="Shared"
               description="Everyone in this workspace can use it. You stay the only one who can change it."
               selected={visibility === 'shared'}
               locked={!orgId}
               lockedBadgeLabel="Needs a workspace"
-              onClick={() => orgId && setVisibility('shared')}
+              onClick={() => { if (orgId) form.setField('visibility', 'shared') }}
             />
             <VisibilityRow
               label="Private"
               description="Only you can use it."
               selected={visibility === 'private'}
-              onClick={() => setVisibility('private')}
+              onClick={() => form.setField('visibility', 'private')}
             />
           </div>
-          <p style={{ ...muted, marginTop: SPACE.sm }}>
+          <p className={`${muted} mt-1.5`}>
             {addingToExisting
               ? 'This account is added alongside the one you already use. Nothing switches over until you say so from its Access tab.'
-              : 'You can change this later from the account\u2019s Access tab.'}
+              : 'You can change this later from the account’s Access tab.'}
           </p>
         </fieldset>
       )}
 
       {needsForm && !reconnectNotOwned && (
-        <div style={{ marginTop: SPACE.xl, display: 'flex', flexDirection: 'column', gap: SPACE.md }}>
+        <div className="mt-4 flex flex-col gap-2">
           {fields.map(field => (
             <InputField
               key={field.name}
@@ -184,26 +209,36 @@ export function SetupModal({
               type={field.secret || isSecretField(field.name) ? 'password' : 'text'}
               label={field.label || fieldLabel(field.name)}
               placeholder={field.help || fieldPlaceholder(field.name)}
-              value={values[field.name] ?? ''}
-              onChange={value => setValues(prev => ({ ...prev, [field.name]: value }))}
+              value={credentials[field.name] ?? ''}
+              onChange={value => form.setField('credentials', { ...credentials, [field.name]: value })}
             />
           ))}
         </div>
       )}
 
       {reconnectNotOwned && (
-        <div style={{ ...panel, padding: SPACE.lg, marginTop: SPACE.xl, background: 'var(--yellow-50)' }}>
-          <p style={{ ...muted, margin: 0 }}>
+        <div className={`${panel} mt-4 bg-[var(--yellow-50)] p-3`}>
+          <p className={muted}>
             {initialAccount?.nickname} was shared with you. Only the person who connected it can re-authorize it.
           </p>
         </div>
       )}
 
-      {flow.state === 'error' && flow.errorMsg && (
-        <p style={{ margin: `${SPACE.md}px 0 0`, color: 'var(--red-600, #DC2626)', fontSize: 13 }}>{flow.errorMsg}</p>
+      {flow.state === 'error' && flow.error && (
+        <div role="alert" className="mt-2">
+          <p className="m-0 text-[13px] text-[var(--red-600,#DC2626)]">{flow.error.message}</p>
+          {flow.error.recovery === 'ask_admin' && (
+            <p className={`${muted} mt-1 text-[13px]`}>Ask a workspace admin to enable or set up {catalog.name}.</p>
+          )}
+        </div>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: SPACE.md, marginTop: SPACE.xxl }}>
+      {/* Announces the wait while the user is in the other window. */}
+      <p aria-live="polite" className="sr-only">
+        {flow.state === 'opening' ? `Opening ${catalog.name} sign-in` : flow.state === 'polling' ? `Waiting for you to authorize ${catalog.name} in the other window` : ''}
+      </p>
+
+      <div className="mt-6 flex justify-end gap-2">
         {/* Only disabled while actually writing to the account row
             (naming/sharing after a successful link) — opening the popup or
             waiting on auth is always safe to bail out of, and closing this
@@ -211,14 +246,14 @@ export function SetupModal({
             effect). Without this, a user who closes the external OAuth
             window has no way to escape "Waiting for auth…" except waiting
             out the poll's timeout. */}
-        <Button variant="ghost" size="sm" onClick={cancel} disabled={flow.state === 'submitting'}>Cancel</Button>
+        <Button variant="cancel" size="sm" onClick={cancel} disabled={flow.state === 'submitting'}>Cancel</Button>
         <Button
           size="sm"
-          disabled={duplicate || busy || reconnectNotOwned || (needsForm && !allRequiredFilled)}
+          disabled={busy || reconnectNotOwned || !form.isValid}
           loading={busy}
           onClick={submit}
         >
-          {flow.state === 'opening' ? 'Opening…' : flow.state === 'polling' ? 'Waiting for auth…' : reconnecting ? 'Reconnect' : `Continue to ${catalog.name}`}
+          {flow.state === 'opening' ? 'Opening…' : flow.state === 'polling' ? 'Waiting for auth…' : flow.state === 'error' && flow.error?.recovery !== 'ask_admin' ? 'Try again' : reconnecting ? 'Reconnect' : `Continue to ${catalog.name}`}
         </Button>
       </div>
     </Modal>

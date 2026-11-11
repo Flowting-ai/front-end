@@ -1,37 +1,62 @@
 'use client'
 
-import React, { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useOrg } from '@/context/org-context'
-import {
-  ConnectorCatalog,
-  ConnectorConnection,
-  deleteCustomApi,
-  getConnector,
-  listLinkedConnectors,
-  unlinkAccount,
-} from '@/lib/api/connectors'
+import type { ConnectorCatalog, ConnectorConnection } from '@/lib/api/connectors'
+import { useDeleteCustomApi, useUnlinkAccount } from '@/lib/connectors/connector-mutations'
+import { connectorDetailQuery, linkedConnectorsQuery, mergeCatalog } from '@/lib/connectors/connector-queries'
+import { queryKeys } from '@/lib/query-keys'
+import { ORG_CONNECTORS_ROUTE } from '@/lib/routes'
 import type { ConnectorPick } from '@/lib/api/recommendations'
 import type { SetupFlowResult } from '@/lib/useConnectorSetupFlow'
 import { ConnectionsView } from './ConnectionsView'
 import { ConnectorDetailView } from './ConnectorDetailView'
-import { AccountDetailView } from './AccountDetailView'
-import { SetupModal } from './SetupModal'
-import { CustomApiModal } from './CustomApiModal'
+import { AccountDetailView, CustomApiModal, RemoveModal, SetupModal } from './lazy'
 import { ConfirmModal } from '@/components/ConfirmModal'
-import { RemoveModal } from './RemoveModal'
+import { BlockErrorBoundary } from '@/components/chat/BlockErrorBoundary'
 
 type View = 'connections' | 'connector' | 'account'
 
 export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: string }) {
   const { orgId, orgReady } = useOrg()
   const searchParams = useSearchParams()
-  const [catalog, setCatalog] = useState<ConnectorCatalog[]>([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
+  const router = useRouter()
+  // Linked connectors are server state (React Query: refetched after every
+  // connector change via bustConnectorCatalogCache, and on window focus, which
+  // picks up a connect finished in another tab). `extras` holds catalogue rows
+  // the user browsed or picked that aren't linked yet.
+  const linkedQ = useQuery(linkedConnectorsQuery())
+  const [extras, setExtras] = useState<Map<string, ConnectorCatalog>>(() => new Map())
+  const catalog = useMemo(() => mergeCatalog(linkedQ.data, extras.values()), [linkedQ.data, extras])
+  const loading = linkedQ.isPending
   const [view, setView] = useState<View>('connections')
   const [activeSlug, setActiveSlug] = useState<string | null>(null)
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null)
+
+  // The open connector and account live in the URL (?open=<slug>&account=<id>), so browser Back and
+  // Forward move between the list, a connector and an account, and a reload stays put. (Not
+  // ?connector=, which means "set this one up" below.) URL changes, ours or the browser's, set the view.
+  const openParam = searchParams.get('open')
+  const accountParam = searchParams.get('account')
+  const urlView = `${openParam ?? ''}|${accountParam ?? ''}`
+  const [syncedUrlView, setSyncedUrlView] = useState<string | null>(null)
+  if (urlView !== syncedUrlView) {
+    setSyncedUrlView(urlView)
+    setActiveSlug(openParam)
+    setActiveAccountId(openParam ? accountParam : null)
+    setView(!openParam ? 'connections' : accountParam ? 'account' : 'connector')
+  }
+  const showView = useCallback((slug: string | null, accountId: string | null = null) => {
+    const params = new URLSearchParams()
+    if (slug) params.set('open', slug)
+    if (slug && accountId) params.set('account', accountId)
+    const qs = params.toString()
+    router.push(qs ? `${ORG_CONNECTORS_ROUTE}?${qs}` : ORG_CONNECTORS_ROUTE, { scroll: false })
+  }, [router])
 
   const [setupOpen, setSetupOpen] = useState(false)
   const [setupMode, setSetupMode] = useState<'connect' | 'reconnect'>('connect')
@@ -42,74 +67,58 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   const [deleteApiOpen, setDeleteApiOpen] = useState(false)
 
   const [removeAccount, setRemoveAccount] = useState<ConnectorConnection | null>(null)
-  const [removeBusy, setRemoveBusy] = useState(false)
+  const unlink = useUnlinkAccount()
+  const deleteApi = useDeleteCustomApi()
   // Slug whose catalog card is mid-fetch (selectFromCatalog's cold-start
   // path) — lets the card show a spinner instead of staying clickable while
   // it silently loads connector details before the setup modal opens.
   const [pendingSlug, setPendingSlug] = useState<string | null>(null)
 
+  useEffect(() => {
+    if (!linkedQ.isError) return
+    toast.error(linkedQ.error instanceof Error ? linkedQ.error.message : 'Failed to load connectors')
+  }, [linkedQ.isError, linkedQ.error, linkedQ.errorUpdatedAt])
+
   const mergeRows = useCallback((rows: ConnectorCatalog[]) => {
-    setCatalog(prev => {
-      const bySlug = new Map(prev.map(row => [row.slug, row]))
-      for (const row of rows) bySlug.set(row.slug, row)
-      return [...bySlug.values()]
+    setExtras(prev => {
+      const next = new Map(prev)
+      for (const row of rows) next.set(row.slug, row)
+      return next
     })
   }, [])
 
+  /** Refetch the linked list now (after a change); resolves to the fresh rows, or null on failure. */
   const fetchAll = useCallback(async () => {
-    setLoading(true)
     try {
-      const rows = await listLinkedConnectors()
-      setCatalog(rows)
+      const rows = await queryClient.fetchQuery({ ...linkedConnectorsQuery(), staleTime: 0 })
+      // Linked rows are the truth again; drop picked copies that may be stale.
+      setExtras(new Map())
       return rows
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to load connectors')
       return null
-    } finally {
-      setLoading(false)
     }
-  }, [])
+  }, [queryClient])
 
-  // Was `useEffect(() => { void fetchAll() }, [fetchAll])` — fetchAll's own
-  // first statement (setLoading(true)) runs synchronously the instant it's
-  // called, which is exactly what react-hooks/set-state-in-effect flags when
-  // that call sits directly in an effect body. `loading` already starts
-  // `true` via its own useState initializer, so the mount fetch never
-  // actually needed to set it again — only needs to flip it back to `false`
-  // once the request settles, which is the documented "setState inside an
-  // async callback" shape the rule allows. Inlined here (rather than reusing
-  // fetchAll, which the linter still flags by tracing into its body
-  // regardless of a boolean flag) so this effect's own reachable synchronous
-  // code contains no setState at all. fetchAll itself is unchanged and still
-  // used as-is by confirmRemove/handleSetupConnected below, both called from
-  // event handlers, not an effect, so the rule doesn't apply there.
-  useEffect(() => {
-    let cancelled = false
-    void listLinkedConnectors()
-      .then(rows => { if (!cancelled) setCatalog(rows) })
-      .catch((err: unknown) => {
-        if (!cancelled) toast.error(err instanceof Error ? err.message : 'Failed to load connectors')
-      })
-      .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [])
-
-  const active = catalog.find(row => row.slug === activeSlug) ?? null
+  // The list endpoint omits each connector's tools and each account's per-tool
+  // permissions (only GET /connectors/{slug} has them), so the open connector
+  // reads its detail query and falls back to the list row while it loads or
+  // if it fails.
+  // `deletingSlug` switches the detail query off while its API is being
+  // deleted: deleteCustomApi's cache bust would otherwise refetch it and 404.
+  const [deletingSlug, setDeletingSlug] = useState<string | null>(null)
+  const detailQ = useQuery({ ...connectorDetailQuery(activeSlug ?? ''), enabled: !!activeSlug && activeSlug !== deletingSlug })
+  const listRow = catalog.find(row => row.slug === activeSlug) ?? null
+  const active = (detailQ.data?.slug === activeSlug ? detailQ.data : undefined) ?? listRow
   const activeAccount = active?.connections.find(row => row.id === activeAccountId) ?? null
 
   const loadDetail = useCallback((slug: string) => {
-    void getConnector(slug)
-      .then(detail => {
-        setCatalog(prev => prev.map(row => row.slug === detail.slug ? detail : row))
-      })
-      .catch(() => { /* list row stays usable without tools */ })
-  }, [])
+    void queryClient.invalidateQueries({ queryKey: queryKeys.connectors.detail(slug) })
+  }, [queryClient])
 
   const openConnectorDetail = useCallback((row: ConnectorCatalog) => {
-    setActiveSlug(row.slug)
-    setView('connector')
-    loadDetail(row.slug)
-  }, [loadDetail])
+    showView(row.slug)
+  }, [showView])
 
   const selectFromCatalog = useCallback((row: ConnectorCatalog | ConnectorPick) => {
     if ('connections' in row) mergeRows([row])
@@ -119,7 +128,7 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
     }
     setActiveSlug(row.slug)
     setPendingSlug(row.slug)
-    void getConnector(row.slug)
+    void queryClient.fetchQuery(connectorDetailQuery(row.slug))
       .then(detail => {
         mergeRows([detail])
         setSetupMode('connect')
@@ -136,7 +145,7 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
         setSetupOpen(true)
       })
       .finally(() => setPendingSlug(null))
-  }, [mergeRows, openConnectorDetail])
+  }, [mergeRows, openConnectorDetail, queryClient])
 
   // `?connector=<slug>` is the link Slack's Connect buttons and the model open:
   // land on that app, not the whole catalog.
@@ -144,11 +153,11 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   useEffect(() => {
     if (!linkedSlug || !orgReady) return
     let cancelled = false
-    void getConnector(linkedSlug)
+    void queryClient.fetchQuery(connectorDetailQuery(linkedSlug))
       .then(entry => { if (!cancelled) selectFromCatalog(entry) })
       .catch(() => { if (!cancelled) toast.error(`Couldn't find the ${linkedSlug} connector`) })
     return () => { cancelled = true }
-  }, [linkedSlug, orgReady, selectFromCatalog])
+  }, [linkedSlug, orgReady, selectFromCatalog, queryClient])
 
   // The modal linked its token already: land on the new API's page.
   const customApiCreated = useCallback((entry: ConnectorCatalog) => {
@@ -167,9 +176,8 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   }, [])
 
   const openAccount = useCallback((account: ConnectorConnection) => {
-    setActiveAccountId(account.id)
-    setView('account')
-  }, [])
+    showView(activeSlug, account.id)
+  }, [showView, activeSlug])
 
   const reconnectAccount = useCallback((account: ConnectorConnection) => {
     setActiveAccountId(account.id)
@@ -179,15 +187,12 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   }, [])
 
   const backToConnections = useCallback(() => {
-    setView('connections')
-    setActiveSlug(null)
-    setActiveAccountId(null)
-  }, [])
+    showView(null)
+  }, [showView])
 
   const backToConnector = useCallback(() => {
-    setView('connector')
-    setActiveAccountId(null)
-  }, [])
+    showView(activeSlug)
+  }, [showView, activeSlug])
 
   // Was a useEffect bailing the view back to 'connections' whenever the
   // active connector/account it needs has gone missing (e.g. removed
@@ -199,7 +204,14 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   // `invalidView` false on the very next evaluation.
   const accountMissing = view !== 'connector' && !activeAccount
   const invalidView = !loading && view !== 'connections' && (!active || accountMissing)
-  if (invalidView) backToConnections()
+  // Shown at once (state), with the URL put right just after (an effect: no navigation during render).
+  if (invalidView) {
+    setView('connections')
+    setActiveSlug(null)
+    setActiveAccountId(null)
+  }
+  const urlNeedsReset = !loading && !!openParam && !invalidView && view === 'connections'
+  useEffect(() => { if (urlNeedsReset) router.replace(ORG_CONNECTORS_ROUTE, { scroll: false }) }, [urlNeedsReset, router])
 
   const handleSetupConnected = useCallback((_result: SetupFlowResult) => {
     setSetupOpen(false)
@@ -209,22 +221,29 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
   // Throws on failure so ConfirmModal stays open and toasts the error.
   const confirmDeleteApi = useCallback(async () => {
     if (!active) return
-    await deleteCustomApi(active.slug)
+    const slug = active.slug
+    setDeletingSlug(slug)
+    try {
+      await deleteApi.mutateAsync(slug)
+    } catch (err) {
+      setDeletingSlug(null)
+      throw err
+    }
     toast.success(`${active.name} deleted`)
     backToConnections()
+    setDeletingSlug(null)
     void fetchAll()
-  }, [active, backToConnections, fetchAll])
+  }, [active, backToConnections, fetchAll, deleteApi])
 
   const requestRemove = useCallback((account: ConnectorConnection) => {
     setRemoveAccount(account)
   }, [])
 
   const confirmRemove = useCallback(async () => {
-    if (!removeAccount || !removeAccount.owned) return
-    setRemoveBusy(true)
+    if (!removeAccount || !removeAccount.canManage) return
     try {
       // One id, whether it is shared or not — the row is the account.
-      await unlinkAccount(removeAccount.id)
+      await unlink.mutateAsync(removeAccount)
       toast.success(`${removeAccount.nickname} removed`)
       setRemoveAccount(null)
       const rows = await fetchAll()
@@ -234,10 +253,8 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
       else backToConnections()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove account')
-    } finally {
-      setRemoveBusy(false)
     }
-  }, [removeAccount, backToConnector, backToConnections, fetchAll])
+  }, [removeAccount, backToConnector, backToConnections, fetchAll, unlink])
 
   if (!orgReady) {
     return <ConnectionsView catalog={[]} loading select={() => {}} addCustomApi={() => {}} />
@@ -250,6 +267,8 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
       )}
 
       {(view === 'connector' || view === 'account') && active && (
+        // A render error in one panel shows a notice instead of blanking the page.
+        <BlockErrorBoundary label="connector" resetKey={active.slug}>
         <ConnectorDetailView
           catalog={active}
           back={backToConnections}
@@ -258,9 +277,11 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
           reconnectAccount={reconnectAccount}
           deleteApi={() => setDeleteApiOpen(true)}
         />
+        </BlockErrorBoundary>
       )}
 
       {view === 'account' && active && activeAccount && (
+        <BlockErrorBoundary label="account" resetKey={activeAccount.id}>
         <AccountDetailView
           account={activeAccount}
           catalog={active}
@@ -278,6 +299,7 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
           onChanged={() => loadDetail(active.slug)}
           onRemove={() => requestRemove(activeAccount)}
         />
+        </BlockErrorBoundary>
       )}
 
       {setupOpen && active && (
@@ -313,8 +335,8 @@ export function ConnectorsExperience({ initialSearch = '' }: { initialSearch?: s
         <RemoveModal
           account={removeAccount}
           catalog={active}
-          blockedReason={removeAccount.owned ? undefined : 'This account was shared with you. Only the person who connected it can remove it.'}
-          busy={removeBusy}
+          blockedReason={removeAccount.canManage ? undefined : 'This account was shared with you. Only the person who connected it can remove it.'}
+          busy={unlink.isPending}
           cancel={() => setRemoveAccount(null)}
           confirm={() => void confirmRemove()}
         />

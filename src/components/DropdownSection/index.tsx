@@ -4,6 +4,7 @@ import React from 'react'
 import { cn } from '@/lib/utils'
 import { DropdownMenuItem } from '@/components/DropdownMenuItem'
 import { Divider } from '@/components/Divider'
+import { useMenuMode, DropdownMenuGroup } from '@/components/ui/dropdown-menu'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -19,6 +20,18 @@ export interface DropdownSectionProps extends React.HTMLAttributes<HTMLDivElemen
    * @default false
    */
   divider?: boolean
+  /**
+   * Type scale of the section header. `'strong'` lifts it off the 11px caption
+   * step to 13px — for menus whose headers carry real information rather than
+   * just grouping (the composer's model menu). Default sections are unchanged.
+   */
+  labelEmphasis?: 'default' | 'strong'
+  /**
+   * Rendered at the end of the section header, after the label - the header
+   * row's own badge slot. For a short marker or, as the composer's model menu
+   * uses it, an info tooltip explaining what the section's rows do.
+   */
+  labelBadge?: React.ReactNode
   /** Stretch to full width instead of fixed 217px */
   fluid?: boolean
   /** `DropdownMenuItem` rows - should use `fluid` prop to fill available width */
@@ -28,10 +41,14 @@ export interface DropdownSectionProps extends React.HTMLAttributes<HTMLDivElemen
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function DropdownSection(
-  { label, divider = false, fluid = false, children, className, style, ref, ...props }: DropdownSectionProps & { ref?: React.Ref<HTMLDivElement> },
+  { label, divider = false, fluid = false, labelEmphasis = 'default', labelBadge, children, className, style, ref, ...props }: DropdownSectionProps & { ref?: React.Ref<HTMLDivElement> },
 ) {
+    // Inside a Radix menu the section is a Radix Group (role="group"); its
+    // header row renders as a Radix Label via DropdownMenuItem.
+    const inMenu = useMenuMode() === 'menu'
+    const Comp = inMenu ? DropdownMenuGroup : 'div'
     return (
-      <div
+      <Comp
         ref={ref}
         className={cn(className)}
         style={{
@@ -45,13 +62,13 @@ export function DropdownSection(
         {divider && <Divider decorative />}
 
         <div style={{ display: 'flex', flexDirection: 'column', padding: '8px', width: '100%' }}>
-          {label && <DropdownMenuItem variant="header" label={label} fluid />}
+          {label && <DropdownMenuItem variant="header" label={label} emphasis={labelEmphasis} headerBadge={labelBadge} fluid />}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%' }}>
             {children}
           </div>
         </div>
-      </div>
+      </Comp>
     )
 }
 

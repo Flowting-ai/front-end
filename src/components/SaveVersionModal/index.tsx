@@ -1,9 +1,9 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState } from 'react'
 import { CancelOneIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { Button, IconButton } from '@/components/ui/button'
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 
 // ── Available change tags ────────────────────────────────────────────────────
 
@@ -71,27 +71,15 @@ export function SaveVersionModal({
   onClose,
 }: SaveVersionModalProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set(initialTags))
-  // Track the serialised initial tags so the effect dependency is stable
+  // Re-seed the selection whenever the modal opens or its initial tags change
+  // (adjusting state during render, keyed on the serialised tags).
   const initialTagsKey = initialTags.slice().sort().join(',')
-
-  useEffect(() => {
+  const seedKey = open ? initialTagsKey : null
+  const [seededFor, setSeededFor] = useState<string | null>(seedKey)
+  if (seededFor !== seedKey) {
+    setSeededFor(seedKey)
     if (open) setSelected(new Set(initialTags))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialTagsKey])
-
-  // Escape key to close (without saving)
-  const onCloseRef = useRef(onClose)
-  useEffect(() => { onCloseRef.current = onClose }, [onClose])
-  useEffect(() => {
-    if (!open) return
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onCloseRef.current()
-    }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
-  }, [open])
-
-  if (!open) return null
+  }
 
   function toggleTag(tag: string) {
     setSelected(prev => {
@@ -103,74 +91,38 @@ export function SaveVersionModal({
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Tag this version"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      style={{
-        position:              'fixed',
-        inset:                 0,
-        backgroundColor:       'var(--overlay-bg)',
-        backdropFilter:        'blur(2px)',
-        WebkitBackdropFilter:  'blur(2px)',
-        display:               'flex',
-        alignItems:            'center',
-        justifyContent:        'center',
-        zIndex:                200,
-      }}
-    >
-      {/* Card */}
-      <div
-        onClick={e => e.stopPropagation()}
+    <Dialog open={open} onOpenChange={next => { if (!next) onClose() }}>
+      <DialogContent
+        hideClose
+        // While the save runs, Esc and outside clicks wait for it.
+        onEscapeKeyDown={e => { if (isSaving) e.preventDefault() }}
+        onInteractOutside={e => { if (isSaving) e.preventDefault() }}
+        className="flex flex-col gap-4 p-5"
         style={{
-          backgroundColor: 'var(--modal-bg)',
-          borderRadius:    18,
-          boxShadow:
-            '0px 12px 16px -4px var(--neutral-500-12), 0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
-          padding:         '20px',
           width:           400,
-          maxWidth:        'calc(100vw - 32px)',
-          display:         'flex',
-          flexDirection:   'column',
-          gap:             16,
+          background:      'var(--modal-bg)',
+          borderRadius:    18,
+          boxShadow:       '0px 12px 16px -4px var(--neutral-500-12), 0px 2px 2.8px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100)',
         }}
       >
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <p style={{
-              fontFamily:  'var(--font-title)',
-              fontWeight:  400,
-              fontSize:    20,
-              lineHeight:  '28px',
-              color:       'var(--legacy-1a1916)',
-              margin:      0,
-            }}>
+        <div className="flex items-start justify-between">
+          <div className="flex flex-col gap-0.5">
+            {/* style={undefined} drops the shell's default title/description type so these classes apply. */}
+            <DialogTitle style={undefined} className="m-0 font-[family-name:var(--font-title)] text-xl font-normal leading-7 text-[var(--legacy-1a1916)]">
               What changed?
-            </p>
-            <p style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 400,
-              fontSize:   14,
-              lineHeight: '22px',
-              color:      'var(--neutral-500)',
-              margin:     0,
-            }}>
+            </DialogTitle>
+            <DialogDescription style={undefined} className="m-0 font-[family-name:var(--font-body)] text-sm font-normal leading-[22px] text-[var(--neutral-500)]">
               Tag this version to track what you updated.
-            </p>
+            </DialogDescription>
           </div>
-          <IconButton
-            variant="outline"
-            size="md"
-            icon={<CancelOneIcon size={20} />}
-            aria-label="Cancel"
-            onClick={onClose}
-          />
+          <DialogClose asChild>
+            <IconButton variant="outline" size="md" icon={<CancelOneIcon size={20} />} aria-label="Cancel" />
+          </DialogClose>
         </div>
 
         {/* Tag chips */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        <div className="flex flex-wrap gap-2">
           {ALL_CHANGE_TAGS.map(tag => (
             <TagChip
               key={tag}
@@ -182,33 +134,15 @@ export function SaveVersionModal({
         </div>
 
         {/* Footer */}
-        <div style={{
-          display:        'flex',
-          alignItems:     'center',
-          justifyContent: 'flex-end',
-          gap:            8,
-          paddingTop:     4,
-          borderTop:      '1px solid var(--neutral-100)',
-        }}>
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={isSaving}
-            onClick={() => onSave([])}
-          >
+        <div className="flex items-center justify-end gap-2 border-t border-[var(--neutral-100)] pt-1">
+          <Button variant="ghost" size="sm" disabled={isSaving} onClick={() => onSave([])}>
             Skip
           </Button>
-          <Button
-            variant="default"
-            size="sm"
-            loading={isSaving}
-            disabled={isSaving}
-            onClick={() => onSave([...selected])}
-          >
+          <Button variant="save" size="sm" loading={isSaving} disabled={isSaving} onClick={() => onSave([...selected])}>
             {isSaving ? 'Saving…' : 'Save version'}
           </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -12,6 +12,8 @@ import {
 } from "@/lib/config";
 import { parsePlanTierFromApi } from "@/lib/plan-tier";
 import { apiFetch } from "./client";
+import { BillingActionError, errorReason } from "@/lib/billing/billing-actions";
+import { unwrapUserMe } from "./user-me-schema";
 import { Billing, Usage, type CheckoutPlan } from "./billing";
 
 export type UserPlanType = "starter" | "pro" | "power";
@@ -172,13 +174,7 @@ export interface UserProfile {
 }
 
 function normalizeUserProfile(raw: unknown): UserProfile {
-  const payload = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  const root = (
-    (payload.data ?? payload.user ?? payload) &&
-    typeof (payload.data ?? payload.user ?? payload) === "object"
-      ? (payload.data ?? payload.user ?? payload)
-      : payload
-  ) as Record<string, unknown>;
+  const root = unwrapUserMe(raw);
 
   const paymentMethods = Array.isArray(root.payment_methods)
     ? (root.payment_methods as UserPaymentMethod[])
@@ -397,6 +393,22 @@ export async function updateUser(payload: {
   return normalizeUserProfile(json);
 }
 
+/**
+ * `updateUser` for callers that must know the save happened (Settings →
+ * Account): rejects instead of resolving null on a failed PATCH, so a toast
+ * cannot claim success after a 4xx/5xx.
+ */
+export async function saveUser(payload: Parameters<typeof updateUser>[0]): Promise<UserProfile> {
+  const saved = await updateUser(payload);
+  if (!saved) throw new Error("Profile was not saved");
+  return saved;
+}
+
+/** Saves the response style; rejects when the PATCH fails (see `saveUser`). */
+export async function saveTone(tone: string): Promise<void> {
+  if (!(await updateOnboarding({ ai_tone: tone }))) throw new Error("Style was not saved");
+}
+
 // Map frontend display roles → backend-accepted enum values.
 // Backend valid values: founder | student | creator | engineer | marketing_sales |
 //   researcher | enterprise | other
@@ -545,7 +557,7 @@ export async function createCheckoutSession(
   if (!response.ok || !("checkout_url" in data)) {
     const detail = "detail" in data ? data.detail : undefined;
     const error = "error" in data ? data.error : undefined;
-    throw new Error(detail || error || "Failed to create checkout session.");
+    throw new BillingActionError(detail || error || "Failed to create checkout session.", response.status);
   }
 
   return data;
@@ -563,25 +575,19 @@ export async function updatePlan(planId: CheckoutPlan, billingInterval: "monthly
   if (!response.ok) {
     const detail = "detail" in data ? data.detail : undefined;
     const error = "error" in data ? data.error : undefined;
-    throw new Error(detail || error || "Failed to update plan.");
+    throw new BillingActionError(detail || error || "Failed to update plan.", response.status);
   }
   return data as SubscriptionActionResponse;
 }
 
-/**
- * Billing snapshot — payment method, invoices, upcoming invoice, and cancel
- * state. Lives on the backend (proxied), separate from `/users/me`.
- */
-export async function fetchBilling(): Promise<Billing | null> {
-  return Billing.fetch();
-}
-
-/** Create a Stripe hosted billing-portal session and return its URL. */
-export async function openBillingPortal(): Promise<string | null> {
+/** Create a Stripe hosted billing-portal session and return its URL. Throws `BillingActionError` with the reason. */
+export async function openBillingPortal(): Promise<string> {
   const response = await apiFetch(STRIPE_PORTAL_ENDPOINT, { method: "POST" });
-  if (!response.ok) return null;
-  const data = (await response.json()) as { portal_url?: string } | Record<string, unknown>;
-  return typeof data.portal_url === "string" ? data.portal_url : null;
+  const data: unknown = await response.json().catch(() => null);
+  if (!response.ok) throw new BillingActionError(errorReason(data, "Could not open billing portal."), response.status);
+  const url = (data as { portal_url?: unknown } | null)?.portal_url;
+  if (typeof url !== "string" || !url) throw new BillingActionError("Billing portal returned no link.", response.status);
+  return url;
 }
 
 export interface SubscriptionActionResponse {
@@ -601,7 +607,7 @@ export async function cancelSubscription(): Promise<SubscriptionActionResponse> 
   }
 
   if (!response.ok || !data.status) {
-    throw new Error(data.error || "Failed to cancel subscription.");
+    throw new BillingActionError(data.error || "Failed to cancel subscription.", response.status);
   }
 
   return { status: data.status, plan_type: data.plan_type, current_period_end: data.current_period_end };
@@ -618,7 +624,7 @@ export async function resumeSubscription(): Promise<SubscriptionActionResponse> 
   }
 
   if (!response.ok || !data.status) {
-    throw new Error(data.error || "Failed to resume subscription.");
+    throw new BillingActionError(data.error || "Failed to resume subscription.", response.status);
   }
 
   return { status: data.status, plan_type: data.plan_type, current_period_end: data.current_period_end };

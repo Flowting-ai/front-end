@@ -195,6 +195,12 @@ function normalizeMathDelimiters(content: string, stash: string[]): string {
     stash.push(`\n$$\n${math.trim()}\n$$\n`)
     return token(stash.length - 1)
   });
+  // A line that is exactly $$...$$ → display math too. remark-math reads a one-line $$...$$ as
+  // inline math, but models write display equations that way on their own line.
+  out = out.replace(/^[ \t]*\$\$([^\n$]+?)\$\$[ \t]*$/gm, (_, math) => {
+    stash.push(`\n$$\n${math.trim()}\n$$\n`)
+    return token(stash.length - 1)
+  });
   // \(...\) → inline math
   out = out.replace(/\\\(([\s\S]*?)\\\)/g, (_, math) => {
     stash.push(`$${math}$`)
@@ -349,6 +355,12 @@ export function healStreamingTail(content: string): string {
   if (ticks.length > 0) return closeWith(ticks[0][0])
   if (!inline.includes('***')) {
     if ((inline.match(/\*\*/g) ?? []).length % 2 === 1) return closeWith('**')
+  }
+  // Strong with underscores ("__bold"); a run inside an identifier (dunder__names) is neither.
+  if (!inline.includes('___')) {
+    const strongOpen = (inline.match(/(?<!\w)__(?=[^\s_])/g) ?? []).length
+    const strongClose = (inline.match(/(?<=[^\s_])__(?!\w)/g) ?? []).length
+    if (strongOpen > strongClose) return closeWith('__')
   }
   if ((inline.match(/~~/g) ?? []).length % 2 === 1) return closeWith('~~')
   // Single emphasis: "*word" opens (not a bullet or a spaced "*"), "word*" closes.

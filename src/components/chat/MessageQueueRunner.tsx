@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import { useChatHistoryContext } from "@/context/chat-history-context";
-import { useOrg } from "@/context/org-context";
+import { useOrgPlan } from "@/context/org-context";
 import { useCreditStatus } from "@/hooks/use-credit-status";
 import { useStreamingChat } from "@/hooks/use-streaming-chat";
 import { trackBrowserEvent } from "@/lib/analytics/events";
@@ -33,7 +33,7 @@ export function MessageQueueRunner() {
   const [sends, setSends] = useState<BackgroundSend[]>([]);
   const [hasQueued, setHasQueued] = useState(false);
   const creditStatus = useCreditStatus();
-  const { plan } = useOrg();
+  const { plan } = useOrgPlan();
   // Out of credits, personally or as a workspace: messages stay queued; the chat's own view shows why.
   const blocked = creditStatus.blocked || plan?.poolStatus === "paused";
 

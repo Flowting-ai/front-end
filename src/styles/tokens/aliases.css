@@ -6,7 +6,7 @@
 :root {
 
   /* ── Enhance (instructions enhancer) + diff lines ─────────────────────────────
-     Built on the scales / the pink focus ring, so dark mode follows without separate values. */
+     Built on the scales / the blue focus ring, so dark mode follows without separate values. */
   --color-enhance-surface-open:     var(--neutral-50);
   --color-enhance-border-open:      var(--color-focus-ring);
   --color-enhance-step-label:       var(--neutral-500);
@@ -45,7 +45,7 @@
   --color-border-interactive: var(--neutral-800-30);  /* rgba(59,54,50,0.3) */
 
   /* ── Focus ────────────────────────────────────────────────────────────────── */
-  --color-focus-ring: #F92064;
+  --color-focus-ring: #0D6EB2;  /* --blue-600 */
 
   /* ── Text ─────────────────────────────────────────────────────────────────── */
   --color-text-primary:     var(--neutral-900);  /* #26211e - input text, primary content */

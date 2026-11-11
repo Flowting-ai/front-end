@@ -4,12 +4,13 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AnimatePresence, m, useAnimate, useReducedMotion } from 'framer-motion'
 import { toast } from 'sonner'
 import { Dropdown } from '@/components/Dropdown'
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/ui/button'
 import { BellRingIcon } from '@/components/BellRingIcon'
 import { NotificationPanel } from '@/components/NotificationPanel'
 import { useOptionalNotifications } from '@/context/notifications-context'
 import { useGuardedRouter } from '@/context/nav-guard-context'
 import type { AppNotification } from '@/lib/notifications/types'
+import { SETTINGS_PREVIEW_ENABLED } from '@/lib/feature-flags'
 
 // ── NotificationBell ─────────────────────────────────────────────────────────
 // The bell in the sidebar's profile row (right of the settings icon), or
@@ -171,7 +172,8 @@ export function NotificationBell({ open, onOpenChange }: NotificationBellProps) 
           onMarkUnread={markUnread}
           onDismiss={handleDismiss}
           onMarkAllRead={handleMarkAllRead}
-          onOpenSettings={() => { onOpenChange(false); push(NOTIFICATIONS_SETTINGS_ROUTE) }}
+          // The settings page is not wired yet; the panel hides its link without a handler.
+          onOpenSettings={SETTINGS_PREVIEW_ENABLED ? () => { onOpenChange(false); push(NOTIFICATIONS_SETTINGS_ROUTE) } : undefined}
           highlight={highlight}
         />
       </Dropdown.Float>

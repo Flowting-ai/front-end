@@ -9,12 +9,19 @@ export const dynamic = "force-dynamic"
  * with a Content-Disposition: attachment header so the browser always saves
  * the file rather than displaying it inline.
  *
- * SSRF protection: only requests to trusted domains are forwarded.
+ * SSRF protection: only our own buckets, and no redirects (an S3 website
+ * bucket can redirect anywhere, which would defeat the allowlist). The
+ * session check lives in proxy.ts, like every /api route.
  */
 
-// Allowlist of hostname suffixes that are allowed as download sources.
-// Tighten to the exact S3 bucket hostname if you know it upfront.
-const ALLOWED_HOSTNAME_SUFFIXES = [".amazonaws.com"]
+// Exact hostnames from DOWNLOAD_ALLOWED_HOSTS (comma separated) when set;
+// otherwise any Souvenir bucket (souvenir*), virtual-hosted, with or without region.
+const ALLOWED_HOSTS = (process.env.DOWNLOAD_ALLOWED_HOSTS ?? "")
+  .split(",")
+  .map((host) => host.trim().toLowerCase())
+  .filter(Boolean)
+const MAX_DOWNLOAD_BYTES = 200 * 1024 * 1024
+const SOUVENIR_BUCKET = /^souvenir[a-z0-9-]*\.s3(\.[a-z0-9-]+)?\.amazonaws\.com$/
 
 function isAllowedUrl(raw: string): boolean {
   let parsed: URL
@@ -24,9 +31,8 @@ function isAllowedUrl(raw: string): boolean {
     return false
   }
   if (parsed.protocol !== "https:") return false
-  return ALLOWED_HOSTNAME_SUFFIXES.some((suffix) =>
-    parsed.hostname.endsWith(suffix),
-  )
+  const host = parsed.hostname.toLowerCase()
+  return ALLOWED_HOSTS.length ? ALLOWED_HOSTS.includes(host) : SOUVENIR_BUCKET.test(host)
 }
 
 /** Strip characters that are unsafe in a Content-Disposition filename. */
@@ -47,18 +53,32 @@ export async function GET(request: NextRequest) {
     return new Response("URL domain not permitted", { status: 403 })
   }
 
+  // Bounds the wait for headers only; a large file may take longer to stream.
+  const abort = new AbortController()
+  const timer = setTimeout(() => abort.abort(), 30_000)
   let upstream: Response
   try {
     upstream = await fetch(fileUrl, {
-      redirect: "follow",
+      redirect: "manual",
+      signal: abort.signal,
       headers: { "User-Agent": "Souvenir/1.0" },
     })
   } catch {
     return new Response("Failed to fetch file", { status: 502 })
+  } finally {
+    clearTimeout(timer)
   }
 
   if (!upstream.ok || !upstream.body) {
-    return new Response("Upstream error", { status: upstream.status })
+    // A redirect is not followed, so it surfaces as a failure, not a 3xx without a Location.
+    return new Response("Upstream error", { status: upstream.status >= 400 ? upstream.status : 502 })
+  }
+
+  // Files we generate are well under this; anything bigger is not ours to relay.
+  const size = Number(upstream.headers.get("content-length") ?? 0)
+  if (size > MAX_DOWNLOAD_BYTES) {
+    await upstream.body.cancel()
+    return new Response("File too large", { status: 413 })
   }
 
   const contentType =
@@ -69,7 +89,7 @@ export async function GET(request: NextRequest) {
     headers: {
       "Content-Type": contentType,
       "Content-Disposition": `attachment; filename="${filename}"`,
-      "Cache-Control": "private, max-age=3600",
+      "Cache-Control": "private, no-store",
       // Prevent the browser from sniffing a different MIME type
       "X-Content-Type-Options": "nosniff",
     },

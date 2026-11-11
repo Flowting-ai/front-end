@@ -78,17 +78,6 @@ function Checkbox(
         }
       }}
       onBlur={() => setIsFocused(false)}
-      onKeyDown={(e) => {
-        // Native <button role="checkbox"> only toggles on Space (HTML spec).
-        // Add Enter so keyboard users get the conventional menu / form
-        // behaviour. Space is already handled by Radix.
-        if (e.key === 'Enter' && !disabled) {
-          e.preventDefault()
-          const next = !isOn
-          if (!isControlled) setInternalChecked(next)
-          onCheckedChange?.(next)
-        }
-      }}
       disabled={disabled}
       className={cn(
         'kds-checkbox',

@@ -1,5 +1,5 @@
 // Regression test for the export-pins.ts:69 `dangerous-html-sink` finding
-// (see docs v2/performance report/pinboard/07-pinboard-feature-report.md §10).
+// (see docs-v2/performance-report/pinboard/07-pinboard-feature-report.md §10).
 // The export path used to build the exported document as an HTML string
 // (escaping every interpolated field by hand) and assign it via
 // `container.innerHTML = ...`. It has since been rewritten to build real DOM

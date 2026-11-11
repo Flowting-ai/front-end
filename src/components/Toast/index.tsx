@@ -137,6 +137,8 @@ export function Toaster({
       toastOptions={mergedToastOptions}
       icons={mergedIcons}
       {...rest}
+      // An open dialog sets `pointer-events: none` on <body>; toasts (Undo, Retry) stay clickable.
+      style={{ pointerEvents: 'auto', ...rest.style }}
     />
   )
 }

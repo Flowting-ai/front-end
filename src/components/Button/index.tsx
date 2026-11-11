@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useRef, useId, useState } from 'react'
+import { cva } from 'class-variance-authority'
 import { Slot } from '@radix-ui/react-slot'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
@@ -11,21 +12,54 @@ import { Tooltip } from '@/components/Tooltip'
 // ── Shadows ────────────────────────────────────────────────────────────────────
 
 const SHADOW_OUTER                    = 'var(--shadow-button-default-outer)'
-const SHADOW_SUBTLE_OUTER_HOVER       = 'var(--shadow-button-subtle-outer-hover)'
-const SHADOW_SUBTLE_INNER_HOVER       = 'var(--shadow-button-subtle-inner-hover)'
 const SHADOW_INNER                = 'var(--shadow-button-default-inner)'
 const SHADOW_INNER_DISABLED       = 'var(--shadow-button-default-inner-disabled)'
 const SHADOW_ICON_EMBOSS          = 'var(--shadow-button-default-icon-emboss)'
 const SHADOW_ICON_EMBOSS_DISABLED = 'var(--shadow-button-default-icon-emboss-disabled)'
 const SHADOW_TEXT                 = 'var(--shadow-button-default-text)'
 const SHADOW_TEXT_DISABLED        = 'var(--shadow-button-default-text-disabled)'
-const SHADOW_SECONDARY_OUTER       = 'var(--shadow-button-secondary-outer)'
-const SHADOW_SECONDARY_OUTER_HOVER = 'var(--shadow-button-secondary-outer-hover)'
-const SHADOW_SECONDARY_INNER       = 'var(--shadow-button-secondary-inner)'
-const SHADOW_SECONDARY_INNER_HOVER = 'var(--shadow-button-secondary-inner-hover)'
 
 // Theme token: black/yellow/blue tints in light, pink tints in dark.
 const HOVER_GLOW_GRADIENT = 'var(--button-default-hover-glow)'
+
+// ── Variants (cva) ──────────────────────────────────────────────────────────────
+// Hover visuals are pure CSS: the outer wrapper is the `group/kbtn`, and each layer
+// reacts with `group-hover/kbtn:` classes instead of a JS isHovered state. Class
+// strings stay literal so Tailwind can see them.
+
+const buttonVariants = cva(
+  'group relative flex items-center justify-center gap-[2px] overflow-hidden select-none cursor-[inherit] focus:outline-none',
+  {
+    variants: {
+      variant:  { default: '', ghost: '', outline: '', secondary: '', danger: '' },
+      size:     { md: 'rounded-[10px] pt-[6px] pb-[8px] px-[10px]', sm: 'rounded-[8px]' },
+      disabled: { true: 'opacity-70', false: '' },
+      fluid:    { true: 'w-full', false: '' },
+    },
+    compoundVariants: [
+      { size: 'sm', variant: 'default', className: 'pt-[4px] pb-[6px] px-[8px]' },
+      { size: 'sm', variant: ['ghost', 'outline', 'secondary', 'danger'], className: 'py-[5px] px-[8px]' },
+      // Secondary: white fill + box-shadow (no squircle clip); hover deepens the shadow.
+      { variant: 'secondary', disabled: false, className: '[box-shadow:var(--shadow-button-secondary-outer)] group-hover/kbtn:[box-shadow:var(--shadow-button-secondary-outer-hover)]' },
+      { variant: 'secondary', disabled: true,  className: '[box-shadow:var(--shadow-button-secondary-outer)]' },
+      // Danger: flat squircle with a solid red fill; hover only changes the colour.
+      { variant: 'danger', disabled: false, className: '[background-color:var(--button-danger-bg)] group-hover/kbtn:[background-color:var(--button-danger-bg-hover)]' },
+      { variant: 'danger', disabled: true,  className: '[background-color:var(--button-danger-bg)]' },
+    ],
+  },
+)
+
+// Outer wrapper filter for ghost/outline/secondary: subtle lift on hover, or always when `active`.
+const wrapperVariants = cva('group/kbtn', {
+  variants: {
+    lift: {
+      none:   '',
+      hover:  'hover:[filter:var(--shadow-button-subtle-outer-hover)]',
+      always: '[filter:var(--shadow-button-subtle-outer-hover)]',
+    },
+  },
+  defaultVariants: { lift: 'none' },
+})
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -120,9 +154,8 @@ export function Button({
     danger:    'var(--button-danger-text)',
   }
 
-  const [isHovered, setIsHovered] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
-  const isVisuallyHovered = isHovered || (active && !isDisabled)
+  const isActive = active && !isDisabled
 
   const cornerRadius = isMd ? 10 : 8
   const { ref: squircleRef, clipPath, strokeClipPath } = useSquircle(cornerRadius, 0.6, 1)
@@ -141,43 +174,17 @@ export function Button({
   const circleRef = useRef<SVGCircleElement>(null)
   const { onMouseEnter: corrosionEnter, onMouseLeave: corrosionLeave } = useCorrosion(circleRef)
 
-  // isHovered drives visual changes only for ghost/outline/secondary/danger.
-  // For the default variant every isHovered reference is behind isSubtle /
-  // isSecondary / isDanger guards, so the state is never consumed. Skipping
-  // setIsHovered for default avoids a React re-render on every mouse-enter,
-  // which otherwise causes flickering by forcing the GPU to re-composite the
-  // clip-path + drop-shadow + SVG-filter stack while the corrosion animation
-  // is starting.
-  const needsHoverState = isSubtle || isSecondary || isDanger
-
+  // Hover visuals are CSS (group-hover). JS mouse handlers remain only for the
+  // default variant's corrosion glow, which follows the pointer position and so
+  // genuinely needs the event coordinates.
   const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (needsHoverState) setIsHovered(true)
     if (isCorrosion) corrosionEnter(e)
     externalMouseEnter?.(e)
   }
 
   const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (needsHoverState) setIsHovered(false)
     if (isCorrosion) corrosionLeave(e)
     externalMouseLeave?.(e)
-  }
-
-  const baseClasses = cn(
-    'group relative flex items-center justify-center gap-[2px] overflow-hidden',
-    'select-none cursor-[inherit] focus:outline-none',
-    fluid && 'w-full',
-    isMd ? 'rounded-[10px]' : 'rounded-[8px]',
-    variant === 'default'
-      ? isMd ? 'pt-[6px] pb-[8px] px-[10px]' : 'pt-[4px] pb-[6px] px-[8px]'
-      : isMd ? 'pt-[6px] pb-[8px] px-[10px]' : 'py-[5px] px-[8px]',
-  )
-
-  const variantClasses: Record<ButtonVariant, string> = {
-    default:   cn(isDisabled && 'opacity-70'),
-    ghost:     cn(isDisabled && 'opacity-70'),
-    outline:   cn(isDisabled && 'opacity-70'),
-    secondary: cn(isDisabled && 'opacity-70'),
-    danger:    cn(isDisabled && 'opacity-70'),
   }
 
   const textColor: Record<ButtonVariant, string> = {
@@ -196,9 +203,9 @@ export function Button({
     ? isDisabled ? SHADOW_ICON_EMBOSS_DISABLED : SHADOW_ICON_EMBOSS
     : undefined
 
-  // Secondary and Danger skip squircle clip — white/red bg + box-shadow applied directly.
+  // Secondary skips the squircle clip — white bg + box-shadow applied directly. Danger is clipped like ghost.
   const bgStyle: React.CSSProperties = {
-    ...(clipPath && !isSecondary && !isDanger ? { clipPath } : {}),
+    ...(clipPath && !isSecondary ? { clipPath } : {}),
     ...(variant === 'default'
       ? {
           // Tokens, not hex: these resolve to the same #524b47 / #26211e / #3b3632 in
@@ -214,16 +221,12 @@ export function Button({
       : {}),
     // Ghost / outline sit on a solid field-coloured fill (pure white in light mode), not the page.
     ...((variant === 'outline' || variant === 'ghost') ? { backgroundColor: 'var(--field-surface)' } : {}),
+    // Secondary box-shadow and danger fill (with their hover states) come from buttonVariants.
     ...(isSecondary ? {
       backgroundColor: 'var(--button-secondary-bg)',
-      boxShadow:       isHovered && !isDisabled ? SHADOW_SECONDARY_OUTER_HOVER : SHADOW_SECONDARY_OUTER,
       transition:      'box-shadow 150ms',
     } : {}),
-    ...(isDanger ? {
-      backgroundColor: isHovered && !isDisabled ? 'var(--button-danger-bg-hover)' : 'var(--button-danger-bg)',
-      boxShadow:       isHovered && !isDisabled ? SHADOW_SECONDARY_OUTER_HOVER : SHADOW_SECONDARY_OUTER,
-      transition:      'box-shadow 150ms, background-color 150ms',
-    } : {}),
+    ...(isDanger ? { transition: 'background-color 150ms' } : {}),
   }
 
   const defaultStrokeColor = variant === 'default'
@@ -235,13 +238,17 @@ export function Button({
 
   const wrapperFilter = variant === 'default'
     ? SHADOW_OUTER
-    : (isSubtle || isSecondary) && isVisuallyHovered
-      ? SHADOW_SUBTLE_OUTER_HOVER
+    // Danger: a slight static shadow (drop-shadow, since the squircle clip would cut off a box-shadow); unchanged on hover.
+    : isDanger && !isDisabled
+      ? 'drop-shadow(0px 1px 1px rgb(0 0 0 / 0.08)) drop-shadow(0px 1px 3px rgb(0 0 0 / 0.08))'
       : undefined
+  // Ghost/outline/secondary lift comes from wrapperVariants (CSS hover, or forced by `active`).
+  const lift = (isSubtle || isSecondary) ? (isActive ? 'always' : isDisabled ? 'none' : 'hover') : 'none'
 
   return (
     <motion.span
       tabIndex={-1}
+      className={wrapperVariants({ lift })}
       whileTap={isDisabled ? undefined : { scale: 0.98 }}
       transition={{ duration: 0.1, ease: 'easeOut' }}
       style={{
@@ -266,8 +273,8 @@ export function Button({
       )}
 
       {isSubtle && strokeClipPath && clipPath && (
-        <div aria-hidden style={{ position: 'absolute', inset: -1, clipPath: strokeClipPath, backgroundColor: isVisuallyHovered ? 'var(--button-subtle-border-hover)' : 'transparent', pointerEvents: 'none', transition: 'background-color 200ms' }}>
-          <div style={{ position: 'absolute', inset: 1, clipPath: clipPath, backgroundColor: isVisuallyHovered ? 'var(--neutral-50)' : 'transparent', transition: 'background-color 200ms' }} />
+        <div aria-hidden className={isActive ? 'bg-[var(--button-subtle-border-hover)]' : 'bg-transparent group-hover/kbtn:bg-[var(--button-subtle-border-hover)]'} style={{ position: 'absolute', inset: -1, clipPath: strokeClipPath, pointerEvents: 'none', transition: 'background-color 200ms' }}>
+          <div className={isActive ? 'bg-[var(--neutral-50)]' : 'bg-transparent group-hover/kbtn:bg-[var(--neutral-50)]'} style={{ position: 'absolute', inset: 1, clipPath: clipPath, transition: 'background-color 200ms' }} />
         </div>
       )}
 
@@ -276,7 +283,7 @@ export function Button({
         ref={mergedRef}
         disabled={isDisabled}
         aria-busy={loading || undefined}
-        className={cn(baseClasses, variantClasses[variant], className)}
+        className={cn(buttonVariants({ variant, size, disabled: isDisabled, fluid }), className)}
         style={{ ...bgStyle }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
@@ -321,15 +328,15 @@ export function Button({
         )}
 
         {outlineStrokeColor && (
-          <div aria-hidden className="absolute inset-0 pointer-events-none rounded-[inherit]" style={{ boxShadow: `inset 0 0 0 1px ${outlineStrokeColor}`, opacity: isHovered ? 0 : 1, transition: 'opacity 200ms' }} />
+          <div aria-hidden className={cn('absolute inset-0 pointer-events-none rounded-[inherit]', !isDisabled && 'group-hover/kbtn:opacity-0')} style={{ boxShadow: `inset 0 0 0 1px ${outlineStrokeColor}`, transition: 'opacity 200ms' }} />
         )}
 
         {isSubtle && (
-          <div aria-hidden className="absolute inset-0 pointer-events-none rounded-[inherit]" style={{ backgroundColor: isHovered ? variant === 'ghost' ? 'var(--button-ghost-bg-hover)' : 'var(--button-outline-bg-hover)' : 'transparent', transition: 'background-color 200ms' }} />
+          <div aria-hidden className={cn('absolute inset-0 pointer-events-none rounded-[inherit] bg-transparent', variant === 'ghost' ? 'group-hover/kbtn:bg-[var(--button-ghost-bg-hover)]' : 'group-hover/kbtn:bg-[var(--button-outline-bg-hover)]')} style={{ transition: 'background-color 200ms' }} />
         )}
 
         {isSecondary && (
-          <div aria-hidden className="absolute inset-0 pointer-events-none rounded-[inherit]" style={{ backgroundColor: isHovered && !isDisabled ? 'var(--button-secondary-bg-hover)' : 'transparent', transition: 'background-color 200ms' }} />
+          <div aria-hidden className={cn('absolute inset-0 pointer-events-none rounded-[inherit] bg-transparent', !isDisabled && 'group-hover/kbtn:bg-[var(--button-secondary-bg-hover)]')} style={{ transition: 'background-color 200ms' }} />
         )}
 
         {(image || leftIcon) && (
@@ -357,16 +364,13 @@ export function Button({
         )}
 
         {isSubtle && (
-          <div aria-hidden className="absolute inset-0 pointer-events-none rounded-[inherit]" style={{ boxShadow: isHovered ? SHADOW_SUBTLE_INNER_HOVER : undefined, transition: 'box-shadow 200ms' }} />
+          <div aria-hidden className="absolute inset-0 pointer-events-none rounded-[inherit] group-hover/kbtn:[box-shadow:var(--shadow-button-subtle-inner-hover)]" style={{ transition: 'box-shadow 200ms' }} />
         )}
 
         {isSecondary && (
-          <div aria-hidden className="absolute inset-0 pointer-events-none rounded-[inherit]" style={{ boxShadow: isHovered && !isDisabled ? SHADOW_SECONDARY_INNER_HOVER : SHADOW_SECONDARY_INNER, transition: 'box-shadow 150ms' }} />
+          <div aria-hidden className={cn('absolute inset-0 pointer-events-none rounded-[inherit] [box-shadow:var(--shadow-button-secondary-inner)]', !isDisabled && 'group-hover/kbtn:[box-shadow:var(--shadow-button-secondary-inner-hover)]')} style={{ transition: 'box-shadow 150ms' }} />
         )}
 
-        {isDanger && (
-          <div aria-hidden className="absolute inset-0 pointer-events-none rounded-[inherit]" style={{ boxShadow: isHovered && !isDisabled ? SHADOW_SECONDARY_INNER_HOVER : SHADOW_SECONDARY_INNER, transition: 'box-shadow 150ms' }} />
-        )}
 
       </Comp>
       </MaybeTip>

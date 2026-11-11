@@ -5,7 +5,7 @@
 //
 // The story's EndpointRow (a copyable "MCP endpoint" URL) is deliberately
 // NOT ported — there is no backend field for it (Gap #1 in
-// docs v1.5/connectors-v1.5-migration-plan.md). Fabricating a URL would be
+// docs-v1.5/connectors-v1.5-migration-plan.md). Fabricating a URL would be
 // worse than omitting the row.
 
 import { Tooltip } from '@/components/Tooltip'
@@ -14,7 +14,7 @@ import { useOrg } from '@/context/org-context'
 import { connectionAddedBy } from '@/lib/connector-owner'
 import { ArrowLeftOneIcon, DeleteTwoIcon, PlusSignIcon } from '@strange-huge/icons'
 import { AccountRow, AccountRowHeader } from '@/components/AccountRow'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
 import { ConnectorCatalog, ConnectorConnection } from '@/lib/api/connectors'
 import { isApiProviderConnector } from '@/lib/connectorProvider'

@@ -1,11 +1,12 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Dropdown } from '@/components/Dropdown'
 import {
   ArrowRightOneIcon,
   FolderAddIcon,
+  FolderLibraryIcon,
   FolderOneIcon,
   GlobalSearchIcon,
   UserAddOneIcon,
@@ -18,13 +19,13 @@ import type { SelectedPersonaInfo } from '@/lib/chat-personas'
 import { usePinboard } from '@/context/pinboard-context'
 import { PINS_ENABLED } from '@/lib/feature-flags'
 import { usePathname } from 'next/navigation'
-import { useProjectPanel } from '@/context/project-panel-context'
-import { useHighlight } from '@/context/highlight-context'
-import { AgentsPanelContent } from '@/components/AgentsPanel'
+import { useOpenAgentsPanel } from '@/hooks/use-open-agents-panel'
 import { CHAT_ROUTE } from '@/lib/routes'
 import { MentionAvatar } from '@/components/chat/AgentMentionMenu'
 import { USE_STYLE_OPTIONS } from '@/lib/tone-options'
 import { AGENTS_NEW_ROUTE } from '@/lib/routes'
+import { AGENT_CHAT_ENABLED, COMPOSER_STYLE_ENABLED, COMPOSER_WEB_SEARCH_ENABLED } from '@/lib/feature-flags'
+import { clearComposerNotices } from '@/lib/library/upload/composer-uploads'
 export type { SelectedPersonaInfo } from '@/lib/chat-personas'
 
 
@@ -42,6 +43,8 @@ export interface ChatAddMenuProps {
   hideStyle?:        boolean
   hideWebSearch?:    boolean
   hidePinFolders?:   boolean
+  /** Library: opens the "Add from Library" picker. The item shows when this is passed. */
+  onAddFromLibraryClick?: () => void
 }
 
 export function ChatAddMenu({
@@ -58,7 +61,10 @@ export function ChatAddMenu({
   hideStyle,
   hideWebSearch,
   hidePinFolders,
+  onAddFromLibraryClick,
 }: ChatAddMenuProps) {
+  // Opening the + menu clears any upload message above the composer (the menu mounts when it opens).
+  useEffect(() => { clearComposerNotices() }, [])
   const { folders: contextFolders } = usePinboard()
   const pinFolders: PinFolder[] = contextFolders
     .filter(f => f.pinCount === undefined || f.pinCount > 0)
@@ -69,31 +75,27 @@ export function ChatAddMenu({
   const styleMenuOpen      = openSubmenu === 'style'
   const personaMenuOpen    = openSubmenu === 'persona'
   const pinFoldersMenuOpen = openSubmenu === 'pinFolders'
+  const showPersona        = !hidePersona && AGENT_CHAT_ENABLED
   const { personas, loading: loadingPersonas } = useSelectableChatPersonas(personaMenuOpen)
   const { push } = useRouter()
-  // On /chat the agent list is the Agents side panel (same one the floating toolbar opens); elsewhere
+  // On /chat the agent list is the chat panel's Agents tab (same panel the top-right toggle opens); elsewhere
   // nothing listens for it, so the inline submenu stays.
   const pathname = usePathname()
   const inProjectChat = /^\/project\/[^/]+\/chat\//.test(pathname)
   const onChatPage = pathname === CHAT_ROUTE || inProjectChat
-  const { panel: sidePanel, setPanel: setSidePanel } = useProjectPanel()
-  const { close: closeHighlight } = useHighlight()
-  const { close: closePinboard } = usePinboard()
-  const openAgentsPanel = () => {
-    if (sidePanel?.title === 'Agents') return
-    closePinboard()
-    closeHighlight()
-    setSidePanel({ title: 'Agents', content: <AgentsPanelContent inProject={inProjectChat} />, onClose: () => setSidePanel(null), sidePadding: 8 })
-  }
+  const openAgentsPanel = useOpenAgentsPanel({ inProject: inProjectChat })
 
   return (
     <Dropdown style={{ width: 200 }} maxHeight={false}>
       <Dropdown.Section fluid>
-        <Dropdown.Item label="Add files or photos" icon={<FolderAddIcon />}    fluid onClick={onAddFilesClick} />
-        {!hideWebSearch && (
+        <Dropdown.Item label="Add photos & files" icon={<FolderAddIcon />}    fluid onClick={onAddFilesClick} />
+        {onAddFromLibraryClick && (
+          <Dropdown.Item label="Add from Library" icon={<FolderLibraryIcon />} fluid onClick={onAddFromLibraryClick} />
+        )}
+        {!hideWebSearch && COMPOSER_WEB_SEARCH_ENABLED && (
           <Dropdown.Item label="Web search" icon={<GlobalSearchIcon />} fluid showSwitch switchChecked={webSearchEnabled} onSwitchChange={onWebSearchChange} />
         )}
-        {!hideStyle && (
+        {!hideStyle && COMPOSER_STYLE_ENABLED && (
           /* Dropdown.Float keeps submenu clicks from bubbling to the ChatInput's
              close-on-click wrapper and dismissing the outer dropdown prematurely. */
           <Dropdown.Float
@@ -120,10 +122,10 @@ export function ChatAddMenu({
             </Dropdown>
           </Dropdown.Float>
         )}
-        {!hidePersona && onChatPage && (
+        {showPersona && onChatPage && (
           <Dropdown.Item label="Add agent" icon={<UserAiIcon />} fluid rightIcon={<ArrowRightOneIcon />} selected={!!selectedPersonaId} onClick={openAgentsPanel} />
         )}
-        {!hidePersona && !onChatPage && (
+        {showPersona && !onChatPage && (
           <Dropdown.Float
             open={personaMenuOpen}
             onOpenChange={(open) => setOpenSubmenu(open ? 'persona' : null)}

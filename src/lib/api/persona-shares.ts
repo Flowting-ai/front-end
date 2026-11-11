@@ -2,6 +2,15 @@
 
 import { apiFetch, apiFetchJson, ApiError, friendlyApiError } from "./client";
 import { trackBrowserEvent } from "@/lib/analytics/events";
+import { parseList } from "./project-schemas";
+import {
+  acceptShareSchema,
+  personaShareSchema,
+  receivedShareSchema,
+  sentShareSchema,
+  shareDashboardSchema,
+  sharePreviewSchema,
+} from "./share-schemas";
 import {
   PERSONA_SHARES_ENDPOINT,
   PERSONA_SHARES_RECEIVED_ENDPOINT,
@@ -158,35 +167,35 @@ export interface CreateShareParams {
 // ── API functions ──────────────────────────────────────────────────────────────
 
 export async function createShare(params: CreateShareParams): Promise<PersonaShare> {
-  const result = await apiFetchJson<PersonaShare>(PERSONA_SHARES_ENDPOINT, {
+  const result = personaShareSchema.parse(await apiFetchJson<unknown>(PERSONA_SHARES_ENDPOINT, {
     method: "POST",
     body: JSON.stringify(params),
-  });
+  }));
   // Analytics: an agent shared (link/email). share_created covers chat/project shares.
   trackBrowserEvent("agent_shared", { share_type: params.share_type });
   return result;
 }
 
 export async function listShares(): Promise<PersonaShare[]> {
-  return apiFetchJson<PersonaShare[]>(PERSONA_SHARES_ENDPOINT);
+  return parseList(personaShareSchema, await apiFetchJson<unknown>(PERSONA_SHARES_ENDPOINT), "persona share");
 }
 
 export async function getSharePreview(id: string): Promise<PersonaSharePreview> {
-  return apiFetchJson<PersonaSharePreview>(PERSONA_SHARE_DETAIL_ENDPOINT(id));
+  return sharePreviewSchema.parse(await apiFetchJson<unknown>(PERSONA_SHARE_DETAIL_ENDPOINT(id)));
 }
 
 export async function acceptShare(id: string): Promise<AcceptShareResponse> {
-  return apiFetchJson<AcceptShareResponse>(PERSONA_SHARE_ACCEPT_ENDPOINT(id), {
+  return acceptShareSchema.parse(await apiFetchJson<unknown>(PERSONA_SHARE_ACCEPT_ENDPOINT(id), {
     method: "POST",
-  });
+  }));
 }
 
 export async function listReceived(): Promise<ReceivedShareResponse[]> {
-  return apiFetchJson<ReceivedShareResponse[]>(PERSONA_SHARES_RECEIVED_ENDPOINT)
+  return parseList(receivedShareSchema, await apiFetchJson<unknown>(PERSONA_SHARES_RECEIVED_ENDPOINT), "received share")
 }
 
 export async function listSent(): Promise<SentShareResponse[]> {
-  return apiFetchJson<SentShareResponse[]>(PERSONA_SHARES_SENT_ENDPOINT)
+  return parseList(sentShareSchema, await apiFetchJson<unknown>(PERSONA_SHARES_SENT_ENDPOINT), "sent share")
 }
 
 /**
@@ -194,7 +203,7 @@ export async function listSent(): Promise<SentShareResponse[]> {
  * `window` drives the chart: 7, 30, or 90 days (default 30).
  */
 export async function fetchDashboard(window: 7 | 30 | 90 = 30): Promise<ShareDashboardResponse> {
-  return apiFetchJson<ShareDashboardResponse>(`${PERSONA_SHARES_DASHBOARD_ENDPOINT}?window=${window}`)
+  return shareDashboardSchema.parse(await apiFetchJson<unknown>(`${PERSONA_SHARES_DASHBOARD_ENDPOINT}?window=${window}`))
 }
 
 export async function revokeShare(id: string): Promise<void> {
@@ -211,4 +220,5 @@ export async function revokeShare(id: string): Promise<void> {
     }
     throw new ApiError(res.status, code, friendlyApiError(message, res.status), message);
   }
+  trackBrowserEvent("share_revoked", { kind: "agent" });
 }

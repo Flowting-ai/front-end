@@ -1,0 +1,419 @@
+/* The file page, laid out like the prototype's viewer: a grey canvas, the file on a white page, an info
+   card on the right and an "Ask" bar at the bottom. Every control is a KDS Button or IconButton. */
+.viewer {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  background: var(--neutral-50);
+  border-radius: 19px;
+  overflow: hidden;
+}
+
+/* The scroller spans the whole viewer so its scrollbar is the right-most thing, beyond the info card. */
+.scroll {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  overflow: auto;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 64px 32px 120px;
+}
+
+/* Reserves the info card's width inside the scroller. It snaps; the page glides to its new place (FLIP). */
+.spacer {
+  flex: none;
+  width: 328px;
+  height: 1px;
+}
+
+.spacerClosed {
+  width: 0;
+}
+
+.bar {
+  position: absolute;
+  z-index: 5;
+  top: 8px;
+  left: 8px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.bar > * {
+  pointer-events: auto;
+}
+
+.end {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The file name at top left, styled like the chat name in the chat top bar (TopBar), plus a down arrow. */
+.namePill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 360px;
+  padding: 5px 6px 5px 8px;
+  border: none;
+  border-radius: 8px;
+  background-color: var(--card-bg);
+  box-shadow: inset 0 0 0 1px var(--button-outline-border);
+  color: var(--button-outline-text);
+  font-family: var(--font-body);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  cursor: pointer;
+  transition: background-color 120ms;
+}
+
+.namePill:hover,
+.namePill[data-state='open'],
+.namePill[aria-expanded='true'] {
+  background-color: var(--neutral-50);
+}
+
+.namePill:focus-visible {
+  outline: 2px solid var(--focus-ring, var(--neutral-900));
+  outline-offset: 2px;
+}
+
+.namePill svg {
+  flex: none;
+  color: var(--neutral-500);
+}
+
+.pillTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The page the file sits on. */
+.page {
+  width: min(816px, 100%);
+  margin: 0 auto;
+  min-height: 560px;
+  box-sizing: border-box;
+  padding: 56px 64px;
+  background: var(--card-bg);
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.pageTitle {
+  margin: 0 0 4px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 22px;
+  line-height: 30px;
+  letter-spacing: -0.01em;
+  color: var(--neutral-900);
+  overflow-wrap: anywhere;
+}
+
+.pageSub {
+  margin: 0 0 32px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--neutral-500);
+}
+
+.banners {
+  width: min(816px, 100%);
+  margin: 0 auto 16px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--neutral-600);
+}
+
+.banners p {
+  margin: 0 0 8px;
+}
+
+/* Info card: it rises in over the spacer from the top-right corner (by the File info button), clear of the scrollbar. */
+.slide {
+  transform-origin: top right;
+  position: absolute;
+  z-index: 4;
+  top: 52px;
+  right: 12px;
+  bottom: 8px;
+  width: 320px;
+}
+
+/* Header, a scrolling body, and the actions pinned at the bottom: only the middle scrolls. */
+.info {
+  box-sizing: border-box;
+  width: 320px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  background: var(--card-bg);
+  box-shadow: var(--shadow-card-default);
+  overflow: hidden;
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+.infoHead {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 12px 0 20px;
+  min-height: 32px;
+}
+
+.infoBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+/* "Show all" under a capped list. */
+.more {
+  margin-top: 4px;
+  padding: 4px 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--neutral-700);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.more:hover {
+  color: var(--neutral-900);
+}
+
+.infoFoot {
+  flex: none;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--neutral-100);
+}
+
+.infoHead h2 {
+  margin: 0;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--neutral-900);
+}
+
+.block {
+  padding: 12px 20px;
+}
+
+.block + .block {
+  border-top: 1px solid var(--neutral-100);
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-900);
+}
+
+.label > span {
+  font-weight: 400;
+}
+
+.useRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 0 8px;
+  margin: 0 -8px;
+  border-radius: 10px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--neutral-900);
+  text-decoration: none;
+}
+
+.useRow:hover {
+  background: var(--neutral-50);
+}
+
+.useIcon {
+  flex: none;
+  color: var(--neutral-600);
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The ask bar floats over the bottom of the page, clear of the info card and scrollbar. */
+.dock {
+  position: absolute;
+  left: 0;
+  right: 12px;
+  bottom: 20px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 4;
+  transition: right 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.viewerInfo .dock {
+  right: 340px;
+}
+
+.ask {
+  pointer-events: auto;
+  width: min(640px, calc(100% - 48px));
+}
+
+/* State banner above the page: In Trash, Uploading, Processing (prototype .state-banner). */
+.stateBanner {
+  width: min(816px, 100%);
+  margin: 0 auto 16px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px 12px 16px;
+  border-radius: 14px;
+  background: var(--card-bg);
+  box-shadow: var(--shadow-card-default);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-900);
+}
+
+.stateBanner b {
+  font-weight: 600;
+}
+
+.stateBanner p {
+  margin: 0;
+  color: var(--neutral-600);
+}
+
+.stateIcon {
+  flex: none;
+  color: var(--neutral-600);
+}
+
+.progress {
+  height: 4px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: var(--neutral-100);
+  overflow: hidden;
+}
+
+.progress i {
+  display: block;
+  width: 40%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--neutral-900);
+  animation: indeterminate 1.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+@keyframes indeterminate {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(260%); }
+}
+
+.ghostLines {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.ghostLines i {
+  display: block;
+  height: 10px;
+  border-radius: 6px;
+  background: var(--neutral-100);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress i {
+    animation: none;
+  }
+}
+
+.useRowOff {
+  color: var(--neutral-500);
+  cursor: default;
+}
+
+.useRowOff:hover {
+  background: transparent;
+}
+
+@media (max-width: 960px) {
+  .viewer {
+    flex-direction: column;
+    overflow: auto;
+  }
+  .scroll {
+    position: static;
+    overflow: visible;
+    flex-direction: column;
+  }
+  .main {
+    padding: 64px 16px 24px;
+  }
+  .spacer {
+    display: none;
+  }
+  .page {
+    padding: 32px 24px;
+  }
+  .slide {
+    position: static;
+    width: auto;
+    margin: 0 16px 96px;
+    transform: none !important;
+  }
+  .info {
+    width: auto;
+    height: auto;
+  }
+  .viewerInfo .dock {
+    right: 12px;
+  }
+}

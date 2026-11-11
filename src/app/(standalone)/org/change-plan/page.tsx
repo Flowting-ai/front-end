@@ -311,13 +311,13 @@ function OrgChangePlanPageInner() {
   // The backend's plan ID identifies the tier independently of wallet usage.
   const currentTier             = TeamsTier.fromPlanId(plan?.planId)
   const currentWorkspaceTierIdx = currentTier ? WORKSPACE_PLANS.findIndex(p => p.price === currentTier.price) : -1
-  const hasWorkspacePlan        = Boolean(plan?.hasSelectedPlan) && org.plan !== 'enterprise'
+  const hasWorkspacePlan        = Boolean(plan?.hasSelectedPlan) && org?.plan !== 'enterprise'
   // No backend field distinguishes "org is on a free/trial plan" from "org has
   // no plan yet" — the only trial mechanism that exists (services/stripe/account.py
   // startTrial) is individual-only and 403s for org members, so this can never
   // be true for anything reachable on this page. Hidden until an org-level
   // trial state actually exists on the backend — see
-  // docs v1.5/free-trial-onboarding-plan.md §3.
+  // docs-v1.5/free-trial-onboarding-plan.md §3.
   const isOnFreePlan = false
 
   // Sync tier picker to the org's current tier on load — only when the tier
@@ -342,7 +342,7 @@ function OrgChangePlanPageInner() {
   const currentPlanToastShown = useRef(false)
   useEffect(() => {
     if (currentPlanToastShown.current || !orgReady) return
-    if (org.plan === 'enterprise') {
+    if (org?.plan === 'enterprise') {
       currentPlanToastShown.current = true
       toast.success("You're on the Pro (Enterprise) plan", { duration: Infinity })
     } else if (hasWorkspacePlan) {
@@ -355,7 +355,7 @@ function OrgChangePlanPageInner() {
     } else {
       currentPlanToastShown.current = true
     }
-  }, [orgReady, org.plan, hasWorkspacePlan, currentWorkspaceTierIdx])
+  }, [orgReady, org?.plan, hasWorkspacePlan, currentWorkspaceTierIdx])
 
   const handleSelectTier = (idx: number) => {
     setWorkspaceIdx(idx)
@@ -394,6 +394,7 @@ function OrgChangePlanPageInner() {
       try { sessionStorage.setItem('souvenir_checkout_source', 'billing') } catch { /* sessionStorage may be unavailable */ }
       window.location.href = checkout.checkout_url
     } catch (err) {
+      trackBrowserEvent('checkout_failed', { from_plan: currentPlan ?? undefined, to_plan: planId })
       toast.error(err instanceof Error ? err.message : 'Failed to start checkout')
       setChangingTo(null)
     }
@@ -496,6 +497,7 @@ function OrgChangePlanPageInner() {
             <button
               ref={monthlyBtnRef}
               type="button"
+              aria-pressed={billing === 'monthly'}
               onClick={() => setBilling('monthly')}
               style={{
                 position: 'relative',
@@ -506,7 +508,7 @@ function OrgChangePlanPageInner() {
                 transition: 'color 150ms ease',
                 ...(billing === 'monthly'
                   ? {
-                      color: 'var(--static-white)',
+                      color: 'var(--color-interactive-primary-text)',
                       textShadow: '0px -0.727px 0.364px color-mix(in srgb, var(--static-black) 25%, transparent), 0px 0.364px 0.364px color-mix(in srgb, var(--static-white) 25%, transparent)',
                     }
                   : { color: 'var(--neutral-500)' }),
@@ -517,6 +519,7 @@ function OrgChangePlanPageInner() {
             <button
               ref={annualBtnRef}
               type="button"
+              aria-pressed={billing === 'annual'}
               onClick={() => setBilling('annual')}
               style={{
                 position: 'relative',
@@ -527,7 +530,7 @@ function OrgChangePlanPageInner() {
                 transition: 'color 150ms ease',
                 ...(billing === 'annual'
                   ? {
-                      color: 'var(--static-white)',
+                      color: 'var(--color-interactive-primary-text)',
                       textShadow: '0px -0.727px 0.364px color-mix(in srgb, var(--static-black) 25%, transparent), 0px 0.364px 0.364px color-mix(in srgb, var(--static-white) 25%, transparent)',
                     }
                   : { color: 'var(--neutral-500)' }),
@@ -544,7 +547,7 @@ function OrgChangePlanPageInner() {
             {/* ── Workspace (Core) ── */}
             <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
               <div style={{
-                backgroundColor: 'var(--neutral-white)',
+                backgroundColor: 'color-mix(in srgb, var(--brown-100) 40%, var(--neutral-white))',
                 border: '2px solid var(--brown-700)',
                 borderRadius: 24,
                 padding: 32,
@@ -689,11 +692,11 @@ function OrgChangePlanPageInner() {
                     opacity: workspaceButtonDisabled ? 0.55 : 1,
                     background: 'linear-gradient(to bottom, var(--color-interactive-primary-surface-from), var(--color-interactive-primary-surface-to))',
                     boxShadow: '0px 0px 0px 1px var(--neutral-black), 0px 1.091px 1.091px 0px rgba(59,54,50,0.1), 0px 1.455px 3.127px 0px rgba(59,54,50,0.4), inset 0px 1px 0.364px 0px var(--neutral-white-30), inset 0px -2.182px 0.364px 0px var(--neutral-950), inset 0px -2.545px 4px -2.182px var(--neutral-white-50)',
-                    fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--static-white)',
+                    fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--color-interactive-primary-text)',
                     textShadow: '0px -0.727px 0.364px color-mix(in srgb, var(--static-black) 25%, transparent), 0px 0.364px 0.364px color-mix(in srgb, var(--static-white) 25%, transparent)',
                   }}
                 >
-                  {changingTo === selectedWorkspace.planId && <Spinner size={14} color="var(--static-white)" />}
+                  {changingTo === selectedWorkspace.planId && <Spinner size={14} color="var(--color-interactive-primary-text)" />}
                   {workspaceButtonLabel}
                 </button>
               </div>
@@ -702,7 +705,7 @@ function OrgChangePlanPageInner() {
             {/* ── Enterprise (Pro) ── */}
             <div style={{ flex: '0 0 400px', maxWidth: 400, display: 'flex', flexDirection: 'column' }}>
               <div style={{
-                backgroundColor: 'var(--neutral-white)',
+                backgroundColor: 'color-mix(in srgb, var(--neutral-100) 70%, var(--neutral-white))',
                 border: '1px solid var(--border-default)',
                 borderRadius: 24,
                 padding: 32,
@@ -712,26 +715,26 @@ function OrgChangePlanPageInner() {
               }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <p style={{ fontFamily: TITLE, fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
-                    Pro
+                    Pro (Enterprise)
                   </p>
                 </div>
 
                 <m.button
                   type="button"
-                  onClick={() => { if (!changingTo && org.plan !== 'enterprise') { setPlanParam('pro'); setContactSalesOpen(true) } }}
-                  disabled={!!changingTo || org.plan === 'enterprise'}
-                  whileTap={(!!changingTo || org.plan === 'enterprise') ? undefined : { scale: 0.98 }}
+                  onClick={() => { if (!changingTo && org?.plan !== 'enterprise') { setPlanParam('pro'); setContactSalesOpen(true) } }}
+                  disabled={!!changingTo || org?.plan === 'enterprise'}
+                  whileTap={(!!changingTo || org?.plan === 'enterprise') ? undefined : { scale: 0.98 }}
                   transition={{ duration: 0.1, ease: 'easeOut' }}
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
                     width: '100%', padding: '6px 2px 8px', borderRadius: 10, border: 'none',
                     backgroundColor: 'var(--neutral-white)', cursor: changingTo ? 'wait' : 'pointer',
-                    boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-100), inset 0px -2.182px 0.364px 0px var(--neutral-100)',
+                    boxShadow: '0px 1.091px 1.091px 0px rgba(59,54,50,0.05), 0px 1.455px 3.127px 0px rgba(38,33,30,0.15), 0px 0px 0px 1px var(--neutral-300), inset 0px -2.182px 0.364px 0px var(--neutral-200)',
                     fontFamily: BODY, fontWeight: 500, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-700)',
                   }}
                 >
-                  {org.plan === 'enterprise' ? 'Current plan' : 'Get in touch'}
-                  {org.plan !== 'enterprise' && (
+                  {org?.plan === 'enterprise' ? 'Current plan' : 'Get in touch'}
+                  {org?.plan !== 'enterprise' && (
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
                       <path d="M3.5 8h9M9 4.5l3.5 3.5L9 11.5" stroke="var(--neutral-700)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>

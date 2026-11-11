@@ -1,15 +1,19 @@
 'use client'
 
 import React from 'react'
-import { usePathname } from 'next/navigation'
+import { unstable_rethrow, usePathname } from 'next/navigation'
 import { useSidebarEvents } from '@/hooks/use-sidebar-events'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { AlertCircleIcon } from '@strange-huge/icons'
 
 interface ErrorBoundaryProps {
   children: React.ReactNode
   /** Bumping this clears a caught error without remounting a healthy subtree. */
   resetToken?: number
+  /** "region" shows a small inline fallback sized for a sidebar or panel instead of the page-sized one. */
+  variant?: 'page' | 'region'
+  /** What crashed, for the region fallback, e.g. "Sidebar". */
+  label?: string
 }
 
 interface ErrorBoundaryState {
@@ -26,7 +30,10 @@ interface ErrorBoundaryState {
 class ErrorBoundaryInner extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { hasError: false }
 
-  static getDerivedStateFromError(): ErrorBoundaryState {
+  static getDerivedStateFromError(error: unknown): ErrorBoundaryState {
+    // notFound() and redirect() signal Next by throwing; hand those back so a 404 or redirect
+    // still happens instead of this fallback.
+    unstable_rethrow(error)
     return { hasError: true }
   }
 
@@ -41,6 +48,22 @@ class ErrorBoundaryInner extends React.Component<ErrorBoundaryProps, ErrorBounda
   }
 
   render() {
+    if (this.state.hasError && this.props.variant === 'region') {
+      return (
+        <div
+          role="alert"
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 16, textAlign: 'center', minWidth: 0 }}
+        >
+          <AlertCircleIcon size={20} color="var(--color-tag-Red-text)" />
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)', margin: 0 }}>
+            {this.props.label ?? 'This section'} couldn&apos;t load.
+          </p>
+          <Button variant="secondary" size="sm" onClick={() => this.setState({ hasError: false })}>
+            Try again
+          </Button>
+        </div>
+      )
+    }
     if (this.state.hasError) {
       return (
         <div
@@ -91,11 +114,11 @@ class ErrorBoundaryInner extends React.Component<ErrorBoundaryProps, ErrorBounda
  * crashed on /chat?id=X would otherwise leave the fallback up after New chat
  * (/chat is the same pathname), so that event clears a caught error.
  */
-export function ErrorBoundary({ children }: ErrorBoundaryProps) {
+export function ErrorBoundary({ children, variant, label }: ErrorBoundaryProps) {
   const pathname = usePathname()
   const [resetToken, setResetToken] = React.useState(0)
   useSidebarEvents({ onNewChat: () => setResetToken((n) => n + 1) })
-  return <ErrorBoundaryInner key={pathname} resetToken={resetToken}>{children}</ErrorBoundaryInner>
+  return <ErrorBoundaryInner key={pathname} resetToken={resetToken} variant={variant} label={label}>{children}</ErrorBoundaryInner>
 }
 
 export default ErrorBoundary

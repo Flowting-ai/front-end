@@ -1,0 +1,320 @@
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 12px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.card {
+  border: 1px solid var(--border-default);
+  border-radius: 16px;
+  box-shadow: 0px 2px 2.8px 0px rgba(82, 75, 71, 0.12);
+  overflow: hidden;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 24px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-900);
+}
+
+.optional {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--neutral-500);
+}
+
+.hint {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--neutral-500);
+}
+
+.input,
+.textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 10px;
+  outline: none;
+  background: var(--field-surface);
+  box-shadow: 0px 1px 1.5px 0px rgba(82, 75, 71, 0.12), 0px 0px 0px 1px var(--neutral-100);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-900);
+  transition: box-shadow 120ms ease;
+}
+
+.textarea {
+  min-height: 140px;
+  resize: vertical;
+}
+
+.input:focus,
+.textarea:focus {
+  box-shadow: 0px 1px 1.5px 0px rgba(82, 75, 71, 0.12), 0px 0px 0px 2px var(--checkbox-bg-on);
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--neutral-400);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 720px) {
+  .row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Choice cards: a radio group drawn as tiles; selected uses the design system's checkbox blue. */
+.choices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .choices {
+    grid-template-columns: 1fr;
+  }
+}
+
+.choice {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  background: var(--card-bg);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.choice:hover:not([aria-checked='true']) {
+  background: var(--neutral-50);
+}
+
+.choice[aria-checked='true'] {
+  border-color: var(--checkbox-bg-on);
+  box-shadow: 0 0 0 1px var(--checkbox-bg-on);
+}
+
+.choice:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.choiceTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-900);
+}
+
+.choiceHint {
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--neutral-600);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+/* Chips: a multi-select of product areas. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  padding: 4px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  background: var(--card-bg);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--neutral-700);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--checkbox-bg-on);
+  background: color-mix(in srgb, var(--checkbox-bg-on) 12%, var(--card-bg));
+  color: var(--neutral-900);
+}
+
+.chip:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.error {
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--red-400);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 24px;
+  border-top: 1px solid var(--neutral-100);
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--neutral-500);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+
+/* Side panel: what happens next, and tips. */
+.aside {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+}
+
+.asideTitle {
+  margin: 0;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-900);
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.step {
+  display: flex;
+  gap: 10px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--neutral-700);
+}
+
+.stepNum {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--neutral-100);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--neutral-700);
+}
+
+.divider {
+  height: 1px;
+  background: var(--neutral-100);
+}
+
+/* Sent state. */
+.done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.doneIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-tag-Green-bg);
+  color: var(--color-tag-Green-text);
+  margin-bottom: 4px;
+}
+
+.doneTitle {
+  margin: 0;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--neutral-900);
+}
+
+.doneText {
+  margin: 0 0 8px;
+  max-width: 420px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-600);
+}

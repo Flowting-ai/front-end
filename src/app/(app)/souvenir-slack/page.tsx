@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { toast } from 'sonner'
 import { CancelOneIcon, CheckmarkCircleTwoIcon } from '@strange-huge/icons'
 import { useOrg } from '@/context/org-context'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { SettingsPageShell } from '@/components/SettingsPageShell'
 import { SlackConnectModal } from '@/components/SlackConnectModal'
 import { getOrgSlackStatus, getSlackInstallUrl, removeOrgSlackInstallation } from '@/lib/api/slack'
@@ -19,6 +19,8 @@ export default function SouvenirSlackPage() {
 
   const [statusLoading, setStatusLoading] = useState(true)
   const [status,        setStatus]        = useState<SlackStatus | null>(null)
+  // The install status could not be read: never shown as "not connected", which would invite a second install.
+  const [statusError,   setStatusError]   = useState(false)
   const [modalOpen,     setModalOpen]     = useState(false)
 
   const [removing,      setRemoving]      = useState(false)
@@ -59,9 +61,10 @@ export default function SouvenirSlackPage() {
     getOrgSlackStatus(orgId)
       .then(s => {
         setStatus(s)
+        setStatusError(false)
       })
       .catch(() => {
-        setStatus({ connected: false, workspaces: [] })
+        setStatusError(true)
       })
       .finally(() => setStatusLoading(false))
   }
@@ -76,7 +79,7 @@ export default function SouvenirSlackPage() {
       })
       .catch(() => {
         if (cancelled) return
-        setStatus({ connected: false, workspaces: [] })
+        setStatusError(true)
       })
       .finally(() => {
         if (!cancelled) setStatusLoading(false)
@@ -112,6 +115,12 @@ export default function SouvenirSlackPage() {
     >
       {!orgReady || statusLoading ? (
         <div className="kaya-skeleton" style={{ width: '100%', height: 556, borderRadius: 16 }} />
+      ) : statusError && isAdmin ? (
+        <div role="alert" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 12, padding: 24, borderRadius: 16, background: 'var(--neutral-white)', boxShadow: '0 0 0 1px var(--neutral-100)' }}>
+          <strong style={{ fontWeight: 500 }}>Couldn&apos;t check your Slack connection</strong>
+          <span style={{ color: 'var(--color-text-muted)' }}>Slack may still be connected. Try again in a moment.</span>
+          <Button variant="secondary" size="sm" onClick={loadStatus}>Retry</Button>
+        </div>
       ) : !isAdmin ? (
         <SlackAdminOnly />
       ) : !connected ? (

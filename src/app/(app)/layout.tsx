@@ -2,10 +2,8 @@ import "katex/dist/katex.min.css";
 import "highlight.js/styles/atom-one-light.css";
 import { cookies } from "next/headers";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { ChatHistoryProvider } from "@/context/chat-history-context";
 import { PinboardProvider } from "@/context/pinboard-context";
 import { HighlightProvider } from "@/context/highlight-context";
-import { CompareProvider } from "@/context/compare-context";
 import { ModelSelectorProvider } from "@/context/model-selector-context";
 import { LazyPresetModelSelectorDialog } from "@/components/chat/LazyPresetModelSelectorDialog";
 import { MessageQueueRunner } from "@/components/chat/MessageQueueRunner";
@@ -17,6 +15,8 @@ import { ConnectorAuthResultToast } from "@/components/shared/ConnectorAuthResul
 import { SearchProvider } from "@/context/search-context";
 import { OrgProvider } from "@/context/org-context";
 import { OrgStamps } from "@/components/Analytics/OrgStamps";
+import { LazyLibraryUploadHost } from "@/components/Library/upload/LazyLibraryUploadHost";
+import { SessionTimeoutGuard } from "@/components/auth/SessionTimeoutGuard";
 import { NotificationsProvider } from "@/context/notifications-context";
 import { NavGuardProvider, NavGuardModal } from "@/context/nav-guard-context";
 import { SIDEBAR_COLLAPSED_KEY, parseSidebarCollapsed } from "@/lib/storage-keys";
@@ -37,30 +37,30 @@ export default async function AppGroupLayout({
       <NavGuardModal />
       <OrgProvider>
       <OrgStamps />
+      {/* Library uploads: lifecycle only, renders nothing; loads only when the feature is on. */}
+      <LazyLibraryUploadHost />
+      {/* Idle/absolute session limits; renders nothing unless configured (decision D2). */}
+      <SessionTimeoutGuard />
       <NotificationsProvider>
       <ProjectsProvider>
-        <ChatHistoryProvider>
           <PinboardProvider>
             <HighlightProvider>
-              <CompareProvider>
-                <ModelSelectorProvider>
-                  <SearchProvider>
-                    <ProjectPanelProvider>
-                      <AppLayout defaultSidebarCollapsed={sidebarCollapsed}>
-                        {children}
-                      </AppLayout>
-                    </ProjectPanelProvider>
-                    <LazyPresetModelSelectorDialog />
-                    {/* Sends queued chat messages for chats that aren't on screen. */}
-                    <MessageQueueRunner />
-                    <PlanUpgradeToast />
-                    <ConnectorAuthResultToast />
-                  </SearchProvider>
-                </ModelSelectorProvider>
-              </CompareProvider>
+              <ModelSelectorProvider>
+                <SearchProvider>
+                  <ProjectPanelProvider>
+                    <AppLayout defaultSidebarCollapsed={sidebarCollapsed}>
+                      {children}
+                    </AppLayout>
+                  </ProjectPanelProvider>
+                  <LazyPresetModelSelectorDialog />
+                  {/* Sends queued chat messages for chats that aren't on screen. */}
+                  <MessageQueueRunner />
+                  <PlanUpgradeToast />
+                  <ConnectorAuthResultToast />
+                </SearchProvider>
+              </ModelSelectorProvider>
             </HighlightProvider>
           </PinboardProvider>
-        </ChatHistoryProvider>
       </ProjectsProvider>
       </NotificationsProvider>
       </OrgProvider>

@@ -1,7 +1,13 @@
+/* The whole group (greeting, composer, suggestions) is centred in the space below the TopBar, not
+   pushed down by a fixed top padding: equal room above and below at any window height. The suggestions
+   keep their height while loading (StarterListSkeleton), so the composer does not shift when they land. */
 .home {
   box-sizing: border-box;
   min-height: 100%;
-  padding: clamp(96px, 30vh, 320px) clamp(20px, 5vw, 64px) 64px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 32px clamp(20px, 5vw, 64px);
 }
 
 /* The greeting gets a wider lane than the composer so the longer greetings sit on one line instead of

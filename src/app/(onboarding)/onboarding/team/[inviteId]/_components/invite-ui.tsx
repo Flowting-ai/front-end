@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import type { InviteLoadStatus } from "@/context/team-invite-onboarding-context";
 import { ROOT_ROUTE } from "@/lib/routes";
 

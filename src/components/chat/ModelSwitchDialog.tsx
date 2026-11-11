@@ -2,7 +2,7 @@
 
 import { AnimatePresence, m } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import type { AIModel } from "@/types/ai-model";
 import { ModelIcon } from "@/components/ModelIcon";
 
@@ -161,7 +161,7 @@ export function ModelSwitchDialog({
 
             {/* Actions */}
             <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-              <Button variant="ghost" size="sm" onClick={onCancel}>
+              <Button variant="cancel" size="sm" onClick={onCancel}>
                 Cancel
               </Button>
               <Button variant="default" size="sm" onClick={onConfirm}>

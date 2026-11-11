@@ -1,427 +1,58 @@
 "use client";
 
+import { LibraryCitationsProvider } from "@/components/Library/chat/library-citations";
+import { messageCopyText } from "@/lib/copy-text";
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import Image from "next/image";
-import { createPortal } from "react-dom";
 import { AnimatePresence, m, useReducedMotion } from "framer-motion";
-import { toast } from "sonner";
-import { ReasoningBlock, ModelLogo, AnimatedLogo } from "./ReasoningBlock";
+import { ReasoningBlock } from "./ReasoningBlock";
 import { BreathingDot } from "@/components/BreathingDot";
-import { ActivitiesSection } from "./ActivityRow";
 import { BlockSequenceRenderer } from "./ResponseBlocks";
 import { SourceList } from "./CitationChip";
-import { ConnectPromptCard } from "./ConnectorPrompts";
-import { PermissionPromptCard } from "@/components/shared/PermissionPromptCard";
-import { ChatPromptCard } from "./ChatPromptCard";
-import { ContentRenderer } from "@/lib/content-renderer";
-import { nextReveal, REVEAL_DRAIN_MS, REVEAL_STEP_MS } from "@/lib/reveal";
+import { ImageGenerationPreview, findPendingImageGeneration } from "./ImageGenerationPreview";
 import { deriveCitationsFromSources } from "@/lib/citations";
-import { applyRenderedHighlights, clearRenderedHighlights, getRenderedSelectionRange } from "@/lib/rendered-highlights";
 import { PINS_ENABLED, HIGHLIGHTS_ENABLED } from "@/lib/feature-flags";
 import { usePinboardActions } from "@/context/pinboard-context";
 import { useHighlight } from "@/context/highlight-context";
-import { trackBrowserEvent, trackFeature } from "@/lib/analytics/events";
+import { trackBrowserEvent } from "@/lib/analytics/events";
 import { SelectionPopover } from "@/components/SelectionPopover";
-import type { UIMessage, ActivityItem, WebCitation } from "@/types/chat";
-import { respondToChatPrompt } from "@/lib/api/chat";
-import { IconButton } from "@/components/IconButton";
-import { Tooltip } from "@/components/Tooltip";
-import { MessageBubble } from "@/components/MessageBubble";
-import { formatDate } from "@/lib/utils/format-utils";
-import {
-  PinIcon,
-  CopyOneIcon,
-  RedoIcon,
-  TickTwoIcon,
-  ImageDownloadTwoIcon,
-  ArrowExpandOneIcon,
-  CancelOneIcon,
-} from "@strange-huge/icons";
+import type { UIMessage } from "@/types/chat";
+import { GeneratedImageCard } from "./message/GeneratedImageCard";
+import { StandaloneActivitiesBlock } from "./message/StandaloneActivitiesBlock";
+import { StreamingTextContent } from "./message/StreamingTextContent";
+import { ErrorNotice } from "./message/ErrorNotice";
+import { UserMessageBody } from "./message/UserMessageBody";
+import { AssistantPrompts } from "./message/AssistantPrompts";
+import { GeneratedFilesList } from "./message/GeneratedFilesList";
+import { MessageActionBar } from "./message/MessageActionBar";
+import { useMessageSelection } from "./message/use-message-selection";
+import { useUnmountTimeouts } from "@/hooks/use-unmount-timeouts";
 
-// ── Generated Image Card with download button ──────────────────────────────────
+// The message's parts live in ./message/; this file is the row itself (state,
+// effects, layout) plus the memo comparator. StreamingTextContent is
+// re-exported so existing importers keep working.
+export { StreamingTextContent };
 
-function GeneratedImageCard({ img, index }: { img: { url: string; s3Key?: string }; index: number }) {
-  const [hovered, setHovered] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+// Static styles live at module level: this row re-renders on every streamed
+// frame, so they shouldn't be allocated again each time.
+const assistantColumnStyle: React.CSSProperties = { width: "100%", minWidth: 0 };
 
-  useEffect(() => {
-    if (!expanded) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setExpanded(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [expanded]);
+const waitingDotStyle: React.CSSProperties = { marginLeft: 4, marginTop: 2, backgroundColor: "var(--neutral-500)" };
 
-  function handleDownload() {
-    const filename = img.s3Key
-      ? img.s3Key.split("/").pop() ?? "image.png"
-      : `image-${index + 1}.png`;
-    // Route through the /api/download proxy: it streams the image server-side
-    // with Content-Disposition: attachment, so the browser always saves it.
-    // A direct client fetch would fail CORS on presigned S3 URLs and fall back
-    // to opening a blank tab.
-    const a = document.createElement("a");
-    a.href = `/api/download?url=${encodeURIComponent(img.url)}&filename=${encodeURIComponent(filename)}`;
-    a.download = filename;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }
+const imagesRowStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "8px",
+  marginTop: "12px",
+};
 
-  const overlayButtonStyle: React.CSSProperties = {
-    background: "color-mix(in srgb, var(--static-black) 55%, transparent)",
-    backdropFilter: "blur(4px)",
-    borderRadius: "8px",
-    color: "var(--static-white)",
-    border: "none",
-    padding: "6px",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  };
-
-  return (
-    <m.div
-      key={img.url}
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.3, delay: index * 0.1 }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        position: "relative",
-        borderRadius: "10px",
-        overflow: "hidden",
-        border: "1px solid var(--border-default)",
-        maxWidth: "320px",
-      }}
-    >
-      <Image
-        onClick={() => setExpanded(true)}
-        src={img.url}
-        alt="Generated image"
-        width={0}
-        height={0}
-        sizes="100%"
-        unoptimized
-        style={{
-          display: "block",
-          width: "100%",
-          height: "auto",
-          maxHeight: "300px",
-          objectFit: "cover",
-          cursor: "zoom-in",
-        }}
-      />
-      <AnimatePresence>
-        {hovered && (
-          <m.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            style={{
-              position: "absolute",
-              top: "8px",
-              right: "8px",
-            }}
-          >
-            <div style={{ display: "flex", gap: "6px" }}>
-              <Tooltip content="Expand image">
-                <IconButton
-                  onClick={() => setExpanded(true)}
-                  aria-label="Expand image"
-                  icon={<ArrowExpandOneIcon size={16} />}
-                  style={overlayButtonStyle}
-                />
-              </Tooltip>
-              <Tooltip content="Download image">
-                <IconButton
-                  onClick={handleDownload}
-                  aria-label="Download image"
-                  icon={<ImageDownloadTwoIcon size={16} animated />}
-                  style={overlayButtonStyle}
-                />
-              </Tooltip>
-            </div>
-          </m.div>
-        )}
-      </AnimatePresence>
-      {expanded && typeof document !== "undefined" && createPortal(
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Expanded image"
-          onClick={() => setExpanded(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 1000,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "32px",
-            background: "color-mix(in srgb, var(--static-black) 80%, transparent)",
-            cursor: "zoom-out",
-          }}
-        >
-          <div style={{ position: "absolute", top: "16px", right: "16px", display: "flex", gap: "8px" }} onClick={(e) => e.stopPropagation()}>
-            <IconButton onClick={handleDownload} aria-label="Download image" icon={<ImageDownloadTwoIcon size={18} />} style={overlayButtonStyle} />
-            <IconButton onClick={() => setExpanded(false)} aria-label="Close" icon={<CancelOneIcon size={18} />} style={overlayButtonStyle} />
-          </div>
-          {/* eslint-disable-next-line @next/next/no-img-element -- presigned URL, same as the card */}
-          <img
-            src={img.url}
-            alt="Generated image"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: "8px", cursor: "default" }}
-          />
-        </div>,
-        document.body,
-      )}
-    </m.div>
-  );
-}
-
-// ── Standalone Activities Block (collapsible, used when no reasoning) ─────────
-
-function StandaloneActivitiesBlock({
-  activities,
-}: {
-  activities: ActivityItem[];
-}) {
-  const [isOpen, setIsOpen] = useState(true);
-
-  // Derive summary for collapsed state
-  const doneCount = activities.filter((a) => a.status === "done").length;
-  const allDone = doneCount === activities.length;
-  const summaryText = allDone
-    ? `${activities.length} ${activities.length === 1 ? "action" : "actions"} completed`
-    : `${doneCount}/${activities.length} actions`;
-
-  return (
-    <div style={{ margin: "4px 0 8px" }}>
-      {/* Header row - summary + chevron. Logo/model name live in the
-          message-level attribution header above this block, not here. */}
-      <div draggable={false} style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 20, userSelect: "none" }}>
-        <span
-          style={{
-            fontSize: 14,
-            color: "var(--neutral-600)",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            flex: 1,
-            minWidth: 0,
-          }}
-        >
-          {summaryText}
-        </span>
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          type="button"
-          style={{
-            background: "transparent",
-            border: "none",
-            cursor: "pointer",
-            padding: 3,
-            display: "flex",
-            alignItems: "center",
-            borderRadius: 4,
-            flexShrink: 0,
-          }}
-        >
-          <m.svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            animate={{ rotate: isOpen ? 180 : 0 }}
-            transition={{ type: "spring", stiffness: 380, damping: 28 }}
-            style={{ display: "block", flexShrink: 0 }}
-          >
-            <path
-              d="M3 5.5 L7 9.5 L11 5.5"
-              stroke="var(--neutral-300)"
-              strokeWidth="1.7"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </m.svg>
-        </button>
-      </div>
-
-      {/* Collapsible activities panel — grid-rows collapse instead of
-          animating `height`, so the transition runs on the compositor
-          instead of forcing a layout recalculation every frame. */}
-      <div
-        aria-hidden={!isOpen}
-        style={{
-          display: "grid",
-          gridTemplateRows: isOpen ? "1fr" : "0fr",
-          opacity: isOpen ? 1 : 0,
-          visibility: isOpen ? "visible" : "hidden",
-          transition: `grid-template-rows 260ms cubic-bezier(0.16,1,0.3,1), opacity 220ms ease, visibility 0s linear ${isOpen ? "0s" : "260ms"}`,
-        }}
-      >
-        <div style={{ overflow: "hidden", minHeight: 0 }}>
-          <div style={{ paddingTop: 10 }}>
-            <ActivitiesSection activities={activities} />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── StreamingTextContent - renders live content with BreathingDot cursor ──────
-// Uses full MarkdownRenderer (same as completed messages) for consistent
-// formatting quality during streaming — code blocks, math, GFM tables all
-// render properly while the stream is active.
-
-export function StreamingTextContent({
-  content,
-  citations,
-  animate,
-  isLoading,
-  stopped,
-  revealFrom = "",
-  onCaughtUp,
-}: {
-  content: string;
-  citations?: WebCitation[];
-  /** Reveal the text progressively. False for history and reduced motion: shown in full. */
-  animate: boolean;
-  isLoading: boolean;
-  /** User pressed Stop: freeze the reveal where it is instead of draining the buffered text. */
-  stopped: boolean;
-  /** Text already on screen when this mounts — what a remounted row (e.g. scrolled
-   *  back into view mid-stream) showed before, so its reveal doesn't replay. */
-  revealFrom?: string;
-  /** Called with `content` once the stream is over and all of it is on screen. */
-  onCaughtUp?: (content: string) => void;
-}) {
-  const [displayedContent, setDisplayedContent] = useState(revealFrom);
-  const displayedRef = useRef(revealFrom);
-  const lastStepAtRef = useRef<number | null>(null);
-  const drainStartedAtRef = useRef<number | null>(null);
-
-  // Steps through `nextReveal` on animation frames, at most every
-  // REVEAL_STEP_MS: each step re-renders the message's whole Markdown.
-  // Restarted whenever the content grows, so each run closes over the latest
-  // text; the step clock and drain deadline live in refs so a restart doesn't
-  // reset them. The loop stops while there's nothing it can reveal (caught up,
-  // or held at a widget still being written) until the content changes.
-  useEffect(() => {
-    if (!animate || stopped) return;
-
-    let active = true;
-    let frame: number | null = null;
-    const show = (next: string) => {
-      if (!active || next === displayedRef.current) return;
-      displayedRef.current = next;
-      setDisplayedContent(next);
-    };
-
-    const tick = (now: number) => {
-      frame = null;
-      if (isLoading) drainStartedAtRef.current = null;
-      else drainStartedAtRef.current ??= now;
-      const drainMsLeft = drainStartedAtRef.current === null
-        ? undefined
-        : Math.max(0, REVEAL_DRAIN_MS - (now - drainStartedAtRef.current));
-      // The first step after a pause goes straight away.
-      const elapsedMs = lastStepAtRef.current === null ? REVEAL_STEP_MS : now - lastStepAtRef.current;
-      const deadlineDue = drainMsLeft !== undefined && drainMsLeft <= elapsedMs;
-      if (elapsedMs < REVEAL_STEP_MS && !deadlineDue) {
-        frame = requestAnimationFrame(tick);
-        return;
-      }
-      lastStepAtRef.current = now;
-      const previous = displayedRef.current;
-      const next = nextReveal({ displayed: previous, target: content, elapsedMs, drainMsLeft });
-      show(next);
-      const held = next === previous && drainMsLeft === undefined;
-      if (next === content || held) lastStepAtRef.current = null;
-      else frame = requestAnimationFrame(tick);
-    };
-
-    // A hidden tab gets no animation frames, and nobody is watching the
-    // reveal: show everything at once (also when the tab comes back).
-    const showAll = () => show(content);
-    if (document.hidden) void Promise.resolve().then(showAll);
-    else frame = requestAnimationFrame(tick);
-    document.addEventListener("visibilitychange", showAll);
-
-    return () => {
-      active = false;
-      if (frame !== null) cancelAnimationFrame(frame);
-      document.removeEventListener("visibilitychange", showAll);
-    };
-  }, [animate, stopped, content, isLoading]);
-
-  const caughtUp = animate && !stopped && !isLoading && displayedContent === content;
-  useEffect(() => {
-    if (caughtUp) onCaughtUp?.(content);
-  }, [caughtUp, content, onCaughtUp]);
-
-  // A stopped message that was being revealed stays frozen at what the user saw.
-  // One that was never animated (e.g. loaded from history) shows in full.
-  const shownContent = animate ? displayedContent : content;
-  const showCursor = !stopped && (isLoading || shownContent !== content);
-  const dot = <BreathingDot style={{ marginLeft: 4, backgroundColor: "var(--neutral-500)" }} />;
-  return <ContentRenderer content={shownContent} webCitations={citations} isStreaming={showCursor} cursor={showCursor ? dot : undefined} />;
-}
-
-// ── ErrorNotice - a failure below output that was already shown ───────────────
-// Styled after the connector-error card (AnimatedConnectorError).
-
-function ErrorNotice({ message, onRetry }: { message: string; onRetry?: () => void }) {
-  return (
-    <m.div
-      role="alert"
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        marginTop: 12,
-        padding: "10px 12px 10px 14px",
-        borderRadius: 12,
-        background: "color-mix(in srgb, var(--red-500) 4%, transparent)",
-        border: "1px solid color-mix(in srgb, var(--red-500) 18%, transparent)",
-      }}
-    >
-      <span style={{ flex: 1, minWidth: 0, fontFamily: "var(--font-body)", fontSize: 14, lineHeight: "22px", color: "var(--neutral-700)" }}>
-        {message}
-      </span>
-      {onRetry && (
-        <button
-          type="button"
-          onClick={onRetry}
-          style={{
-            flexShrink: 0,
-            background: "transparent",
-            border: "1px solid color-mix(in srgb, var(--red-500) 28%, transparent)",
-            borderRadius: 8,
-            padding: "6px 12px",
-            fontFamily: "var(--font-body)",
-            fontSize: 14,
-            fontWeight: 600,
-            color: "var(--red-600)",
-            cursor: "pointer",
-          }}
-        >
-          Retry
-        </button>
-      )}
-    </m.div>
-  );
-}
+const stoppedStyle: React.CSSProperties = {
+  display: "inline-block",
+  marginTop: "8px",
+  fontFamily: "var(--font-body)",
+  fontSize: "12px",
+  color: "var(--neutral-500)",
+  fontStyle: "italic",
+};
 
 // ── Main ChatMessage Component ────────────────────────────────────────────────
 
@@ -448,7 +79,7 @@ interface ChatMessageProps {
   /** Records a permission-prompt answer in the owning messages state so the
    *  card stays hidden across remounts (message-id swap, virtualizer). */
   onPromptDecided?: (messageId: string, requestId: string, decision: string) => void;
-  /** Sends the message a late prompt answer comes back with, as the next turn.
+  /** Continues a turn parked on a prompt whose respond_url is `/chats/{id}/resume`.
    *  The memo comparator ignores it, so pass a stable function. */
   onPromptFollowUp?: (message: string) => void;
   /** Called once per message when it has stopped loading and its text reveal
@@ -476,31 +107,40 @@ export function ChatMessage({
   onRevealSettled,
 }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
-  const [selectionOpen, setSelectionOpen] = useState(false);
-  const [selectionAnchor, setSelectionAnchor] = useState<DOMRect | null>(null);
-  const [justModelSelected, setJustModelSelected] = useState(false);
+  // The "Copied" reset is cleared if the row unmounts first.
+  const later = useUnmountTimeouts();
   const contentRef = useRef<HTMLDivElement>(null);
-  const prevModelKeyRef = useRef<string | undefined>(undefined);
   const { addPin, removePinByMessage, open: openPinboard, close: closePinboard } = usePinboardActions();
   const { addHighlight, open: openHighlightPanel, close: closeHighlightPanel, highlights } = useHighlight();
-
-  const messageHighlights = useMemo(
-    () => highlights
-      // Include highlights that belong to this message, OR highlights whose
-      // messageId is missing/null (e.g. created before the API sent message_id).
-      // For the latter case the rehype plugin's text-search naturally limits
-      // the mark to whichever message actually contains the selected text.
-      .flatMap(h => (h.messageId === message.id || !h.messageId)
-        ? [{ id: h.id, text: h.text, colorIndex: h.colorIndex, startOffset: h.startOffset, endOffset: h.endOffset }]
-        : []),
-    [highlights, message.id],
-  )
 
   // Stable reference so BlockSequenceRenderer (React.memo) doesn't re-render
   // on every text token during streaming — only recomputes when responseBlocks changes.
   const structuralBlocks = useMemo(
     () => (message.responseBlocks ?? []).filter(b => b.kind !== 'text'),
     [message.responseBlocks],
+  )
+
+  // While streaming, a freshly generated image is preloaded before it takes
+  // the preview's place — otherwise the preview leaves on the URL and an empty
+  // frame sits there for the second or two the download takes.
+  const [loadedImageUrls, setLoadedImageUrls] = useState<ReadonlySet<string>>(() => new Set())
+  useEffect(() => {
+    if (!message.isLoading || !message.images) return
+    for (const { url } of message.images) {
+      if (loadedImageUrls.has(url)) continue
+      const probe = new window.Image()
+      probe.onload = probe.onerror = () => setLoadedImageUrls((prev) => new Set(prev).add(url))
+      probe.src = url
+    }
+  }, [message.isLoading, message.images, loadedImageUrls])
+  const visibleImages = useMemo(
+    () => (message.isLoading ? message.images?.filter((img) => loadedImageUrls.has(img.url)) : message.images),
+    [message.isLoading, message.images, loadedImageUrls],
+  )
+
+  const imageGenActivity = useMemo(
+    () => (message.isLoading ? findPendingImageGeneration(message.activities, visibleImages?.length ?? 0) : undefined),
+    [message.isLoading, message.activities, visibleImages?.length],
   )
 
   // Question-card decisions by prompt id, for the reasoning trace's markers.
@@ -573,159 +213,24 @@ export function ChatMessage({
 
   const retry = onRetry ?? onRegenerate;
 
-  // Resolve the actual model display name — never expose "souvenir" as a routing label.
-  const modelDisplayName = (() => {
-    const raw = message.modelMeta?.modelName ?? message.modelName ?? message.model_name ?? message.model
-    if (!raw) return null
-    // Never expose an internal routing label as the model name.
-    if (raw.toLowerCase().startsWith('souvenir')) return null
-    return raw
-  })()
-
-  // Trigger a glow burst when model metadata first becomes available.
-  const currentModelKey = message.modelMeta?.modelName || message.modelName || message.model_name || message.model
-  useEffect(() => {
-    if (!isNewMessage) return
-    if (currentModelKey && currentModelKey !== prevModelKeyRef.current) {
-      prevModelKeyRef.current = currentModelKey
-      setJustModelSelected(true)
-      const t = setTimeout(() => setJustModelSelected(false), 1200)
-      return () => clearTimeout(t)
-    }
-  }, [currentModelKey, isNewMessage])
-
-  // ── Text selection → SelectionPopover (assistant messages only) ──────────
-  useEffect(() => {
-    if (!isAssistant || disableHighlight) return
-
-    // Mouse-driven selections are finalized on `mouseup` — opening on every
-    // intermediate `selectionchange` while the mouse is still dragging would
-    // make the popover jump around mid-drag. Keyboard selections (Shift+Arrow,
-    // Shift+Home, etc.) have no equivalent "selection finished" event — each
-    // key press IS a discrete, complete selection change — so those are
-    // opened directly from `selectionchange` instead, gated on the mouse not
-    // currently being held down.
-    let mouseIsDown = false
-
-    const showSelectionPopover = () => {
-      const sel = window.getSelection()
-      if (!sel || sel.isCollapsed || sel.rangeCount === 0) return
-      const range = sel.getRangeAt(0)
-      if (!contentRef.current?.contains(range.commonAncestorContainer)) return
-      const rect = range.getBoundingClientRect()
-      if (!rect.width) return
-      setSelectionAnchor(rect)
-      setSelectionOpen(true)
-    }
-
-    const handleMouseDown = () => { mouseIsDown = true }
-
-    const handleMouseUp = () => {
-      mouseIsDown = false
-      requestAnimationFrame(showSelectionPopover)
-    }
-
-    const handleSelectionChange = () => {
-      const sel = window.getSelection()
-      if (!sel || sel.isCollapsed) {
-        setSelectionOpen(false)
-        setSelectionAnchor(null)
-        return
-      }
-      if (!mouseIsDown) requestAnimationFrame(showSelectionPopover)
-    }
-
-    document.addEventListener('mousedown', handleMouseDown)
-    document.addEventListener('mouseup', handleMouseUp)
-    document.addEventListener('selectionchange', handleSelectionChange)
-    return () => {
-      document.removeEventListener('mousedown', handleMouseDown)
-      document.removeEventListener('mouseup', handleMouseUp)
-      document.removeEventListener('selectionchange', handleSelectionChange)
-    }
-  }, [disableHighlight, isAssistant])
-
-  // Keep the popover anchored to the live selection while the message list
-  // scrolls. `selectionAnchor` is a viewport-relative DOMRect captured once
-  // at selection time and applied as the popover's `position: fixed`
-  // coordinates (see SelectionPopover) — without this, scrolling moves the
-  // selected text to a new position on screen but the popover's coordinates
-  // never get told, so it stays frozen where it first appeared instead of
-  // following the text. `scroll` events don't bubble, but a capture-phase
-  // listener on `document` still observes them fire on any scrollable
-  // descendant (the message list's own scroll container), so this works
-  // without needing a ref to that container from this per-message component.
-  useEffect(() => {
-    if (!selectionOpen) return
-    let rafId: number | null = null
-    const reposition = () => {
-      rafId = null
-      const sel = window.getSelection()
-      if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
-        setSelectionOpen(false)
-        setSelectionAnchor(null)
-        return
-      }
-      const range = sel.getRangeAt(0)
-      if (!contentRef.current?.contains(range.commonAncestorContainer)) {
-        setSelectionOpen(false)
-        setSelectionAnchor(null)
-        return
-      }
-      const rect = range.getBoundingClientRect()
-      if (rect.width) setSelectionAnchor(rect)
-    }
-    // rAF-throttled so a fast scroll doesn't fire a flurry of setState +
-    // floating-ui recomputations, one per raw scroll event.
-    const onScroll = () => {
-      if (rafId != null) return
-      rafId = requestAnimationFrame(reposition)
-    }
-    document.addEventListener('scroll', onScroll, true)
-    return () => {
-      document.removeEventListener('scroll', onScroll, true)
-      if (rafId != null) cancelAnimationFrame(rafId)
-    }
-  }, [selectionOpen])
-
-  useEffect(() => {
-    if (!HIGHLIGHTS_ENABLED || !isAssistant || disableHighlight) return
-    const root = contentRef.current
-    if (!root) return
-
-    let frame: number | null = null
-    const observer = new MutationObserver(() => scheduleApply())
-
-    const apply = () => {
-      frame = null
-      observer.disconnect()
-      if (messageHighlights.length) {
-        applyRenderedHighlights(root, messageHighlights)
-      } else {
-        clearRenderedHighlights(root)
-      }
-      observer.observe(root, { childList: true, characterData: true, subtree: true })
-    }
-
-    const scheduleApply = () => {
-      if (frame != null) return
-      frame = requestAnimationFrame(apply)
-    }
-
-    scheduleApply()
-    observer.observe(root, { childList: true, characterData: true, subtree: true })
-
-    return () => {
-      if (frame != null) cancelAnimationFrame(frame)
-      observer.disconnect()
-    }
-  }, [disableHighlight, isAssistant, messageHighlights])
+  // Selection popover + highlight marks; its effects run after the ones above.
+  const { selectionOpen, selectionAnchor, handleHighlight, handleCopySelection } = useMessageSelection({
+    messageId: message.id,
+    chatId,
+    isAssistant,
+    disableHighlight,
+    contentRef,
+    highlights,
+    addHighlight,
+    openHighlightPanel,
+    closePinboard,
+  })
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(message.content);
+      await navigator.clipboard.writeText(messageCopyText(message.content));
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      later(() => setCopied(false), 2000);
     } catch {
       /* ignore */
     }
@@ -758,35 +263,6 @@ export function ChatMessage({
     openPinboard();
   };
 
-  const handleHighlight = () => {
-    if (!HIGHLIGHTS_ENABLED) return
-    const sel = window.getSelection()
-    if (!sel || sel.rangeCount === 0) return
-    if (!contentRef.current) return
-
-    const selectionRange = getRenderedSelectionRange(contentRef.current, sel)
-    if (!selectionRange) return
-
-    const { selectedText: text, startOffset, endOffset } = selectionRange
-
-    addHighlight({ text, messageId: message.id, startOffset, endOffset, chatId })
-    trackBrowserEvent("highlight_created", { source: "chat" })
-    closePinboard()
-    openHighlightPanel()
-    sel.removeAllRanges()
-    setSelectionOpen(false)
-    setSelectionAnchor(null)
-  };
-
-  const handleCopySelection = () => {
-    const sel = window.getSelection()
-    const text = sel?.toString()
-    if (!text) return
-    navigator.clipboard.writeText(text)
-      .then(() => toast.success('Copied to clipboard'))
-      .catch(() => toast.error('Failed to copy'))
-  };
-
   return (
     <m.div
       data-message-id={message.id}
@@ -811,218 +287,12 @@ export function ChatMessage({
     >
       {isUser ? (
         /* ── User message: right-aligned bubble ── */
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, width: "100%", maxWidth: 566 }}>
-          {/* Pin attachment chips - appear above file chips and bubble */}
-          {PINS_ENABLED && message.mentionedPins && message.mentionedPins.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", justifyContent: "flex-end" }}>
-              {message.mentionedPins.map((pin) => (
-                <div
-                  key={pin.id}
-                  style={{
-                    display:         "inline-flex",
-                    alignItems:      "center",
-                    gap:             "5px",
-                    padding:         "4px 8px",
-                    borderRadius:    "8px",
-                    backgroundColor: "color-mix(in srgb, var(--neutral-800) 7%, transparent)",
-                    border:          "1px solid var(--neutral-800-10)",
-                    maxWidth:        "220px",
-                  }}
-                >
-                  {/* Pin icon */}
-                  <svg
-                    width="12" height="12" viewBox="0 0 24 24"
-                    fill="none" stroke="var(--neutral-500)" strokeWidth="1.8"
-                    strokeLinecap="round" strokeLinejoin="round"
-                    style={{ flexShrink: 0 }}
-                  >
-                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-                    <circle cx="12" cy="9" r="2.5"/>
-                  </svg>
-                  <span
-                    style={{
-                      fontFamily:   "var(--font-body)",
-                      fontSize:     "12px",
-                      fontWeight:   500,
-                      color:        "var(--neutral-700)",
-                      overflow:     "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace:   "nowrap",
-                    }}
-                  >
-                    @{pin.label}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-          {/* File attachment chips - appear above the message bubble */}
-          {message.attachments && message.attachments.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", justifyContent: "flex-end" }}>
-              {message.attachments.map((att) => {
-                const ext = att.file_name.split(".").pop()?.toUpperCase() ?? "FILE";
-                const isImage = att.file_type.startsWith("image/");
-                const chip = (
-                  <div
-                    key={att.id}
-                    style={{
-                      display:         "inline-flex",
-                      alignItems:      "center",
-                      gap:             "5px",
-                      padding:         "4px 8px",
-                      borderRadius:    "8px",
-                      backgroundColor: "color-mix(in srgb, var(--neutral-800) 7%, transparent)",
-                      border:          "1px solid var(--neutral-800-10)",
-                      maxWidth:        "220px",
-                    }}
-                  >
-                    <svg
-                      width="12" height="12" viewBox="0 0 24 24"
-                      fill="none" stroke="var(--neutral-500)" strokeWidth="1.8"
-                      strokeLinecap="round" strokeLinejoin="round"
-                      style={{ flexShrink: 0 }}
-                    >
-                      {isImage ? (
-                        <>
-                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                          <circle cx="8.5" cy="8.5" r="1.5"/>
-                          <polyline points="21 15 16 10 5 21"/>
-                        </>
-                      ) : (
-                        <>
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                          <polyline points="14 2 14 8 20 8"/>
-                        </>
-                      )}
-                    </svg>
-                    <span
-                      style={{
-                        fontFamily:   "var(--font-body)",
-                        fontSize: "12px",
-                        fontWeight:   500,
-                        color:        "var(--neutral-700)",
-                        overflow:     "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace:   "nowrap",
-                      }}
-                    >
-                      {att.file_name}
-                    </span>
-                    {att.uploading ? (
-                      <span
-                        style={{
-                          fontFamily: "var(--font-body)",
-                          fontSize: "12px",
-                          color:      "var(--neutral-600)",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {att.uploadProgress !== undefined && att.uploadProgress < 100
-                          ? `${att.uploadProgress}%`
-                          : "Uploading…"}
-                      </span>
-                    ) : (
-                      <span
-                        style={{
-                          fontFamily: "var(--font-body)",
-                          fontSize: "12px",
-                          color:      "var(--neutral-600)",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {ext}
-                      </span>
-                    )}
-                  </div>
-                );
-                return att.url && !att.uploading ? (
-                  <a
-                    key={att.id}
-                    href={att.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ textDecoration: "none", flexShrink: 0 }}
-                  >
-                    {chip}
-                  </a>
-                ) : (
-                  <React.Fragment key={att.id}>{chip}</React.Fragment>
-                );
-              })}
-            </div>
-          )}
-
-          <MessageBubble
-            role="user"
-            content={message.content}
-            timestamp={formatDate(message.created_at)}
-            onRetry={onRegenerate}
-            onEditSave={onEdit ? (newContent) => onEdit(message.id, newContent) : undefined}
-            maxWidth={566}
-            hideActions={archived}
-          />
-        </div>
+        <UserMessageBody message={message} archived={archived} onRegenerate={onRegenerate} onEdit={onEdit} />
       ) : (
         /* ── Assistant message: left-aligned, no bubble ── */
-        <div style={{ width: "100%", minWidth: 0 }}>
+        <div style={assistantColumnStyle}>
 
-        {/* Assistant model-attribution header — always its own line above
-            whatever comes next (the Thinking trigger, an activities
-            summary, or bare content), never merged into any of those rows.
-            Gated only on identity being resolved, not on hasThinking/
-            showReasoning/activities — ReasoningBlock's "Thinking" trigger
-            and StandaloneActivitiesBlock's summary row no longer show their
-            own duplicate logo/name, this is the one place it renders. */}
-        <AnimatePresence initial={false}>
-          {(message.modelName || !message.isLoading) && (
-            <m.div
-              key="model-header"
-              initial={{ opacity: 0, y: -4, filter: "blur(4px)" }}
-              animate={{ opacity: 1, y: 0, filter: "blur(0px)", transitionEnd: { filter: "none" } }}
-              transition={{ type: "spring", stiffness: 420, damping: 30 }}
-              draggable={false}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                marginBottom: "4px",
-                userSelect: "none",
-              }}
-            >
-              <AnimatedLogo
-                modelMeta={message.modelMeta}
-                modelName={message.modelName || message.model_name || message.model}
-                isThinkingInProgress={false}
-                justSelected={justModelSelected}
-              />
-              <AnimatePresence mode="popLayout" initial={false}>
-                {(() => {
-                  // Same fallback as the loading-state label below: a generic
-                  // "Souvenir" placeholder rather than blanking the text
-                  // entirely, since modelDisplayName can genuinely resolve to
-                  // null (e.g. an unrecognized "souvenir"-prefixed placeholder
-                  // name) while the logo next to it renders regardless.
-                  const label = modelDisplayName ?? "Souvenir";
-                  return (
-                    <m.span
-                      key={label}
-                      initial={{ opacity: 0, filter: "blur(4px)" }}
-                      animate={{ opacity: 1, filter: "blur(0px)", transitionEnd: { filter: "none" } }}
-                      transition={{ type: "spring", stiffness: 520, damping: 32 }}
-                      style={{
-                        fontFamily: "var(--font-body)",
-                        fontSize: "14px",
-                        fontWeight: 500,
-                        color: "var(--model-name-text)",                      }}
-                    >
-                      {label}
-                    </m.span>
-                  );
-                })()}
-              </AnimatePresence>
-            </m.div>
-          )}
-        </AnimatePresence>
+        {/* No model name/logo row: answers no longer say which model wrote them. */}
 
         {/* Activities summary line — shown when there are activities but
             ReasoningBlock isn't the one rendering them (no thinking data, or
@@ -1033,30 +303,9 @@ export function ChatMessage({
           <StandaloneActivitiesBlock activities={message.activities} />
         )}
 
-        {/* Loading state - shows shimmer label only before model identity is known.
-            Once modelMeta/modelName is set, AssistantRoleLabel above takes over. */}
-        {message.isLoading && !message.content && !message.thinking && !(message.activities && message.activities.length > 0) &&
-         !message.modelMeta && !(message.modelName || message.model_name || message.model) && (
-          <div style={{ margin: "4px 0 8px" }}>
-            <div draggable={false} style={{ display: "flex", alignItems: "center", gap: 7, minHeight: 20, userSelect: "none" }}>
-              <ModelLogo modelMeta={message.modelMeta} modelName={message.modelName || message.model_name || message.model} size={16} />
-              <span
-                className="kaya-label-shimmer"
-                style={{
-                  fontSize: 14,
-                  fontWeight: 500,
-                  lineHeight: "18px",
-                }}
-              >
-                {modelDisplayName ?? "Souvenir"}
-              </span>
-            </div>
-          </div>
-        )}
-
         {/* Waiting indicator — shown while loading before any content or thinking arrives */}
         {message.isLoading && !message.content && !message.thinking && !(message.activities && message.activities.length > 0) && (
-          <BreathingDot size="md" style={{ marginLeft: 4, marginTop: 2, backgroundColor: "var(--neutral-500)" }} />
+          <BreathingDot size="md" style={waitingDotStyle} />
         )}
 
         {/* Reasoning block — shown when adaptive thinking is enabled */}
@@ -1087,6 +336,7 @@ export function ChatMessage({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
           >
+            <LibraryCitationsProvider citations={message.libraryCitations}>
             <StreamingTextContent
               content={answerText}
               citations={citations}
@@ -1096,6 +346,7 @@ export function ChatMessage({
               revealFrom={revealFrom}
               onCaughtUp={setCaughtUpText}
             />
+            </LibraryCitationsProvider>
           </m.div>
         ) : null}
         {/* Structural blocks (tables, charts, steps, follow-ups, tags, etc.) come
@@ -1116,58 +367,21 @@ export function ChatMessage({
           <SourceList citations={citations} />
         )}
 
-        {/* Connector connect prompts — inline CTA when a tool needs linking */}
-        {message.connectorConnectPrompts && message.connectorConnectPrompts.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {message.connectorConnectPrompts.map((prompt) => (
-              <ConnectPromptCard key={prompt.request_id} prompt={prompt} />
-            ))}
-          </div>
-        )}
+        <AssistantPrompts message={message} onPromptDecided={onPromptDecided} onPromptFollowUp={onPromptFollowUp} />
 
-        {/* Connector permission prompts — inline Allow/Block/Allow once buttons */}
-        {message.connectorPermissionPrompts && message.connectorPermissionPrompts.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {message.connectorPermissionPrompts.map((prompt) => (
-              <PermissionPromptCard
-                key={prompt.request_id}
-                prompt={prompt}
-                onDecided={(policy) => {
-                  respondToChatPrompt(prompt.request_id, policy, prompt.respond_url)
-                    .then((answered) => { if (answered?.message) onPromptFollowUp?.(answered.message) })
-                    .catch(() => {})
-                  onPromptDecided?.(message.id, prompt.request_id, policy)
-                }}
-              />
-            ))}
-          </div>
-        )}
-
-        {message.chatPrompts && message.chatPrompts.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {message.chatPrompts.map((prompt) => (
-              <ChatPromptCard
-                key={prompt.request_id}
-                prompt={prompt}
-                onDecided={(decision) => onPromptDecided?.(message.id, prompt.request_id, decision)}
-                onFollowUp={onPromptFollowUp}
-              />
-            ))}
-          </div>
-        )}
-
+        {/* Image generation preview — while an image tool is still running */}
+        {/* popLayout: the exiting preview floats in place, so the real image
+            slides into its spot and sharpens underneath the dissolve. */}
+        <AnimatePresence mode="popLayout">
+          {imageGenActivity && (
+            <ImageGenerationPreview key="image-gen-preview" activity={imageGenActivity} />
+          )}
+        </AnimatePresence>
 
         {/* Generated images */}
-        {message.images && message.images.length > 0 && (
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "8px",
-              marginTop: "12px",
-            }}
-          >
-            {message.images.map((img, i) => (
+        {visibleImages && visibleImages.length > 0 && (
+          <div style={imagesRowStyle}>
+            {visibleImages.map((img, i) => (
               <GeneratedImageCard key={img.url} img={img} index={i} />
             ))}
           </div>
@@ -1175,216 +389,12 @@ export function ChatMessage({
 
         {/* Generated files */}
         {message.generatedFiles && message.generatedFiles.length > 0 && (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "8px",
-              marginTop: "12px",
-            }}
-          >
-            {message.generatedFiles.map((file, i) => {
-              // ── Derive file type label + badge colour ──────────────────────
-              const ext = (() => {
-                if (file.mimeType) {
-                  const sub = file.mimeType.split("/").pop() ?? ""
-                  if (sub.includes("pdf")) return "PDF"
-                  if (sub.includes("wordprocessingml") || sub.includes("msword")) return "DOCX"
-                  if (sub.includes("spreadsheetml") || sub.includes("excel")) return "XLSX"
-                  if (sub.includes("presentationml") || sub.includes("powerpoint")) return "PPTX"
-                  if (sub.includes("csv")) return "CSV"
-                  if (sub.includes("markdown") || sub.includes("md")) return "MD"
-                  return sub.toUpperCase().slice(0, 5) || "FILE"
-                }
-                const fromName = (file.filename.split(".").pop() ?? "").toUpperCase()
-                return fromName.slice(0, 5) || "FILE"
-              })()
-
-              const badgeColor = (() => {
-                switch (ext) {
-                  case "PDF":  return "var(--danger-500)"
-                  case "DOCX": case "DOC": return "var(--blue-600)"
-                  case "XLSX": case "XLS": return "var(--success-700)"
-                  case "CSV":  return "var(--success-800)"
-                  case "PPTX": case "PPT": return "var(--warning-600)"
-                  case "MD":   return "var(--violet-500)"
-                  default:     return "var(--neutral-600)"
-                }
-              })()
-
-              // Download URL goes through our proxy so the browser always saves
-              // the file (avoids CORS + Content-Disposition issues from S3)
-              const downloadHref = `/api/download?url=${encodeURIComponent(file.url)}&filename=${encodeURIComponent(file.filename)}`
-
-              return (
-                <m.div key={file.url}
-                  initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 360,
-                    damping: 26,
-                    delay: i * 0.07,
-                  }}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "10px",
-                    padding: "8px 10px 8px 8px",
-                    borderRadius: "10px",
-                    backgroundColor: "rgba(59,54,50,0.05)",
-                    border: "1px solid var(--neutral-800-10)",
-                    width: "fit-content",
-                    maxWidth: "420px",
-                    boxSizing: "border-box",
-                  }}
-                >
-                  {/* Coloured type badge */}
-                  <div
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 7,
-                      backgroundColor: badgeColor,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: "var(--static-white)",
-                        letterSpacing: "0.4px",
-                        lineHeight: 1,
-                      }}
-                    >
-                      {ext}
-                    </span>
-                  </div>
-
-                  {/* Filename */}
-                  <span
-                    style={{
-                      fontFamily: "var(--font-body)",
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: "var(--neutral-700)",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      flex: 1,
-                      minWidth: 0,
-                    }}
-                  >
-                    {file.filename}
-                  </span>
-
-                  {/* Action buttons */}
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {/* View - opens file in new tab (browsers show PDF inline, download DOCX/XLSX etc.) */}
-                    <Tooltip content="View"><a aria-label="View"
-                      href={file.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        width: 28,
-                        height: 28,
-                        borderRadius: 6,
-                        backgroundColor: "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        transition: "background-color 120ms",
-                        textDecoration: "none",
-                        color: "inherit",
-                      }}
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "var(--neutral-800-10)"
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "transparent"
-                      }}
-                    >
-                      {/* External link icon */}
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                        <path
-                          d="M10 2h4v4M14 2 8 8M7 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V9"
-                          stroke="var(--neutral-400)"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </a></Tooltip>
-
-                    {/* Download - proxied through /api/download so browser always saves */}
-                    <Tooltip content="Download"><a aria-label="Download"
-                      href={downloadHref}
-                      download={file.filename}
-                      onClick={() => trackFeature("document_download", { file_ext: file.filename?.split(".").pop()?.toLowerCase() })}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        width: 28,
-                        height: 28,
-                        borderRadius: 6,
-                        backgroundColor: "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        transition: "background-color 120ms",
-                        textDecoration: "none",
-                        color: "inherit",
-                      }}
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "var(--neutral-800-10)"
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLAnchorElement).style.backgroundColor = "transparent"
-                      }}
-                    >
-                      {/* Download arrow icon */}
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                        <path
-                          d="M8 2v8m0 0L5.5 7.5M8 10l2.5-2.5M2 13h12"
-                          stroke="var(--neutral-400)"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </a></Tooltip>
-                  </div>
-                </m.div>
-              )
-            })}
-          </div>
+          <GeneratedFilesList files={message.generatedFiles} />
         )}
 
         {/* Stopped indicator */}
         {message.stoppedByUser && (
-          <span
-            style={{
-              display: "inline-block",
-              marginTop: "8px",
-              fontFamily: "var(--font-body)",
-              fontSize: "12px",
-              color: "var(--neutral-500)",
-              fontStyle: "italic",
-            }}
-          >
+          <span style={stoppedStyle}>
             Generation stopped
           </span>
         )}
@@ -1397,38 +407,19 @@ export function ChatMessage({
 
         {/* Content actions require an actual answer; errors can still regenerate.
             Hidden entirely on an archived chat — nothing here should be actionable. */}
-        {!archived && (canUseContentActions || (isLast && onRegenerate)) && <m.div
-          animate={{ opacity: revealSettled ? 1 : 0 }}
-          transition={{ duration: 0.15 }}
-          style={{
-            display: "flex",
-            gap: 2,
-            marginTop: 4,
-            pointerEvents: revealSettled ? "auto" : "none",
-          }}
-        >
-          {PINS_ENABLED && canUseContentActions && !hidePinAction && (
-            <ActionIconButton
-              icon={<PinIcon size={18} color={pinned ? "var(--brown-700, #683D1B)" : "var(--neutral-400)"} />}
-              label={pinned ? "Unpin" : "Pin"}
-              onClick={handlePin}
-            />
-          )}
-          {canUseContentActions && (
-            <ActionIconButton
-              icon={copied ? <TickTwoIcon size={18} color="var(--success-600, #80B707)" /> : <CopyOneIcon size={18} color="var(--neutral-400)" />}
-              label={copied ? "Copied" : "Copy"}
-              onClick={handleCopy}
-            />
-          )}
-          {isLast && onRegenerate && (
-            <ActionIconButton
-              icon={<RedoIcon size={18} color="var(--neutral-400)" />}
-              label="Regenerate"
-              onClick={onRegenerate}
-            />
-          )}
-        </m.div>}
+        {!archived && (canUseContentActions || (isLast && onRegenerate)) && (
+          <MessageActionBar
+            revealSettled={revealSettled}
+            canUseContentActions={canUseContentActions}
+            showPin={!hidePinAction}
+            pinned={pinned}
+            copied={copied}
+            showRegenerate={isLast}
+            onPin={handlePin}
+            onCopy={handleCopy}
+            onRegenerate={onRegenerate}
+          />
+        )}
         </div>
       )}
 
@@ -1442,28 +433,6 @@ export function ChatMessage({
         />
       )}
     </m.div>
-  );
-}
-
-function ActionIconButton({
-  icon,
-  label,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <Tooltip content={label} side="top" sideOffset={6} delayDuration={400}>
-      <IconButton
-        variant="ghost-2"
-        size="xs"
-        icon={icon}
-        aria-label={label}
-        onClick={onClick}
-      />
-    </Tooltip>
   );
 }
 

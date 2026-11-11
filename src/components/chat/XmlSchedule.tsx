@@ -2,8 +2,7 @@
 
 import React, { useEffect, useState } from "react"
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react"
-import { Button } from "@/components/Button"
-import { IconButton } from "@/components/IconButton"
+import { Button, IconButton } from "@/components/ui/button"
 import { Badge } from "@/components/Badge"
 import { parseScheduleXml, scheduleMonthCells, type ParsedSchedule } from "./XmlSchedule.parse"
 import { ChatWidgetShell } from "./ChatWidgetShell"

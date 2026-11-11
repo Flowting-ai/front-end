@@ -37,14 +37,30 @@ try {
   // origin rather than weakening connect-src when deployment config is bad.
 }
 
+// Library files live in object storage. The browser uploads parts to it and previews/plays files from
+// short-lived presigned URLs, so its origin must be allowed to connect (part PUTs, pdf.js fetches) and
+// to serve media (audio). Unset until the Library backend is deployed: nothing changes without it.
+const rawLibraryStorage = process.env.NEXT_PUBLIC_LIBRARY_STORAGE_ORIGIN;
+let libraryStorageOrigin = "";
+if (rawLibraryStorage) {
+  try {
+    libraryStorageOrigin = new URL(rawLibraryStorage).origin;
+  } catch {
+    // An invalid value is ignored rather than weakening the policy.
+  }
+}
+
 const connectSrcParts = [
   "'self'",
+  // The mock Library API hands out blob: download URLs; "Ask about this file" fetches them to attach the file.
+  ...(isDev ? ["blob:"] : []),
   backendOrigin,
   backendWsOrigin,
   ...(auth0Domain ? [auth0Domain] : ["https://*.us.auth0.com"]),
   "https://*.mixpanel.com",
   "https://formspree.io",
   mapStyleOrigin,
+  ...(libraryStorageOrigin ? [libraryStorageOrigin] : []),
 ];
 
 if (isDev) {
@@ -111,6 +127,18 @@ const nextConfig: NextConfig = {
       // is now the only entry point for every account type. Redirect any
       // stale bookmarks/links instead of 404ing.
       {
+        // Legacy /org/* admin pages moved under /settings (the stub pages that
+        // redirected client-side are gone). /org/change-plan is still a route.
+        source: '/org',
+        destination: '/settings/general',
+        permanent: true,
+      },
+      { source: '/org/general',   destination: '/settings/general',           permanent: true },
+      { source: '/org/members',   destination: '/settings/members',           permanent: true },
+      { source: '/org/plans',     destination: '/settings/plans-and-billing', permanent: true },
+      { source: '/org/analytics', destination: '/settings/analytics',         permanent: true },
+      { source: '/org/activity',  destination: '/settings/activity',          permanent: true },
+      {
         source: '/settings/connectors',
         destination: '/connectors',
         permanent: true,
@@ -152,14 +180,21 @@ const nextConfig: NextConfig = {
             value: [
               "default-src 'self'",
               // The driven browser plays as a MediaSource, which is a blob: URL.
-              "media-src 'self' blob:",
-              `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://www.googletagmanager.com`,
+              `media-src 'self' blob:${libraryStorageOrigin ? ` ${libraryStorageOrigin}` : ""}`,
+              // 'unsafe-inline' covers Next's inline bootstrap and the theme init script;
+              // nonces would remove it (decision D3). No third-party script origins:
+              // Google Tag Manager was allowed but never loaded, so it is gone.
+              `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
               `connect-src ${connectSrcParts.join(" ")}`,
               "font-src 'self'",
               "worker-src 'self' blob:",
               "frame-ancestors 'none'",
+              // No plugins, no <base> hijacking, forms only post to us or Auth0.
+              "object-src 'none'",
+              "base-uri 'self'",
+              `form-action 'self'${auth0Domain ? ` ${auth0Domain}` : " https://*.us.auth0.com"}`,
             ].join("; "),
           },
         ],

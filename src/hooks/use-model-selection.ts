@@ -1,13 +1,23 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { fetchModelsWithCache, pickDefaultModel, MODELS_CACHE_BUSTED_EVENT } from "@/lib/ai-models";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { modelsQuery } from "@/lib/ai-models";
+import { queryKeys } from "@/lib/query-keys";
 import type { AIModel } from "@/types/ai-model";
-import { logger } from "@/lib/logger";
 import { toast } from "sonner";
-import { resolveStoredSelection } from "@/lib/model-fallback";
+import { trackBrowserEvent } from "@/lib/analytics/events";
+import {
+  getSelectionSnapshot,
+  getServerSelectionSnapshot,
+  resolveSelection,
+  stableKey,
+  subscribeSelection,
+  writeSelection,
+} from "@/lib/models/model-selection-store";
 
-const STORAGE_KEY = "souvenir_selected_model";
+// Kept here for the many model-selection sites that import it from this hook.
+export { stableKey } from "@/lib/models/model-selection-store";
 
 interface UseModelSelectionResult {
   models: AIModel[];
@@ -18,160 +28,45 @@ interface UseModelSelectionResult {
   refreshModels: () => Promise<void>;
 }
 
-// Prefer the semantic string modelId over the numeric database id for stable storage.
-// Exported so other model-selection sites (e.g. persona configure) use the same key format.
-export function stableKey(model: Pick<AIModel, "modelId" | "id">): string | null {
-  if (model.modelId != null && String(model.modelId) !== "undefined") return String(model.modelId);
-  if (model.id != null && String(model.id) !== "undefined") return String(model.id);
-  return null;
-}
+const NO_MODELS: AIModel[] = [];
 
-// Helper to get initial model from localStorage
-function getInitialModelFromStorage(): Partial<AIModel> | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return null;
-
-    // Minimal cached info for instant icon/name display before the fetch completes
-    const cachedModel = localStorage.getItem(`${STORAGE_KEY}_cache`);
-    if (cachedModel) {
-      return JSON.parse(cachedModel);
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
+/**
+ * The chat model catalogue and the user's selection. The catalogue is the
+ * shared ["models"] query, so a model blocked or unblocked in /settings/ai
+ * (bustModelsCache → invalidation, in every tab) shows up here without an
+ * event. The selection is an id in localStorage (lib/models/model-selection-store.ts),
+ * resolved against the catalogue on every change and synced across tabs.
+ */
 export function useModelSelection(): UseModelSelectionResult {
-  const [models, setModels] = useState<AIModel[]>([]);
-  const [selectedModel, setSelectedModel] = useState<AIModel | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const qc = useQueryClient();
+  const modelsQ = useQuery(modelsQuery());
+  const models = modelsQ.data ?? NO_MODELS;
+  const stored = useSyncExternalStore(subscribeSelection, getSelectionSnapshot, getServerSelectionSnapshot);
+  const resolved = useMemo(() => resolveSelection(models, stored), [models, stored]);
 
+  // Re-key storage to the current stable id, persist a default, and say so
+  // once when a retired or blocked model was replaced.
+  const toastedFor = useRef<string | null>(null);
   useEffect(() => {
-    const cached = getInitialModelFromStorage();
-    if (cached) setSelectedModel(cached as AIModel);
-  }, []);
-
-  const loadModels = async (force = false) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const fetched = await fetchModelsWithCache({ force });
-      setModels(fetched);
-
-      // Restore or upgrade persisted selection
-      if (fetched.length > 0) {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          // The saved model if it's still there and usable (matched by modelId, then the
-          // numeric id, then name + company from the cache — guards against API id
-          // changes); otherwise the closest usable one, because a model retired from the
-          // catalog (or blocked) would just fail when sent.
-          let cached: Partial<AIModel> | null = null;
-          try {
-            const cachedRaw = localStorage.getItem(`${STORAGE_KEY}_cache`);
-            if (cachedRaw) cached = JSON.parse(cachedRaw) as Partial<AIModel>;
-          } catch {}
-          const resolved = resolveStoredSelection(fetched, stored, cached);
-          const found = resolved.model;
-
-          if (found) {
-            setSelectedModel(found);
-            // Re-key storage to the current stable modelId so future lookups succeed
-            const newKey = stableKey(found);
-            if (newKey && newKey !== stored) {
-              localStorage.setItem(STORAGE_KEY, newKey);
-            }
-            localStorage.setItem(
-              `${STORAGE_KEY}_cache`,
-              JSON.stringify({
-                id: found.id,
-                modelId: found.modelId,
-                modelName: found.modelName,
-                companyName: found.companyName,
-              }),
-            );
-            if (resolved.replaced) {
-              toast.info(`${resolved.previousName ?? "Your selected model"} is no longer available — switched to ${found.modelName}.`);
-            }
-          }
-          // If no match found at all: keep the current selectedModel (cached partial)
-          // rather than clobbering it with an arbitrary fetched[0].
-        } else if (!selectedModel) {
-          // No stored selection and no cached model at all — default to the
-          // Standard tier (the mid-tier of the 3 Souvenir models), falling
-          // back to the first model only if Standard isn't present.
-          const defaultModel = pickDefaultModel(fetched)!;
-          setSelectedModel(defaultModel);
-          const key = stableKey(defaultModel);
-          if (key) localStorage.setItem(STORAGE_KEY, key);
-          localStorage.setItem(
-            `${STORAGE_KEY}_cache`,
-            JSON.stringify({
-              id: defaultModel.id,
-              modelId: defaultModel.modelId,
-              modelName: defaultModel.modelName,
-              companyName: defaultModel.companyName,
-            }),
-          );
-        }
-      }
-    } catch (err) {
-      logger.error("[useModelSelection] Failed to load models", err);
-      setError("Failed to load models");
-    } finally {
-      setIsLoading(false);
+    if (resolved.persist) writeSelection(resolved.persist);
+    if (resolved.replacedName && resolved.model && toastedFor.current !== stored.key) {
+      toastedFor.current = stored.key;
+      trackBrowserEvent("model_fallback", { from_model_id: stored.key ?? undefined, to_model_id: stableKey(resolved.model) ?? undefined });
+      toast.info(`${resolved.replacedName} is no longer available — switched to ${resolved.model.modelName}.`);
     }
-  };
-
-  useEffect(() => {
-    loadModels();
-  }, []);
-
-  // ModelSelectorProvider mounts this hook once for the whole app (see
-  // (app)/layout.tsx), so a model blocked/unblocked from /settings/ai in the
-  // same SPA session would otherwise never be reflected here — this `models`
-  // state was fetched once on mount and nothing else re-triggers loadModels.
-  const loadModelsRef = useRef(loadModels);
-  loadModelsRef.current = loadModels;
-  useEffect(() => {
-    const onCacheBusted = () => { void loadModelsRef.current(true); };
-    window.addEventListener(MODELS_CACHE_BUSTED_EVENT, onCacheBusted);
-    return () => window.removeEventListener(MODELS_CACHE_BUSTED_EVENT, onCacheBusted);
-  }, []);
-
-  const selectModel = (model: AIModel) => {
-    setSelectedModel(model);
-    // Use the semantic modelId as the primary key (more stable than numeric id)
-    const key = stableKey(model);
-    if (key) {
-      localStorage.setItem(STORAGE_KEY, key);
-      // Cache minimal model info for instant icon/name display on next load
-      localStorage.setItem(
-        `${STORAGE_KEY}_cache`,
-        JSON.stringify({
-          id: model.id,
-          modelId: model.modelId,
-          modelName: model.modelName,
-          companyName: model.companyName,
-        }),
-      );
-    }
-  };
-
-  const refreshModels = async () => {
-    await loadModels(true);
-  };
+  }, [resolved, stored.key]);
 
   return {
     models,
-    selectedModel,
-    isLoading,
-    error,
-    selectModel,
-    refreshModels,
+    selectedModel: resolved.model,
+    isLoading: modelsQ.isPending,
+    error: modelsQ.isError && models.length === 0 ? "Failed to load models" : null,
+    selectModel: (model) => {
+      if (stableKey(model) !== stored.key) trackBrowserEvent("model_selected", { model_id: stableKey(model) ?? undefined });
+      writeSelection(model);
+    },
+    refreshModels: async () => {
+      await qc.refetchQueries({ queryKey: queryKeys.models.all(), exact: true });
+    },
   };
 }

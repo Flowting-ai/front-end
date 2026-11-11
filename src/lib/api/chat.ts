@@ -14,6 +14,8 @@ import {
   CHAT_PROMPT_RESPOND_ENDPOINT,
   CHAT_PUBLISH_ENDPOINT,
   CHAT_COPY_ENDPOINT,
+  CHAT_RESTORE_ENDPOINT,
+  CHAT_DELETE_ENDPOINT,
   DELETE_MESSAGE_ENDPOINT,
 } from "@/lib/config";
 import type {
@@ -23,9 +25,11 @@ import type {
   MessagesListResponse,
   PersistedToolCall,
 } from "@/types/chat";
+import { dropChatHistory } from "@/lib/chat/chat-message-cache";
 import type { ReasoningSection } from "@/lib/reasoning";
 import { extractThinkingContent } from "@/lib/parsers/content-parser";
 import { INCOMPLETE_ANSWER_MESSAGE } from "@/lib/turn-outcome";
+import { EMPTY_TURN_MESSAGE } from "@/lib/model-error";
 
 // ── Chat list ─────────────────────────────────────────────────────────────────
 
@@ -153,10 +157,30 @@ export async function renameChat(chatId: string, title: string): Promise<void> {
   });
 }
 
+// "Also delete these files" in the Delete chat dialog. Every caller runs its own delete (sidebar, chats page,
+// project lists), so the dialog marks the chat here first and the delete below sends `deleteFiles` for it.
+// The server then moves the files to Trash with the chat, and restoring the chat brings them back.
+const deleteFilesWith = new Set<string>();
+const trashedWith = new Map<string, string[]>();
+
+export function deleteFilesWithChat(chatId: string, on: boolean): void {
+  if (on) deleteFilesWith.add(chatId);
+  else deleteFilesWith.delete(chatId);
+}
+
+/** The files the server moved to Trash with the chat, or undefined when the delete did not take them (e.g. an agent chat). */
+export function takeTrashedWithChat(chatId: string): string[] | undefined {
+  const ids = trashedWith.get(chatId);
+  trashedWith.delete(chatId);
+  deleteFilesWith.delete(chatId);
+  return ids;
+}
+
 export async function deleteChat(chatId: string): Promise<void> {
+  const deleteFiles = deleteFilesWith.delete(chatId);
   const response = await apiFetch(CHATS_ENDPOINT, {
     method: "DELETE",
-    body: JSON.stringify({ chat_id: chatId }),
+    body: JSON.stringify({ chat_id: chatId, ...(deleteFiles ? { deleteFiles: true } : {}) }),
   });
   if (!response.ok && response.status !== 204) {
     throw new ApiError(
@@ -166,6 +190,33 @@ export async function deleteChat(chatId: string): Promise<void> {
       "Failed to delete chat",
     );
   }
+  // Its history must not outlive it: Undo restores the chat but not this entry,
+  // so the restored chat reloads from the server rather than from a stale copy.
+  dropChatHistory(chatId);
+  if (!deleteFiles) return;
+  const body: unknown = await response.json().catch(() => null);
+  const ids = body && typeof body === "object" && Array.isArray((body as { trashedFileIds?: unknown }).trashedFileIds)
+    ? (body as { trashedFileIds: unknown[] }).trashedFileIds.filter((id): id is string => typeof id === "string")
+    : undefined;
+  if (ids) trashedWith.set(chatId, ids);
+}
+
+/** `GET /chats/{id}`: the chat's Library settings and the files it saved that are still in Library. */
+export type ChatLibraryState = {
+  id: string;
+  libraryDontSave: boolean;
+  /** Files switched off in the Sources panel (since 25 Oct; older servers leave it out). */
+  librarySourcesOff?: string[];
+  savedFiles?: { id: string; title: string; generated: boolean }[];
+};
+
+export async function getChatLibraryState(chatId: string): Promise<ChatLibraryState> {
+  return apiFetchJson<ChatLibraryState>(CHAT_DELETE_ENDPOINT(chatId));
+}
+
+/** Undoes Delete chat while the chat is inside the Trash window. */
+export async function restoreChat(chatId: string): Promise<void> {
+  await apiFetchJson(CHAT_RESTORE_ENDPOINT(chatId), { method: "POST" });
 }
 
 export async function starChat(chatId: string): Promise<void> {
@@ -227,6 +278,8 @@ interface BackendMessage {
     file_name?: string | null;
     name?: string | null;
     origin?: string | null;
+    document_id?: string | null;
+    libraryState?: "open" | "deleted" | "locked" | null;
   }> | null;
   pin_ids?: (string | null)[] | null;
   metadata?: Record<string, unknown>;
@@ -235,6 +288,9 @@ interface BackendMessage {
   web_citations?: Array<{ title?: string; url?: string; domain?: string }> | null;
   // Structured web searches (query + link URLs + per-result metadata)
   web_searches?: Array<{ query: string; links: string[]; results?: Array<Record<string, unknown>> }> | null;
+  // Library citations behind the answer's [[L1]] markers (LIBRARY_FLOW_A_BACKEND_TICKET.md Part 2 BE-5)
+  library_citations?: unknown;
+  libraryCitations?: unknown;
   // Structured reasoning steps
   reasoning_sections?: ReasoningSection[] | null;
   // Tool calls the turn made (legacy rows: bare tool names)
@@ -255,20 +311,23 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
     const sources = parseSources(raw);
     const allFileAtts = normalizeFileAttachments(raw);
 
-    // Route by origin: uploaded files belong to the user turn;
-    // generated + unknown-origin files belong to the assistant turn.
-    const uploadedAtts = allFileAtts.filter(
-      (a) => a.origin === "uploaded" || a.origin === "user",
-    );
-    const assistantAtts = allFileAtts.filter(
-      (a) => a.origin !== "uploaded" && a.origin !== "user",
-    );
+    // Route by origin. Only an explicitly generated file belongs to the assistant
+    // turn; everything else — including a row that omits `origin` — is the user's
+    // upload. Routing unknown origins to the assistant instead made them vanish:
+    // the assistant bubble renders `generatedFiles`, never `file_attachments`.
+    const isGenerated = (a: import("@/types/chat").BackendFileAttachment) =>
+      a.origin === "generated" || a.origin === "assistant";
+    const uploadedAtts = allFileAtts.filter((a) => !isGenerated(a));
+    const assistantAtts = allFileAtts.filter(isGenerated);
 
-    if (userText) {
+    // An attachment-only message saves with `input: ""`, so text alone cannot
+    // decide whether the user turn existed — without the attachment check the
+    // whole turn (and its files) disappears on reload.
+    if (userText || uploadedAtts.length > 0) {
       messages.push({
         id: `${baseId}-prompt`,
         role: "user",
-        content: userText,
+        content: userText ?? "",
         created_at: createdAt,
         chat_id: chatId,
         file_attachments: uploadedAtts.length > 0 ? uploadedAtts : undefined,
@@ -296,9 +355,25 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
         model_name: raw.model_name ?? undefined,
         sources: sources.length > 0 ? sources : undefined,
         web_searches: raw.web_searches ?? undefined,
+        library_citations: raw.libraryCitations ?? raw.library_citations ?? undefined,
         tool_calls: normalizeToolCalls(raw),
         file_attachments: assistantAtts.length > 0 ? assistantAtts : undefined,
         image_links: imageLinks && imageLinks.length > 0 ? imageLinks : undefined,
+      });
+    } else if (userText || uploadedAtts.length > 0) {
+      // The turn finished with no answer saved (e.g. reasoning or tools only):
+      // keep a placeholder so it does not vanish and can still be regenerated.
+      messages.push({
+        id: baseId,
+        role: "assistant",
+        content: "",
+        thinking: raw.reasoning ?? raw.thinking_content ?? undefined,
+        errorNotice: EMPTY_TURN_MESSAGE,
+        created_at: createdAt,
+        chat_id: chatId,
+        reasoning_sections: raw.reasoning_sections ?? undefined,
+        model_name: raw.model_name ?? undefined,
+        tool_calls: normalizeToolCalls(raw),
       });
     }
     return messages;
@@ -326,6 +401,7 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
     model_name: raw.model_name ?? undefined,
     sources: sources.length > 0 ? sources : undefined,
     web_searches: raw.web_searches ?? undefined,
+    library_citations: raw.libraryCitations ?? raw.library_citations ?? undefined,
     tool_calls: role === "assistant" ? normalizeToolCalls(raw) : undefined,
     file_attachments: fileAttachments.length > 0 ? fileAttachments : undefined,
     image_links: imageLinks && imageLinks.length > 0 ? imageLinks : undefined,
@@ -372,6 +448,8 @@ function normalizeFileAttachments(raw: BackendMessage): import("@/types/chat").B
       file_name: a.file_name ?? undefined,
       name: a.name ?? undefined,
       origin: a.origin ?? undefined,
+      document_id: a.document_id ?? undefined,
+      libraryState: a.libraryState ?? undefined,
     }] : []);
 }
 

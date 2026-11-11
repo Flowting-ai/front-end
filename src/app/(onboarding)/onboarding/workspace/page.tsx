@@ -14,7 +14,7 @@ import { ONBOARDING_SETUP_ROUTE, ONBOARDING_PROFILE_ROUTE } from "@/lib/routes";
 // Figma: node 27:1196 (default state), 55:2726 (empty/required-field error
 // state — label + message go red: "This field can not be empty").
 //
-// PENDING CONFIRMATION (see docs v1.5/onboarding-v1.5-flow.md item 2): there is
+// PENDING CONFIRMATION (see docs-v1.5/onboarding-v1.5-flow.md item 2): there is
 // no plan/billing step anywhere before this one in the new flow, unlike the
 // old team flow (which created the org only after a Stripe checkout). The
 // createOrganization()/updateOnboarding() calls below are the closest existing
@@ -50,21 +50,22 @@ function SizePill({
     <button
       type="button"
       onClick={onSelect}
+      aria-pressed={selected}
       style={{
         padding: "6px 10px 8px",
         borderRadius: 10,
         border: "none",
         cursor: "pointer",
         outline: "none",
-        backgroundColor: selected ? "var(--neutral-100,#F5F5F5)" : "var(--neutral-white)",
+        backgroundColor: "#FFFFFF",
         boxShadow: selected
-          ? "0px 0px 0px 1px var(--neutral-200,#E5E5E5)"
+          ? "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1.5px var(--neutral-900,#26211E)"
           : "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100,#F5F5F5)",
         fontFamily: "var(--font-body)",
         fontWeight: 500,
         fontSize: 14,
         lineHeight: "16px",
-        color: "var(--neutral-700,#524b47)",
+        color: selected ? "var(--neutral-900,#26211E)" : "var(--neutral-700,#524b47)",
         whiteSpace: "nowrap",
         transition: "background-color 120ms, box-shadow 120ms",
       }}

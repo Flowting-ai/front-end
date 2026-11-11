@@ -15,6 +15,14 @@ export const AGENTS_BASICS_NAME_ROUTE = "/agents/basics/name";
 export const AGENTS_BASICS_PURPOSE_ROUTE = "/agents/basics/purpose";
 export const AGENTS_BASICS_TONE_ROUTE = "/agents/basics/tone";
 export const SCHEDULES_ROUTE = "/schedules";
+export const LIBRARY_ROUTE = "/library";
+export const LIBRARY_TRASH_ROUTE = "/library/trash";
+export const LIBRARY_FILE_ROUTE = (fileId: string) => `/library/files/${encodeURIComponent(fileId)}`;
+export const SETTINGS_LIBRARY_ROUTE = "/settings/library";
+export const ORG_LIBRARY_ROUTE = "/settings/workspace-library";
+// Static Phase 2 pages next to workspace Library settings (siblings, so the sidebar highlights one item at a time).
+export const ORG_AUDIT_LOG_ROUTE = "/settings/audit-log";
+export const ORG_INVENTORY_ROUTE = "/settings/inventory";
 export const TEMPLATE_BASE_ROUTE = "/template";
 export const WELCOME_ROUTE = "/welcome";
 export const PROJECTS_ROUTE = "/projects";
@@ -45,6 +53,8 @@ export const ORG_CONNECTORS_ROUTE = "/connectors";
 export const SETTINGS_ROUTE = "/settings";
 export const SETTINGS_ACCOUNT_ROUTE = "/settings/account";
 export const SETTINGS_HELP_ROUTE = "/settings/help";
+export const SETTINGS_REPORT_BUG_ROUTE = "/settings/report-bug";
+export const SETTINGS_FEATURE_REQUEST_ROUTE = "/settings/feature-request";
 export const SETTINGS_AI_ROUTE = "/settings/ai";
 // Retired — plans/payment/invoices for every account type now live on
 // ORG_PLANS_ROUTE (/settings/plans-and-billing). This route is now just a
@@ -86,7 +96,7 @@ export const ONBOARDING_BASE_ROUTE = "/onboarding";
 export const ONBOARDING_TEAM_BASE_ROUTE = "/onboarding/team";
 export const ONBOARDING_TONE_ROUTE = "/onboarding/tone";
 
-// ── v1.5 workspace-onboarding flow (docs v1.5/onboarding-v1.5-flow.md) ───────
+// ── v1.5 workspace-onboarding flow (docs-v1.5/onboarding-v1.5-flow.md) ───────
 // ONBOARDING_WORKSPACE_ROUTE above is reused for this flow's step 2 (same URL,
 // new content) — only these two are new routes.
 export const ONBOARDING_SETUP_ROUTE = "/onboarding/setup";
@@ -96,6 +106,8 @@ export const ONBOARDING_PROFILE_ROUTE = "/onboarding/profile";
 export const ONBOARDING_JOIN_ROUTE = "/onboarding/join";
 
 export const AUTH_LOGIN_ROUTE = "/auth/login";
+/** Where a failed sign-in (Auth0 callback error) lands instead of looping back to login. Public. */
+export const SIGN_IN_ERROR_ROUTE = "/sign-in-error";
 
 export const PROJECT_BASE_ROUTE = "/project";
 export const AGENT_BASE_ROUTE = "/agent";
@@ -105,7 +117,6 @@ export const PROJECT_ROUTE = (projectId: string) => `/project/${projectId}`;
 export const PROJECT_CHAT_ROUTE = (projectId: string, chatId: string) =>
   `/project/${projectId}/chat/${chatId}`;
 export const PROJECT_CHAT_NEW_ROUTE = (projectId: string) => `/project/${projectId}/chat/new`;
-export const AGENT_CHAT_ROUTE = (personaId: string) => `/agents/${personaId}/chat`;
 export const AGENT_EDIT_ROUTE = (personaId: string) => `/agents/${personaId}/edit`;
 export const CHAT_SHARE_ROUTE = (shareId: string) => `/chat-shares/${shareId}`;
 

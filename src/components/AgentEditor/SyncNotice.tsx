@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import type { SyncNotice as SyncNoticeKind } from '@/lib/agent-sync'
 
 export interface SyncNoticeProps {

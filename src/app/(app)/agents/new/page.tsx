@@ -4,7 +4,7 @@ import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } fr
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { ArrowLeftOneIcon, ArrowRightOneIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { Spinner } from '@/components/Spinner'
 import { AgentEditor } from '@/components/AgentEditor/AgentEditor'
@@ -41,6 +41,7 @@ import { defaultAvatarChoice, type AvatarChoice } from '@/components/PersonaCard
 import { setStoredAvatarChoice } from '@/lib/avatar-choice'
 import { trackBrowserEvent } from '@/lib/analytics/events'
 import { AGENT_EDIT_ROUTE, AGENTS_ROUTE, AGENTS_TEMPLATES_ROUTE } from '@/lib/routes'
+import { useNavGuard } from '@/context/nav-guard-context'
 
 const STARTER_CHIPS = [
   'Drafts weekly reports',
@@ -90,7 +91,7 @@ function PurposeStep({
     <Centered>
       <Heading title="What should this agent do?" subtitle="One sentence is enough — we’ll set up the name, model and instructions for you." />
       <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: 684, gap: 12 }}>
-        {/* kaya-field: the signature pink focus ring. A stronger edge than the other cards so the box reads in both themes. */}
+        {/* kaya-field: the signature blue focus ring. A stronger edge than the other cards so the box reads in both themes. */}
         <div
           className="kaya-field"
           style={{
@@ -147,11 +148,12 @@ function PurposeStep({
           ))}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 40 }}>
+        {/* Wraps on narrow screens so Continue never runs off the right edge. */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, paddingTop: 40 }}>
           <Button variant="outline" size="sm" leftIcon={<ArrowLeftOneIcon size={16} />} onClick={onBack}>
             Agents
           </Button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
             <Button variant="ghost" size="sm" onClick={() => push(AGENTS_TEMPLATES_ROUTE)}>
               Start from a template
             </Button>
@@ -261,6 +263,15 @@ function NewAgentContent() {
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
   }, [stage])
+
+  // The same, for leaving by the sidebar, a link or browser Back: the app's navigation guard asks first.
+  const { setIsDirty, setGuardMessage } = useNavGuard()
+  const unsaved = stage === 'editor'
+  useEffect(() => {
+    setIsDirty(unsaved)
+    setGuardMessage(unsaved ? { title: 'Leave without saving?', description: "This agent hasn't been created yet. Leaving now discards it." } : null)
+  }, [unsaved, setIsDirty, setGuardMessage])
+  useEffect(() => () => { setIsDirty(false); setGuardMessage(null) }, [setIsDirty, setGuardMessage])
 
   const seed = useMemo(() => (preset ? seedFromPreset(preset) : undefined), [preset])
 
@@ -398,7 +409,7 @@ function NewAgentContent() {
           subtitle="Everything is pre-filled. Change anything, then finish to create your agent."
           actions={
             <>
-              <Button variant="outline" size="sm" onClick={handleCancel} disabled={saving}>Cancel</Button>
+              <Button variant="cancel" size="sm" onClick={handleCancel} disabled={saving}>Cancel</Button>
               <Button variant="default" size="sm" onClick={() => void handleFinish()} loading={saving} disabled={saving}>
                 Finish Agent Creation
               </Button>

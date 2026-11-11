@@ -1,456 +1,31 @@
 'use client'
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react'
-import { ModelIcon } from '@/components/ModelIcon'
+// /settings/ai. Data and filters: use-model-catalog.ts; presentational parts: parts.tsx.
+
+import React from 'react'
 import { SearchOneIcon } from '@strange-huge/icons'
-import { Switch } from '@/components/Switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { useAuth } from '@/context/auth-context'
-import { fetchAllModels, toggleBlockModel, type LLMModel } from '@/lib/api/models'
-import { bustModelsCache } from '@/lib/ai-models'
-import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 
 type PlanTier = 'standard' | 'pro' | 'power'
 type BadgeColor = 'blue' | 'neutral' | 'red' | 'green' | 'brown' | 'purple'
+import { useModelCatalog } from './use-model-catalog'
+import { MiniChip, SkeletonSection, ProviderSection } from './parts'
 
-const TAG_PALETTE_AI: BadgeColor[] = ['green', 'blue', 'purple', 'brown', 'neutral']
-function aiTagColor(tag: string): BadgeColor {
-  let h = 0
-  for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) >>> 0
-  return TAG_PALETTE_AI[h % TAG_PALETTE_AI.length]
-}
-
-const PLAN_LABEL: Record<string, string> = {
-  standard: 'Standard',
-  pro:      'Pro',
-  power:    'Power',
-}
-
-const PLAN_COLOR: Record<string, BadgeColor> = {
-  standard: 'neutral',
-  pro:      'blue',
-  power:    'brown',
-}
-
-function formatContext(n: number | null | undefined): string | null {
-  if (!n || n <= 0) return null
-  if (n >= 1_000_000) return `${n / 1_000_000}M ctx`
-  if (n >= 1_000)     return `${Math.round(n / 1_000)}k ctx`
-  return `${n} ctx`
-}
-
-function featureLabel(model: LLMModel): string | null {
-  const inputs  = model.model_inputs  ?? []
-  const outputs = model.model_outputs ?? []
-  const name    = model.model_name.toLowerCase()
-  if (outputs.some(o => o.toLowerCase().includes('image'))) return 'Image gen'
-  if (inputs.some(i  => i.toLowerCase().includes('image') || i.toLowerCase().includes('vision'))) return 'Vision'
-  if (name.includes('code'))    return 'Code'
-  if (name.includes('embed'))   return 'Embeddings'
-  if (name.includes('whisper') || name.includes('audio')) return 'Audio'
-  const ctx = model.model_context_window ?? 0
-  if (ctx >= 1_000_000) return '1M+ context'
-  return null
-}
-
-// ── Badge ─────────────────────────────────────────────────────────────────────
-
-const BADGE_STYLES: Record<BadgeColor, {
-  bg: string; outerShadow: string; innerShadow: string; color: string
-}> = {
-  blue: {
-    bg:          'var(--blue-100)',
-    outerShadow: '0px 1px 1.5px 0px rgba(2,15,24,0.2), 0px 0px 0px 1px rgba(13,110,178,0.5)',
-    innerShadow: 'inset 0px 1px 0px 0px rgba(231,244,253,0.7), inset 0px -1px 0px 0px rgba(13,110,178,0.1)',
-    color:       'var(--blue-700)',
-  },
-  neutral: {
-    bg:          'var(--neutral-100)',
-    outerShadow: '0px 1px 1.5px 0px rgba(18,12,8,0.2), 0px 0px 0px 1px rgba(106,98,93,0.5)',
-    innerShadow: 'inset 0px 1px 0px 0px color-mix(in srgb, var(--static-white) 70%, transparent), inset 0px -1px 0px 0px rgba(106,98,93,0.1)',
-    color:       'var(--neutral-700)',
-  },
-  red: {
-    bg:          'var(--red-100)',
-    outerShadow: '0px 1px 1.5px 0px rgba(24,2,2,0.2), 0px 0px 0px 1px rgba(159,38,35,0.5)',
-    innerShadow: 'inset 0px 1px 0px 0px rgba(253,231,231,0.7), inset 0px -1px 0px 0px rgba(159,38,35,0.1)',
-    color:       'var(--red-700)',
-  },
-  green: {
-    bg:          'var(--green-50)',
-    outerShadow: '0px 1px 1.5px 0px rgba(17,25,1,0.2), 0px 0px 0px 1px rgba(128,183,7,0.5)',
-    innerShadow: 'inset 0px 1px 0px 0px rgba(247,254,230,0.7), inset 0px -1px 0px 0px rgba(128,183,7,0.1)',
-    color:       'var(--green-800)',
-  },
-  brown: {
-    bg:          'var(--brown-100)',
-    outerShadow: '0px 1px 1.5px 0px rgba(20,12,5,0.2), 0px 0px 0px 1px rgba(126,84,53,0.5)',
-    innerShadow: 'inset 0px 1px 0px 0px rgba(250,241,235,0.7), inset 0px -1px 0px 0px rgba(126,84,53,0.1)',
-    color:       'var(--brown-700)',
-  },
-  purple: {
-    bg:          'var(--purple-100)',
-    outerShadow: '0px 1px 1.5px 0px rgba(10,2,24,0.2), 0px 0px 0px 1px rgba(109,40,217,0.5)',
-    innerShadow: 'inset 0px 1px 0px 0px rgba(237,233,254,0.7), inset 0px -1px 0px 0px rgba(109,40,217,0.1)',
-    color:       'var(--purple-700, #6d28d9)',
-  },
-}
-
-function MiniChip({ label, color }: { label: string; color: BadgeColor }) {
-  const s = BADGE_STYLES[color]
-  return (
-    <span
-      style={{
-        position:       'relative',
-        display:        'inline-flex',
-        alignItems:     'center',
-        justifyContent: 'center',
-        padding:        '2px',
-        borderRadius:   6,
-        boxShadow:      s.outerShadow,
-        overflow:       'hidden',
-        flexShrink:     0,
-      }}
-    >
-      <span aria-hidden style={{
-        position:        'absolute',
-        inset:           0,
-        borderRadius:    6,
-        backgroundColor: s.bg,
-        pointerEvents:   'none',
-      }} />
-      <span aria-hidden style={{
-        position:     'absolute',
-        inset:        0,
-        borderRadius: 'inherit',
-        boxShadow:    s.innerShadow,
-        pointerEvents:'none',
-      }} />
-      <span style={{
-        position:   'relative',
-        padding:    '0 4px',
-        fontFamily: 'var(--font-body)',
-        fontWeight: 500,
-        fontSize: 12,
-        lineHeight: '16px',
-        color:      s.color,
-        whiteSpace: 'nowrap',
-      }}>
-        {label}
-      </span>
-    </span>
-  )
-}
-
-// ── Skeleton card ─────────────────────────────────────────────────────────────
-
-function SkeletonCard() {
-  return (
-    <div style={{
-      display:         'flex',
-      flexDirection:   'column',
-      gap:             10,
-      padding:         '12px 12px 16px',
-      borderRadius:    16,
-      border:          '1px solid var(--border-default)',
-      backgroundColor: 'var(--neutral-white)',
-      boxShadow:       '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
-    }}>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-        <div style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite', flexShrink: 0 }} />
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div style={{ height: 16, width: '60%', borderRadius: 6, backgroundColor: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
-          <div style={{ height: 12, width: '40%', borderRadius: 6, backgroundColor: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
-        </div>
-        <div style={{ width: 40, height: 24, borderRadius: 12, backgroundColor: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite', flexShrink: 0 }} />
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div style={{ height: 11, borderRadius: 4, backgroundColor: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
-        <div style={{ height: 11, borderRadius: 4, backgroundColor: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite', width: '80%' }} />
-      </div>
-      <div style={{ display: 'flex', gap: 6, paddingTop: 8 }}>
-        <div style={{ height: 20, width: 56, borderRadius: 6, backgroundColor: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
-        <div style={{ height: 20, width: 56, borderRadius: 6, backgroundColor: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
-      </div>
-    </div>
-  )
-}
-
-function SkeletonSection({ cardCount = 3 }: { cardCount?: number }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: '12px 24px 24px', borderBottom: '1px solid var(--neutral-100)' }}>
-      <div style={{ height: 22, width: 100, borderRadius: 6, backgroundColor: 'var(--neutral-100)', animation: 'pulse 0.9s ease-in-out infinite' }} />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
-        {Array.from({ length: cardCount }).map((_, i) => <SkeletonCard key={i} />)}
-      </div>
-    </div>
-  )
-}
-
-// ── Model card ────────────────────────────────────────────────────────────────
-
-interface ModelCardProps {
-  model:     LLMModel
-  toggling:  boolean
-  onToggle:  (model: LLMModel) => void
-}
-
-function ModelCard({ model, toggling, onToggle }: ModelCardProps) {
-  const tierKey  = (model.model_plan_type ?? 'standard').toLowerCase() as PlanTier
-  const tierLbl  = PLAN_LABEL[tierKey] ?? model.model_plan_type ?? 'Standard'
-  const tierClr  = (PLAN_COLOR[tierKey] ?? 'neutral') as BadgeColor
-  const ctxLbl   = formatContext(model.model_context_window)
-  const featLbl  = featureLabel(model)
-
-  return (
-    <div
-      style={{
-        display:         'flex',
-        flexDirection:   'column',
-        gap:             8,
-        padding:         '12px 12px 16px',
-        borderRadius:    16,
-        border:          '1px solid var(--border-default)',
-        backgroundColor: 'var(--neutral-white)',
-        boxShadow:       model.blocked
-          ? '0px 2px 2.8px 0px rgba(82,75,71,0.06)'
-          : '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
-        opacity:         model.blocked ? 0.7 : 1,
-        transition:      'opacity 200ms, box-shadow 200ms',
-      }}
-    >
-      {/* Header */}
-      <div style={{ display: 'flex', gap: 4, alignItems: 'flex-start' }}>
-        <div style={{ display: 'flex', flex: '1 0 0', minWidth: 0, gap: 12, alignItems: 'flex-start' }}>
-          <div style={{
-            width:           44,
-            height:          44,
-            borderRadius:    10,
-            backgroundColor: 'transparent',
-            display:         'flex',
-            alignItems:      'center',
-            justifyContent:  'center',
-            flexShrink:      0,
-            overflow:        'hidden',
-          }}>
-            <ModelIcon model={model.model_provider} size={24} />
-          </div>
-          <div style={{ flex: '1 0 0', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignSelf: 'stretch' }}>
-            <p style={{
-              fontFamily:   'var(--font-body)',
-              fontWeight:   500,
-              fontSize:     16,
-              lineHeight:   '22px',
-              color:        'var(--neutral-900)',
-              margin:       0,
-              overflow:     'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace:   'nowrap',
-            }}>
-              {model.model_name}
-            </p>
-            <p style={{
-              fontFamily:   'var(--font-body)',
-              fontWeight:   600,
-              fontSize: 12,
-              lineHeight:   '16px',
-              color:        'var(--neutral-500)',
-              margin:       0,
-              overflow:     'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace:   'nowrap',
-            }}>
-              {model.model_provider}
-            </p>
-          </div>
-        </div>
-        <Switch
-          checked={!model.blocked}
-          onCheckedChange={() => onToggle(model)}
-          disabled={toggling}
-        />
-      </div>
-
-      {/* Description */}
-      {model.model_description && (
-        <p style={{
-          fontFamily:       'var(--font-body)',
-          fontWeight:       400,
-          fontSize: 12,
-          lineHeight:       '16px',
-          color:            'var(--neutral-500)',
-          margin:           0,
-          overflow:         'hidden',
-          display:          '-webkit-box',
-          WebkitLineClamp:  3,
-          WebkitBoxOrient:  'vertical',
-        }}>
-          {model.model_description}
-        </p>
-      )}
-
-      {/* Labels */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', paddingTop: 8 }}>
-        <MiniChip label={tierLbl} color={tierClr} />
-        {ctxLbl && <MiniChip label={ctxLbl} color="red" />}
-        {featLbl && <MiniChip label={featLbl} color="green" />}
-        {model.model_thinking_efforts?.map((e) => (
-          <MiniChip key={`effort-${e}`} label={e} color="purple" />
-        ))}
-        {model.model_tags?.map((tag) => (
-          <MiniChip key={tag} label={tag} color={aiTagColor(tag)} />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ── Provider section ──────────────────────────────────────────────────────────
-
-function ProviderSection({
-  provider,
-  displayModels,
-  allProviderModels,
-  togglingId,
-  onToggle,
-  divider,
-}: {
-  provider:          string
-  displayModels:     LLMModel[]
-  allProviderModels: LLMModel[]
-  togglingId:        string | null
-  onToggle:          (model: LLMModel) => void
-  divider?:          boolean
-}) {
-  const enabledCount = allProviderModels.filter(m => !m.blocked).length
-  const totalCount   = allProviderModels.length
-
-  return (
-    <div style={{
-      display:       'flex',
-      flexDirection: 'column',
-      gap:           24,
-      padding:       '12px 24px 24px',
-      borderBottom:  divider ? '1px solid var(--neutral-100)' : undefined,
-    }}>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-        <p style={{
-          fontFamily: 'var(--font-body)',
-          fontWeight: 500,
-          fontSize:   14,
-          lineHeight: '22px',
-          color:      'var(--neutral-900)',
-          margin:     0,
-          whiteSpace: 'nowrap',
-        }}>
-          {provider}
-        </p>
-        <MiniChip label={`${enabledCount}/${totalCount} enabled`} color="brown" />
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
-        {displayModels.map(model => (
-          <ModelCard
-            key={model.model_id}
-            model={model}
-            toggling={togglingId === model.model_id}
-            onToggle={onToggle}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ── AiModelsView ──────────────────────────────────────────────────────────────
-// Renders the personal /settings/ai page. The toggle is a per-user preference
-// (UserBlockedModels is keyed by user_id on the backend, not org_id) — every
-// signed-in user manages their own model list here, regardless of org role.
+export { AiModelsLoading } from './parts'
 
 export function AiModelsView() {
   const { user }   = useAuth()
   const planName   = user?.planName ?? 'Starter'
 
-  const [models,     setModels]     = useState<LLMModel[]>([])
-  const [isLoading,  setIsLoading]  = useState(true)
-  const [togglingId, setTogglingId] = useState<string | null>(null)
-  const [search,     setSearch]     = useState('')
-  const [tab,        setTab]        = useState('all')
-
-  // Fetch on mount
-  useEffect(() => {
-    let alive = true
-    setIsLoading(true)
-    fetchAllModels()
-      .then(data => { if (alive) setModels(data) })
-      .catch(() => { if (alive) setModels([]) })
-      .finally(() => { if (alive) setIsLoading(false) })
-    return () => { alive = false }
-  }, [])
-
-  // Toggle handler — optimistic update + rollback on failure
-  const handleToggle = useCallback(async (model: LLMModel) => {
-    if (togglingId) return
-    setTogglingId(model.model_id)
-    const nextBlocked = !model.blocked
-    // Optimistic
-    setModels(prev => prev.map(m =>
-      m.model_id === model.model_id ? { ...m, blocked: nextBlocked } : m,
-    ))
-    try {
-      const result = await toggleBlockModel(model.model_id)
-      // Reconcile with backend response
-      setModels(prev => prev.map(m =>
-        m.model_id === model.model_id ? { ...m, blocked: result.blocked } : m,
-      ))
-      // Bust the shared model cache so selectors elsewhere pick up the change immediately
-      bustModelsCache()
-      toast.success(result.blocked ? `${model.model_name} disabled` : `${model.model_name} enabled`)
-    } catch {
-      // Rollback
-      setModels(prev => prev.map(m =>
-        m.model_id === model.model_id ? { ...m, blocked: model.blocked } : m,
-      ))
-      toast.error(`Failed to update ${model.model_name}`)
-    } finally {
-      setTogglingId(null)
-    }
-  }, [togglingId])
-
-  // All unique providers (preserving order from API)
-  const allProviders = useMemo(() => {
-    const seen = new Set<string>()
-    const out: string[] = []
-    for (const m of models) {
-      if (!seen.has(m.model_provider)) {
-        seen.add(m.model_provider)
-        out.push(m.model_provider)
-      }
-    }
-    return out
-  }, [models])
-
-  // Filtered models (tab + search)
-  const filteredModels = useMemo(() => {
-    const q = search.toLowerCase().trim()
-    return models.filter(m => {
-      if (tab === 'enabled'  &&  m.blocked) return false
-      if (tab === 'disabled' && !m.blocked) return false
-      if (q && !m.model_name.toLowerCase().includes(q) && !m.model_provider.toLowerCase().includes(q)) return false
-      return true
-    })
-  }, [models, search, tab])
-
-  // Providers that have at least one visible model after filtering
-  const visibleProviders = useMemo(
-    () => allProviders.filter(p => filteredModels.some(m => m.model_provider === p)),
-    [allProviders, filteredModels],
-  )
-
-  const totalEnabled = models.filter(m => !m.blocked).length
+  const {
+    models, isLoading, loadFailed, retryLoad, togglingId, toggle: handleToggle,
+    tab, setTab, search, setSearch, filteredModels, visibleProviders, totalEnabled,
+  } = useModelCatalog()
 
   return (
     <div
@@ -592,6 +167,13 @@ export function AiModelsView() {
               <SkeletonSection cardCount={3} />
               <SkeletonSection cardCount={2} />
             </>
+          ) : loadFailed && models.length === 0 ? (
+            <div role="alert" style={{ padding: '32px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
+                Couldn&apos;t load your models.
+              </p>
+              <Button size="sm" onClick={retryLoad}>Try again</Button>
+            </div>
           ) : visibleProviders.length === 0 ? (
             <div style={{ padding: '32px 24px', textAlign: 'center' }}>
               <p style={{
@@ -602,9 +184,7 @@ export function AiModelsView() {
                 color:      'var(--neutral-400)',
                 margin:     0,
               }}>
-                {models.length === 0
-                  ? 'No models found. Please check your connection and try again.'
-                  : 'No models match your search.'}
+                {models.length === 0 ? 'No models are available on your plan.' : 'No models match your search.'}
               </p>
             </div>
           ) : (

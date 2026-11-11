@@ -1,23 +1,25 @@
 'use client'
 
-import React, { Suspense, useEffect, useRef, useMemo, useState } from 'react'
+import React, { Suspense, useDeferredValue, useEffect, useRef, useMemo, useState } from 'react'
+import { rankByTitle } from '@/lib/search/text-match'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AnimatePresence, m } from 'framer-motion'
 import { SearchOneIcon, PlusSignIcon, ArrowDownOneIcon, CancelCircleIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
 import { useProjects } from '@/context/projects-context'
+import { useDeleteProject } from '@/lib/projects/project-mutations'
+import { canProject } from '@/lib/projects/project-permissions'
 import { ProjectCard } from '@/components/ProjectCard'
 import { Badge } from '@/components/Badge'
 import { Skeleton } from '@/components/Skeleton'
 import { RESET_BUTTON_STYLE } from '@/lib/reset-button-style'
-import { Button } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { Button, IconButton } from '@/components/ui/button'
 import { InputField } from '@/components/InputField'
 import { Dropdown } from '@/components/Dropdown'
 import { Tooltip } from '@/components/Tooltip'
-import { EditProjectModal } from '@/components/EditProjectModal'
-import { LeaveProjectModal } from '@/components/LeaveProjectModal'
-import { DeleteProjectModal } from '@/components/DeleteProjectModal'
+import { EditProjectModal } from '@/components/Projects/lazy-modals'
+import { LeaveProjectModal } from '@/components/Projects/lazy-modals'
+import { DeleteProjectModal } from '@/components/Projects/lazy-modals'
 import { ProjectTrashList } from '@/components/ProjectTrashModal/ProjectTrashList'
 import { ProjectViewToggle } from '@/components/ProjectViewToggle'
 import { ScopeFilterDropdown } from '@/components/ScopeFilterDropdown'
@@ -43,7 +45,8 @@ import { sortProjects, projectMemberCount, formatUpdated } from '@/lib/project-l
 function ProjectsPageInner() {
   const { push, replace }                                                     = useRouter()
   const searchParams                                                          = useSearchParams()
-  const { projects, loading, updateProject, deleteProject, loadProjectChats, refreshProjects } = useProjects()
+  const { projects, loading, updateProject, loadProjectChats, refreshProjects } = useProjects()
+  const deleteMutation = useDeleteProject()
   const { orgId, members }                                                    = useOrg()
   const { user }                                                              = useAuth()
   const syncedRef = useRef(false)
@@ -120,9 +123,23 @@ function ProjectsPageInner() {
     updateParam('q', next)
   }
 
+  // Closing (Escape or the clear button) empties the search and hands focus back to the search
+  // button, which mounts in the input's place; otherwise keyboard focus falls to <body>.
+  const searchButtonRef = useRef<HTMLButtonElement>(null)
+  const refocusSearchButton = useRef(false)
+  function closeSearch() {
+    refocusSearchButton.current = true
+    setSearchOpen(false)
+    handleQueryChange('')
+  }
+  useEffect(() => {
+    if (searchOpen || !refocusSearchButton.current) return
+    refocusSearchButton.current = false
+    searchButtonRef.current?.focus()
+  }, [searchOpen])
+
   const [editTarget,     setEditTarget]     = useState<Project | null>(null)
   const [deleteTarget,   setDeleteTarget]   = useState<Project | null>(null)
-  const [isDeleting,     setIsDeleting]     = useState(false)
   const [leaveTarget,    setLeaveTarget]    = useState<Project | null>(null)
 
   // Personal projects have no membership to leave (backend 400s). The owner
@@ -131,7 +148,7 @@ function ProjectsPageInner() {
   // this stays frontend-only for now: only a non-owner collaborator on a
   // workspace/shared project can leave.
   function canLeaveProject(project: Project): boolean {
-    return project.visibility !== 'personal' && !project.canEdit
+    return canProject('leave', project, orgId)
   }
 
   // refreshProjects() itself has no built-in error handling (unlike the
@@ -150,7 +167,7 @@ function ProjectsPageInner() {
   // on a Shared project — that needs the project's member list, which isn't
   // fetched eagerly here.
   function canEditProjectContent(project: Project): boolean {
-    return project.canEdit || (project.visibility === 'workspace' && !!orgId && project.teamId === orgId)
+    return canProject('edit-content', project, orgId)
   }
 
   // Owner-only — matches the backend exactly (requireDelete === requireOwned,
@@ -159,7 +176,7 @@ function ProjectsPageInner() {
   // click Delete only to have it 404 (invisibly, until deleteProjectApi's
   // own missing-response.ok bug was fixed — see projects.ts).
   function canDeleteProject(project: Project): boolean {
-    return project.canEdit
+    return canProject('delete', project, orgId)
   }
 
   // Every delete entry point confirms first — permanently deleting a
@@ -170,9 +187,8 @@ function ProjectsPageInner() {
 
   async function handleDeleteConfirm() {
     if (!deleteTarget) return
-    setIsDeleting(true)
     try {
-      await deleteProject(deleteTarget.id)
+      await deleteMutation.mutateAsync(deleteTarget.id)
       if (deleteTarget.chatCount > 0) {
         const chatWord = deleteTarget.chatCount === 1 ? 'chat' : 'chats'
         toast.success(`"${deleteTarget.name}" and ${deleteTarget.chatCount} ${chatWord} deleted`)
@@ -181,9 +197,7 @@ function ProjectsPageInner() {
       }
       setDeleteTarget(null)
     } catch {
-      // error toast shown by context
-    } finally {
-      setIsDeleting(false)
+      // error toast (and rollback) handled by the mutation
     }
   }
 
@@ -203,11 +217,15 @@ function ProjectsPageInner() {
   // re-run when sort order changes.
   const sorted = useMemo(() => sortProjects(scopedProjects, sort), [scopedProjects, sort])
 
+  // The input updates at once; the list re-filters at lower priority so typing
+  // stays responsive with many projects.
+  const deferredQuery = useDeferredValue(query)
   const filtered = useMemo(() => {
-    if (!query.trim()) return sorted
-    const q = query.toLowerCase()
-    return sorted.filter((p) => p.name.toLowerCase().includes(q))
-  }, [sorted, query])
+    if (!deferredQuery.trim()) return sorted
+    const q = deferredQuery.toLowerCase()
+    // Best name matches first; ties keep the chosen sort.
+    return rankByTitle(sorted.filter((p) => p.name.toLowerCase().includes(q)), q, (p) => [p.name])
+  }, [sorted, deferredQuery])
 
   const emptyLabel = scopeFilter === 'all'
     ? 'No projects yet. Create your first one to get started.'
@@ -254,13 +272,13 @@ function ProjectsPageInner() {
                 Projects
               </h1>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', alignSelf: 'flex-start' }}>
-                <Badge label={`${personalCount} Personal ${personalCount === 1 ? 'Project' : 'Projects'}`} color="Neutral" />
+                <Badge label={`${personalCount} Personal`} color="Neutral" />
                 {orgId && (
                   <>
                     <span style={{ color: 'var(--neutral-300)', fontSize: 12 }}>|</span>
-                    <Badge label={`${workspaceCount} Workspace ${workspaceCount === 1 ? 'Project' : 'Projects'}`} color="Neutral" />
+                    <Badge label={`${workspaceCount} Workspace`} color="Neutral" />
                     <span style={{ color: 'var(--neutral-300)', fontSize: 12 }}>|</span>
-                    <Badge label={`${sharedCount} Shared ${sharedCount === 1 ? 'Project' : 'Projects'}`} color="Neutral" />
+                    <Badge label={`${sharedCount} Shared`} color="Neutral" />
                   </>
                 )}
               </div>
@@ -310,6 +328,7 @@ function ProjectsPageInner() {
                         size="sm"
                         icon={<SearchOneIcon size={20} />}
                         aria-label="Search projects"
+                        ref={searchButtonRef}
                         onClick={() => setSearchOpen(true)}
                       />
                     </m.span>
@@ -329,7 +348,7 @@ function ProjectsPageInner() {
                           <button
                             type="button"
                             aria-label="Close search"
-                            onClick={() => { setSearchOpen(false); handleQueryChange('') }}
+                            onClick={closeSearch}
                             className="kds-icon-in-field"
                             style={{ ...RESET_BUTTON_STYLE, display: 'inline-flex', cursor: 'pointer', lineHeight: 0 }}
                           >
@@ -343,6 +362,7 @@ function ProjectsPageInner() {
                         // eslint-disable-next-line jsx-a11y/no-autofocus -- focus moves into search on user-triggered open
                         autoFocus
                         aria-label="Search projects"
+                        onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); closeSearch() } }}
                       />
                     </m.div>
                   )}
@@ -508,7 +528,7 @@ function ProjectsPageInner() {
         description={editTarget?.description ?? ''}
         tags={editTarget?.tags ?? []}
         visibility={editTarget?.visibility ?? 'personal'}
-        visibilityOptions={editTarget?.canEdit && orgId ? PROJECT_VISIBILITY_OPTIONS : []}
+        visibilityOptions={canProject('change-visibility', editTarget, orgId) ? PROJECT_VISIBILITY_OPTIONS : []}
         onSave={(name, description, tags, visibility) => {
           if (!editTarget) return
           return updateProject(editTarget.id, { name, description, tags, visibility })
@@ -522,7 +542,8 @@ function ProjectsPageInner() {
         open={!!deleteTarget}
         projectName={deleteTarget?.name ?? ''}
         chatCount={deleteTarget?.chatCount ?? 0}
-        loading={isDeleting}
+        restorable={!!deleteTarget && deleteTarget.visibility !== 'personal'}
+        loading={deleteMutation.isPending}
         onConfirm={handleDeleteConfirm}
         onClose={() => setDeleteTarget(null)}
       />

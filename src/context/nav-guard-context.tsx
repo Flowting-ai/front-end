@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 
 /**
  * App-wide "you have unsaved changes" guard — bridges dirty state from a
@@ -241,7 +241,7 @@ export function NavGuardModal() {
               <Button variant="ghost" size="sm" disabled={isSaving} onClick={confirmLeave}>
                 Discard changes
               </Button>
-              <Button variant="default" size="sm" loading={isSaving} onClick={saveAndLeave}>
+              <Button variant="save" size="sm" loading={isSaving} onClick={saveAndLeave}>
                 Save &amp; Continue
               </Button>
             </>

@@ -93,7 +93,7 @@ describe("dark theme: normal-state contrast", () => {
       ["--toast-text", "--toast-bg"],
       ["--toast-action-text", "--toast-action-bg"],
     ];
-    // The primary button is the brand pink gradient with white label (~3.9:1, WCAG AA for bold/large UI text); every other style stays >= 7:1.
+    // The primary button is a light fill with a dark label; every style stays >= 7:1.
     const PINK_PRIMARY = ["--button-default-bg-from", "--button-default-bg-to"];
     for (const [fg, bg] of pairs) expect(contrast(color(DARK, fg), color(DARK, bg)), `${fg} on ${bg}`).toBeGreaterThanOrEqual(PINK_PRIMARY.includes(bg) ? 3.5 : 7);
     expect(contrast(color(DARK, "--button-ghost-text"), PAGE)).toBeGreaterThanOrEqual(7);
@@ -383,16 +383,15 @@ describe("dark theme: no light-grey fills", () => {
     expect(luminance(PAGE)).toBeLessThan(luminance(CARD)); // cards sit above the page
   });
 
-  it("primary button (disabled), toast-action and primary (enabled, brand pink) fills are not light-grey blocks", () => {
+  it("primary button (disabled), toast-action and primary (enabled, light) fills", () => {
     for (const t of [
       "--color-interactive-primary-surface-disabled-from", "--color-interactive-primary-surface-disabled-to",
       "--toast-action-bg",
     ]) expect(isDarkish(color(DARK, t)), t).toBe(true);
     // Tooltips are white with dark text in dark mode (checked for readability above), so they are intentionally not dark fills.
-    // The enabled primary button is the saturated brand pink in dark - a brand colour, not a light-grey block.
+    // The enabled primary button is a light (near-white) fill with dark text in dark mode.
     for (const t of ["--color-interactive-primary-surface-from", "--color-interactive-primary-surface-to"]) {
-      const { r, g, b } = color(DARK, t);
-      expect(r - Math.max(g, b), `${t} is saturated pink`).toBeGreaterThan(60);
+      expect(isDarkish(color(DARK, t)), t).toBe(false);
     }
   });
 

@@ -1,29 +1,19 @@
 'use client'
 
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useRef } from 'react'
+import dynamic from 'next/dynamic'
 import { AnimatePresence, m } from 'framer-motion'
-import { ArrowLeftOneIcon, ArrowRightOneIcon, CancelOneIcon, LaurelWreathOneIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
-import { Badge } from '@/components/Badge'
-import { trackFeature } from '@/lib/analytics/events'
-import { InputField } from '@/components/InputField'
-import { OptionRow } from '@/components/OptionRow'
-import type { OptionRowVariant } from '@/components/OptionRow'
-import { EnhanceDotProgress } from '@/components/EnhanceDotProgress'
-import { EnhanceScanningState } from '@/components/EnhanceScanningState'
-import { EnhanceSummaryBar } from '@/components/EnhanceSummaryBar'
-import { DiffLine } from '@/components/DiffLine'
-import {
-  scanPrompt, classifyMode, selectQuestions,
-  buildRewrite, diffLines, diffSummary, fromBackendQuestions,
-} from '@/enhance'
-import { enhancePrompt } from '@/lib/api/personas'
-import { MarkdownRenderer } from '@/lib/markdown-utils'
+import { LaurelWreathOneIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
-import type {
-  EnhanceMode, PersonaContext, Question, Answers,
-} from '@/enhance'
+import { Button } from '@/components/ui/button'
+import { EnhanceScanningState } from '@/components/EnhanceScanningState'
+import type { EnhanceMode } from '@/enhance'
+import { BlockErrorBoundary } from '@/components/chat/BlockErrorBoundary'
 import { cn } from '@/lib/utils'
+import { useEnhanceFlow } from './use-enhance-flow'
+
+// The open-state views (Q&A, diff, markdown preview) load on the first open, not with the editor.
+const EnhancePanel = dynamic(() => import('./EnhancePanel'), { ssr: false, loading: () => <EnhanceScanningState /> })
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -32,11 +22,6 @@ export interface EnhancePromptFieldProps extends Omit<React.HTMLAttributes<HTMLD
   value:            string
   /** Fires whenever the prompt text changes (typing OR an Apply commit). */
   onChange:         (next: string) => void
-  /**
-   * Persona surroundings - feeds the P2 question filters (PRD §8). Optional -
-   * defaults to a permissive private persona with no knowledge/connectors.
-   */
-  personaContext?:  PersonaContext
   /** Textarea placeholder when empty. */
   placeholder?:     string
   /** Optional label for screen readers. */
@@ -60,31 +45,20 @@ export interface EnhancePromptFieldProps extends Omit<React.HTMLAttributes<HTMLD
   footerLeft?:      React.ReactNode
 }
 
-type EnhanceState = 'idle' | 'scanning' | 'qa' | 'diff' | 'complete'
-type DiffView = 'changes' | 'preview'
-
-const DEFAULT_CONTEXT: PersonaContext = {
-  knowledgeCount:    0,
-  connectorsEnabled: [],
-  sharing:           'private',
-}
-
-const SCAN_DURATION_MS = 1800   // PRD §11
-// A backend call that takes longer than this gets a "still working" note and a Cancel; one that
-// takes longer than the timeout is dropped for the local check.
-const SLOW_AFTER_MS = 8_000
-const GIVE_UP_AFTER_MS = 45_000
-const APPLY_TRANSITION_MS = 180
 // Max textarea height before internal scroll kicks in (container max = 534, minus 24px padding, 25px gap, 36px footer)
 const TEXTAREA_MAX_H = 449
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+/**
+ * The agent editor's system prompt field with Enhance. This file is the shell (textarea, container,
+ * error boundary, animation); the flow lives in use-enhance-flow.ts and lib/enhance/enhance-flow.ts,
+ * and the open views in EnhancePanel.tsx.
+ */
 export function EnhancePromptField(
   {
     value,
     onChange,
-    personaContext = DEFAULT_CONTEXT,
     placeholder = "Describe your agent's goals, expertise, tone, and responsibilities. Example: 'You are a senior UX researcher who specializes in…'",
     ariaLabel = 'System prompt',
     forceMode,
@@ -96,37 +70,17 @@ export function EnhancePromptField(
     ...props
   }: EnhancePromptFieldProps & { ref?: React.Ref<HTMLDivElement> },
 ) {
-    const [state, setState]         = useState<EnhanceState>('idle')
-    const [mode, setMode]           = useState<EnhanceMode>('BUILD')
-    const [questions, setQuestions] = useState<Question[]>([])
-    const [qIdx, setQIdx]           = useState(0)
-    const [answers, setAnswers]     = useState<Answers>({})
-    const [customText, setCustomText] = useState<Record<string, string>>({})  // questionId → in-progress custom string
-    const [draftRewrite, setDraftRewrite] = useState<string>('')
-
-    const [diffView, setDiffView] = useState<DiffView>('changes')
-    // A backend call is in flight; `slow` once it has taken a while.
-    const [waiting, setWaiting] = useState(false)
-    const [slow, setSlow] = useState(false)
-    const giveUpRef = useRef<() => void>(() => {})
-    // A call ended (or was cancelled): the in-flight flag and the "still working" note both go.
-    const stopWaiting = () => { setWaiting(false); setSlow(false) }
-    const [backendMode, setBackendMode] = useState(false)
-    const [backendDraft, setBackendDraft] = useState('')
-    const requestId = useRef(0)   // bumped to ignore a stale response after close / restart
-    const scanTimer   = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const flow = useEnhanceFlow({
+      value,
+      forceMode,
+      // Applying replaces the whole prompt, so it can be taken back from the toast.
+      onApply: (draft, previous) => {
+        onChange(draft)
+        toast('Prompt enhanced', { action: { label: 'Undo', onClick: () => onChange(previous) } })
+      },
+    })
     const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-    useEffect(() => () => { if (scanTimer.current) clearTimeout(scanTimer.current) }, [])
-
-    useEffect(() => {
-      if (!waiting) return
-      const slowTimer = setTimeout(() => setSlow(true), SLOW_AFTER_MS)
-      const giveUpTimer = setTimeout(() => giveUpRef.current(), GIVE_UP_AFTER_MS)
-      return () => { clearTimeout(slowTimer); clearTimeout(giveUpTimer) }
-    }, [waiting])
-
-    const isOpen = state !== 'idle'
+    const isOpen = flow.state.phase !== 'idle'
 
     useEffect(() => {
       const ta = textareaRef.current
@@ -137,175 +91,6 @@ export function EnhancePromptField(
       ta.style.overflowY = ta.scrollHeight > TEXTAREA_MAX_H ? 'auto' : 'hidden'
     }, [value, isOpen])
 
-    // ── Open / close ───────────────────────────────────────────────────────────
-
-    // Local (rule-based) flow — used when the backend is unavailable.
-    const openLocalEnhance = () => {
-      const scores = scanPrompt(value)
-      const detectedMode = forceMode ?? classifyMode(scores)
-      const qs = selectQuestions(detectedMode, scores, personaContext)
-      setBackendMode(false)
-      setMode(detectedMode)
-      setQuestions(qs)
-      setQIdx(0)
-      setAnswers({})
-      setCustomText({})
-      setState('scanning')
-      scanTimer.current = setTimeout(() => {
-        if (qs.length === 0) setState('complete')
-        else setState('qa')
-      }, SCAN_DURATION_MS)
-    }
-
-    const openEnhance = () => {
-      trackFeature('agent_enhance_instructions')
-      if (!value.trim()) { openLocalEnhance(); return }
-      const run = ++requestId.current
-      setMode('BUILD')
-      setQIdx(0)
-      setAnswers({})
-      setCustomText({})
-      setState('scanning')
-      setWaiting(true)
-      giveUpRef.current = () => {
-        requestId.current++
-        stopWaiting()
-        toast.info('Enhance is taking too long — using a quick local check instead.')
-        openLocalEnhance()
-      }
-      enhancePrompt(value, []).then(res => {
-        if (run !== requestId.current) return
-        stopWaiting()
-        setBackendMode(true)
-        setBackendDraft(res.enhanced_prompt)
-        const qs = fromBackendQuestions(res.questions)
-        setQuestions(qs)
-        if (qs.length === 0) {
-          setDraftRewrite(res.enhanced_prompt)
-          setDiffView('changes')
-          setState('diff')
-        } else {
-          setState('qa')
-        }
-      }).catch(() => {
-        if (run !== requestId.current) return
-        stopWaiting()
-        openLocalEnhance()
-      })
-    }
-
-    const closeEnhance = () => {
-      requestId.current++
-      stopWaiting()
-      if (scanTimer.current) clearTimeout(scanTimer.current)
-      setState('idle')
-    }
-
-    // Send the answers back so the backend folds them into a final draft.
-    const refineWithBackend = () => {
-      const run = ++requestId.current
-      const payload = questions.flatMap(q => {
-        const a = answers[q.id] ?? []
-        return a.length > 0 ? [{ question: q.text, answer: a.join(', ') }] : []
-      })
-      setState('scanning')
-      setWaiting(true)
-      const showFirstDraft = () => {
-        stopWaiting()
-        setDraftRewrite(backendDraft)   // fall back to the first draft
-        setDiffView('changes')
-        setState('diff')
-      }
-      giveUpRef.current = () => {
-        requestId.current++
-        toast.info('Enhance is taking too long — showing the first draft.')
-        showFirstDraft()
-      }
-      enhancePrompt(value, payload).then(res => {
-        if (run !== requestId.current) return
-        stopWaiting()
-        setDraftRewrite(res.enhanced_prompt)
-        setDiffView('changes')
-        setState('diff')
-      }).catch(() => {
-        if (run !== requestId.current) return
-        showFirstDraft()
-      })
-    }
-
-    // ── Q&A handlers ───────────────────────────────────────────────────────────
-
-    const currentQuestion = questions[qIdx]
-
-    const toggleOption = (qid: string, optionLabel: string) => {
-      setAnswers(prev => {
-        const q = questions.find(qq => qq.id === qid)
-        if (!q) return prev
-        const cur = prev[qid] ?? []
-        if (q.multiSelect) {
-          if (cur.includes(optionLabel)) return { ...prev, [qid]: cur.filter(x => x !== optionLabel) }
-          if (q.maxSelect && cur.length >= q.maxSelect) return prev  // capped
-          return { ...prev, [qid]: [...cur, optionLabel] }
-        }
-        return { ...prev, [qid]: cur[0] === optionLabel ? [] : [optionLabel] }
-      })
-    }
-
-    const commitCustom = (qid: string) => {
-      const text = customText[qid]?.trim()
-      if (!text) return
-      setAnswers(prev => ({ ...prev, [qid]: [...(prev[qid] ?? []), text] }))
-      setCustomText(prev => ({ ...prev, [qid]: '' }))
-    }
-
-    const removeAnswer = (qid: string, label: string) => {
-      setAnswers(prev => ({ ...prev, [qid]: (prev[qid] ?? []).filter(x => x !== label) }))
-    }
-
-    const canAdvance = (() => {
-      if (!currentQuestion) return false
-      const a = answers[currentQuestion.id] ?? []
-      return a.length > 0 || (customText[currentQuestion.id]?.trim().length ?? 0) > 0
-    })()
-
-    const goBack = () => {
-      if (qIdx === 0) return
-      setQIdx(i => i - 1)
-    }
-    const skip = () => goNext(true)
-    const goNext = (skipped = false) => {
-      if (!skipped && !canAdvance) return
-      if (qIdx >= questions.length - 1) {
-        if (backendMode) { refineWithBackend(); return }
-        // Build rewrite + advance to diff
-        const rewrite = buildRewrite(value, questions, answers)
-        setDraftRewrite(rewrite)
-        setState('diff')
-        return
-      }
-      setQIdx(i => i + 1)
-    }
-
-    // ── Apply / discard ────────────────────────────────────────────────────────
-
-    const applyChanges = () => {
-      onChange(draftRewrite)
-      setState('idle')
-      setDraftRewrite('')
-    }
-    const discard = () => {
-      setDraftRewrite('')
-      setState('idle')
-    }
-
-    // ── Visual helpers ─────────────────────────────────────────────────────────
-
-    const isAudit = mode === 'AUDIT'
-    const headerLabel =
-      state === 'complete' ? 'Your prompt looks comprehensive'
-    : isAudit              ? 'Reviewing your prompt'
-    : `Enhance - ${mode}`
-
     const containerStateStyle: React.CSSProperties = isOpen ? {
       backgroundColor: 'var(--color-enhance-surface-open)',
       borderColor:     'var(--color-enhance-border-open)',
@@ -315,17 +100,6 @@ export function EnhancePromptField(
       borderColor:     'var(--border-default)',
       borderWidth:     1,
     }
-
-    // ── Diff content ───────────────────────────────────────────────────────────
-
-    const diffSegments = useMemo(
-      () => (state === 'diff' ? diffLines(value, draftRewrite) : []),
-      [state, value, draftRewrite],
-    )
-    const summary = useMemo(
-      () => (state === 'diff' ? diffSummary(value, draftRewrite) : { wordsAdded: 0, guidelineGroups: 0 }),
-      [state, value, draftRewrite],
-    )
 
     // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -370,6 +144,13 @@ export function EnhancePromptField(
             ...containerStateStyle,
           }}
           {...props}
+          onKeyDown={(e) => {
+            props.onKeyDown?.(e)
+            if (e.key === 'Escape' && isOpen && !e.defaultPrevented) {
+              e.preventDefault()
+              flow.close()
+            }
+          }}
         >
         {/* Idle: textarea fills, footer pinned in flex flow at bottom — matches Figma node I848:53731;1677:7723 */}
         {!isOpen && (
@@ -420,7 +201,7 @@ export function EnhancePromptField(
               <Button
                 size="md"
                 variant="default"
-                onClick={openEnhance}
+                onClick={flow.open}
                 leftIcon={<LaurelWreathOneIcon />}
               >
                 Enhance
@@ -429,11 +210,24 @@ export function EnhancePromptField(
           </div>
         )}
 
-        {/* Open: EnhanceBox replaces the textarea */}
+        {/* Open: EnhanceBox replaces the textarea. A crash in the diff/preview
+            returns to the idle textarea instead of losing the editor. */}
+        <BlockErrorBoundary
+          label="enhance panel"
+          resetKey={flow.state.phase}
+          fallback={
+            <div role="alert" style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 20 }}>
+              <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--neutral-700)', textAlign: 'center' }}>
+                Enhance hit a problem. Your prompt is unchanged.
+              </p>
+              <Button size="md" variant="secondary" onClick={flow.close}>Back to editing</Button>
+            </div>
+          }
+        >
         <AnimatePresence initial={false}>
           {isOpen && (
             <m.div
-              key={state}
+              key={flow.state.phase}
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 4 }}
@@ -449,179 +243,11 @@ export function EnhancePromptField(
                 borderRadius:  18,
               }}
             >
-              {/* Header */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <h2 style={{
-                    margin:     0,
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 'var(--font-weight-medium)',
-                    fontSize:   'var(--font-size-body-lg, 16px)',
-                    lineHeight: 1.3,
-                    color:      'var(--neutral-900)',
-                  }}>
-                    {headerLabel}
-                  </h2>
-                  {isAudit && state !== 'complete' && (
-                    <Badge color="Purple" label="Audit" />
-                  )}
-                </div>
-                <button
-                  type="button"
-                  aria-label="Close Enhance"
-                  onClick={closeEnhance}
-                  style={{
-                    display:         'inline-flex',
-                    alignItems:      'center',
-                    justifyContent:  'center',
-                    width:           28,
-                    height:          28,
-                    padding:         0,
-                    border:          'none',
-                    borderRadius:    6,
-                    backgroundColor: 'transparent',
-                    color:           'var(--neutral-700)',
-                    cursor:          'pointer',
-                  }}
-                >
-                  <CancelOneIcon size={18} />
-                </button>
-              </div>
-
-              {/* Body - switches on state */}
-              <div
-                className="kaya-scrollbar"
-                style={{
-                  flex:                '1 1 0',
-                  minHeight:           0,
-                  overflowY:           'auto',
-                  overscrollBehaviorY: 'contain',
-                  display:             'flex',
-                  flexDirection:       'column',
-                  gap:                 16,
-                  // This scroll area clips overflow, which cut off the left edge of the custom input and
-                  // its pink focus ring. 8px of padding gives the ring room; the matching negative
-                  // margin eats into the panel's own 20px padding, so nothing shifts.
-                  padding:             8,
-                  margin:              -8,
-                }}
-              >
-              {state === 'scanning' && (
-                <>
-                  <EnhanceScanningState />
-                  {waiting && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginTop: -16 }}>
-                      {slow && (
-                        <p role="status" style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)', color: 'var(--neutral-600)', textAlign: 'center' }}>
-                          Still working on it — this can take a little while.
-                        </p>
-                      )}
-                      <Button size="sm" variant="ghost" onClick={closeEnhance}>Cancel</Button>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {state === 'qa' && currentQuestion && (
-                <QAStep
-                  question={currentQuestion}
-                  qIdx={qIdx}
-                  total={questions.length}
-                  audit={isAudit}
-                  answers={answers[currentQuestion.id] ?? []}
-                  customText={customText[currentQuestion.id] ?? ''}
-                  onToggleOption={(label) => toggleOption(currentQuestion.id, label)}
-                  onCustomChange={(t) => setCustomText(prev => ({ ...prev, [currentQuestion.id]: t }))}
-                  onCustomCommit={() => commitCustom(currentQuestion.id)}
-                  onCustomRemove={(label) => removeAnswer(currentQuestion.id, label)}
-                />
-              )}
-
-              {state === 'diff' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <EnhanceSummaryBar
-                    wordsAdded={summary.wordsAdded}
-                    guidelineGroups={summary.guidelineGroups}
-                  />
-                  <div role="group" aria-label="View" style={{ display: 'flex', gap: 6 }}>
-                    <Button size="sm" variant={diffView === 'changes' ? 'default' : 'ghost'} aria-pressed={diffView === 'changes'} onClick={() => setDiffView('changes')}>Changes</Button>
-                    <Button size="sm" variant={diffView === 'preview' ? 'default' : 'ghost'} aria-pressed={diffView === 'preview'} onClick={() => setDiffView('preview')}>Preview</Button>
-                  </div>
-                  {diffView === 'preview' && (
-                    <div
-                      aria-label="Preview of the enhanced prompt"
-                      className="kaya-scrollbar"
-                      style={{ maxHeight: 240, overflowY: 'auto', overscrollBehaviorY: 'contain', padding: 2, borderRadius: 8 }}
-                    >
-                      <MarkdownRenderer content={draftRewrite} />
-                    </div>
-                  )}
-                  {diffView === 'changes' && (
-                  <div
-                    role="list"
-                    aria-label="Diff between original and enhanced prompt"
-                    className="kaya-scrollbar"
-                    style={{
-                      maxHeight:           240,
-                      overflowY:           'auto',
-                      overscrollBehaviorY: 'contain',
-                      padding:             2,
-                      borderRadius:        8,
-                    }}
-                  >
-                    {diffSegments.map((seg, i) => (
-                      // eslint-disable-next-line react/no-array-index-as-key -- diff segments are positionally stable; no stable IDs available
-                      <DiffLine key={i} variant={seg.type} style={{ whiteSpace: 'pre-wrap' }}>{seg.text}</DiffLine>
-                    ))}
-                  </div>
-                  )}
-                </div>
-              )}
-
-              {state === 'complete' && (
-                <p style={{
-                  margin:     0,
-                  padding:    '24px 4px',
-                  fontFamily: 'var(--font-body)',
-                  fontSize:   'var(--font-size-body)',
-                  lineHeight: 1.5,
-                  color:      'var(--neutral-700)',
-                }}>
-                  Your prompt looks comprehensive. Running another pass would surface advanced refinements.
-                </p>
-              )}
-              </div>
-
-              {/* Footer */}
-              <Footer
-                state={state}
-                audit={isAudit}
-                qIdx={qIdx}
-                total={questions.length}
-                canAdvance={canAdvance}
-                onBack={goBack}
-                onSkip={skip}
-                onContinue={() => goNext(false)}
-                onDiscard={discard}
-                onApply={applyChanges}
-                onRunDeeper={() => {
-                  // Re-enter scan with forced AUDIT
-                  const scores = scanPrompt(value)
-                  const qs = selectQuestions('AUDIT', scores, personaContext)
-                  setBackendMode(false)
-                  setMode('AUDIT')
-                  setQuestions(qs)
-                  setQIdx(0)
-                  setAnswers({})
-                  setCustomText({})
-                  setState('scanning')
-                  scanTimer.current = setTimeout(() => setState(qs.length > 0 ? 'qa' : 'complete'), SCAN_DURATION_MS)
-                }}
-                onClose={closeEnhance}
-              />
+              <EnhancePanel flow={flow} value={value} />
             </m.div>
           )}
         </AnimatePresence>
+        </BlockErrorBoundary>
         </div>
       </div>
     )
@@ -631,244 +257,3 @@ EnhancePromptField.displayName = 'EnhancePromptField'
 
 export default EnhancePromptField
 
-// ── QA step ───────────────────────────────────────────────────────────────────
-
-function QAStep({
-  question, qIdx, total, audit, answers, customText,
-  onToggleOption, onCustomChange, onCustomCommit, onCustomRemove,
-}: {
-  question:        Question
-  qIdx:            number
-  total:           number
-  audit:           boolean
-  answers:         string[]
-  customText:      string
-  onToggleOption:  (label: string) => void
-  onCustomChange:  (text: string) => void
-  onCustomCommit:  () => void
-  onCustomRemove:  (label: string) => void
-}) {
-  const customExpanded = answers.some(a => question.options.every(o => o.label !== a))
-    || customText.length > 0
-
-  const isCapped = question.multiSelect && !!question.maxSelect && answers.length >= question.maxSelect
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* Step label - hidden in AUDIT (PRD §13) */}
-      {!audit && (
-        <p style={{
-          margin:        0,
-          fontFamily:    'var(--font-body)',
-          fontSize: 12,
-          letterSpacing: '0.03em',
-          textTransform: 'uppercase',
-          color:         'var(--color-enhance-step-label)',
-        }}>
-          Step {qIdx + 1} of {total}
-        </p>
-      )}
-
-      {/* Question text + sub */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <h3 style={{
-          margin:     0,
-          fontFamily: 'var(--font-body)',
-          fontWeight: 'var(--font-weight-medium)',
-          fontSize:   'var(--font-size-body-lg, 16px)',
-          lineHeight: 1.4,
-          color:      'var(--neutral-900)',
-        }}>
-          {question.text}
-        </h3>
-        {(audit || question.sub) && (
-          <p style={{
-            margin:     0,
-            fontFamily: 'var(--font-body)',
-            fontSize:   'var(--font-size-caption)',
-            lineHeight: 'var(--line-height-caption)',
-            color:      'var(--neutral-500)',
-          }}>
-            {audit ? 'Consider carefully.' : question.sub}
-          </p>
-        )}
-      </div>
-
-      {/* Selected custom chips */}
-      {answers.flatMap(custom => question.options.every(o => o.label !== custom) ? [(
-        <span
-          key={custom}
-          style={{
-            display:         'inline-flex',
-            alignItems:      'center',
-            gap:             6,
-            padding:         '4px 8px',
-            borderRadius:    6,
-            backgroundColor: 'var(--color-enhance-primary-tint)',
-            color:           'var(--color-diff-added-text)',
-            fontFamily:      'var(--font-body)',
-            fontSize:        'var(--font-size-caption)',
-            fontWeight:      'var(--font-weight-medium)',
-            alignSelf:       'flex-start',
-          }}
-        >
-          {custom}
-          <button
-            type="button"
-            aria-label={`Remove ${custom}`}
-            onClick={() => onCustomRemove(custom)}
-            style={{
-              display:         'inline-flex',
-              alignItems:      'center',
-              justifyContent:  'center',
-              width:           14,
-              height:          14,
-              padding:         0,
-              border:          'none',
-              background:      'transparent',
-              cursor:          'pointer',
-              color:           'inherit',
-              lineHeight:      0,
-            }}
-          >
-            <CancelOneIcon size={12} />
-          </button>
-        </span>
-      )] : [])}
-
-      {/* Option rows - KDS OptionRow (same component QuestionCard uses).
-          single-select:  default | selected
-          multi-select:   multi   | multi-selected */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {question.options.map((opt, i) => {
-          if (opt.id === 'custom') return null  // rendered as expandable row below
-          const isSelected = answers.includes(opt.label)
-          const isDisabled = isCapped && !isSelected
-          const variant: OptionRowVariant = question.multiSelect
-            ? (isSelected ? 'multi-selected' : 'multi')
-            : (isSelected ? 'selected'       : 'default')
-          return (
-            <div
-              key={opt.id}
-              style={{
-                opacity:       isDisabled ? 0.5 : 1,
-                pointerEvents: isDisabled ? 'none' : 'auto',
-                cursor:        isDisabled ? 'not-allowed' : undefined,
-              }}
-            >
-              <OptionRow
-                tabIndex={0}
-                variant={variant}
-                num={i + 1}
-                label={opt.label}
-                onClick={() => onToggleOption(opt.label)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    onToggleOption(opt.label)
-                  }
-                }}
-                style={{ cursor: 'pointer' }}
-              />
-            </div>
-          )
-        })}
-
-        {/* Custom row - bare InputField + Add button */}
-        {question.options.some(o => o.id === 'custom') && (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-            <div style={{ flex: '1 0 0', minWidth: 0 }}>
-              <InputField
-                fluid
-                size="small"
-                showLabel={false}
-                showSubtitle={false}
-                label="Custom answer"
-                placeholder="Type your answer…"
-                value={customText}
-                onChange={onCustomChange}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    onCustomCommit()
-                  }
-                }}
-              />
-            </div>
-            <Button
-              size="sm"
-              variant={customText.trim() ? 'default' : 'secondary'}
-              disabled={!customText.trim()}
-              onClick={onCustomCommit}
-            >
-              Add
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── Footer ────────────────────────────────────────────────────────────────────
-
-function Footer({
-  state, audit, qIdx, total, canAdvance,
-  onBack, onSkip, onContinue, onDiscard, onApply, onRunDeeper, onClose,
-}: {
-  state:        EnhanceState
-  audit:        boolean
-  qIdx:         number
-  total:        number
-  canAdvance:   boolean
-  onBack:       () => void
-  onSkip:       () => void
-  onContinue:   () => void
-  onDiscard:    () => void
-  onApply:      () => void
-  onRunDeeper:  () => void
-  onClose:      () => void
-}) {
-  const isLast       = qIdx === total - 1
-  const continueLabel = isLast ? (audit ? 'See revised prompt' : 'Review') : 'Continue'
-
-  if (state === 'scanning') return null
-
-  if (state === 'diff') {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 4 }}>
-        <Button size="sm" variant="ghost" onClick={onDiscard}>Discard</Button>
-        <Button size="sm" variant="default" onClick={onApply} rightIcon={<ArrowRightOneIcon />}>Apply changes</Button>
-      </div>
-    )
-  }
-
-  if (state === 'complete') {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, paddingTop: 4 }}>
-        <Button size="sm" variant="ghost" onClick={onClose}>Close</Button>
-        <Button size="sm" variant="default" onClick={onRunDeeper} rightIcon={<ArrowRightOneIcon />}>Run deeper analysis</Button>
-      </div>
-    )
-  }
-
-  // qa
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingTop: 4 }}>
-      <EnhanceDotProgress total={total} current={qIdx} audit={audit} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {qIdx > 0 && <Button size="sm" variant="ghost" onClick={onBack} leftIcon={<ArrowLeftOneIcon />}>Back</Button>}
-        <Button size="sm" variant="ghost" onClick={onSkip}>Skip</Button>
-        <Button
-          size="sm"
-          variant={canAdvance ? 'default' : 'secondary'}
-          disabled={!canAdvance}
-          onClick={onContinue}
-          rightIcon={<ArrowRightOneIcon />}
-        >
-          {continueLabel}
-        </Button>
-      </div>
-    </div>
-  )
-}

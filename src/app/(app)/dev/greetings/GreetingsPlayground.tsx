@@ -8,9 +8,9 @@
 // wide window shows the desktop result.
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { useMounted } from '@/hooks/use-mounted'
+import { useIsClient } from '@/hooks/use-is-client'
 import { Badge } from '@/components/Badge'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { InputField } from '@/components/InputField'
 import { Slider } from '@/components/Slider'
 import { Switch } from '@/components/Switch'
@@ -167,7 +167,7 @@ function GreetingRow({ id, text, surface, lane, showLane, onLines }: {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function GreetingsPlayground() {
-  const mounted = useMounted()
+  const mounted = useIsClient()
   const { user } = useAuth()
   const signedInName = user?.firstName || user?.name || ''
   const [nameDraft, setNameDraft] = useState<string | null>(null)
@@ -223,6 +223,7 @@ export function GreetingsPlayground() {
               </Tabs.List>
             </Tabs>
             <Slider
+              aria-label="Lane width"
               label="Lane width"
               value={[lane]}
               onValueChange={([n]) => setLaneOverride(n)}
@@ -252,6 +253,7 @@ export function GreetingsPlayground() {
               <GreetingHeading greeting={fillGreeting(showcase, name)} compact={surface.compact} animateLogo />
             </div>
             <Slider
+              aria-label="Turn duration"
               label="Turn duration"
               value={[orbitSeconds]}
               onValueChange={([n]) => setOrbitSeconds(n)}

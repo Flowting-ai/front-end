@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { HugeiconsIcon } from "@hugeicons/react";
 import AiMagicIcon from "@hugeicons/core-free-icons/AiMagicIcon";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { getSlackInstallUrl } from "@/lib/api/slack";
 import { ONBOARDING_WORKSPACE_ROUTE } from "@/lib/routes";
 import { SouvenirLogo } from "@/components/SouvenirLogo";

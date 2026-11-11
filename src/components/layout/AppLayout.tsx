@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { m } from "framer-motion";
 import { CancelOneIcon } from "@strange-huge/icons";
@@ -9,16 +9,19 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RightSidebar } from "./RightSidebar";
 import { HighlightSidebar } from "./HighlightSidebar";
 import { TopBar } from "./TopBar";
+import { TopBarSlotsProvider } from "./TopBarSlots";
 import { AppDialogs } from "./AppDialogs";
 import { FloatingPanel } from "./FloatingPanel";
-import { IconButton } from "@/components/IconButton";
+import { IconButton } from "@/components/ui/button";
 import { Tooltip } from "@/components/Tooltip";
 import { usePinboard } from "@/context/pinboard-context";
 import { useAuth } from "@/context/auth-context";
 import { warmRecommendations } from "@/hooks/use-recommendations";
-import { warmConnectApps } from "@/lib/connect-apps-cache";
+import { featuredAppsQuery } from "@/lib/connectors/connector-queries";
+import { getQueryClient } from "@/lib/query-client";
 import { useHighlight } from "@/context/highlight-context";
 import { useProjectPanel } from "@/context/project-panel-context";
+import { useMobile } from "@/hooks/use-mobile";
 import { PINS_ENABLED, HIGHLIGHTS_ENABLED } from "@/lib/feature-flags";
 import {
   PROJECT_BASE_ROUTE,
@@ -69,7 +72,7 @@ export function AppLayout({
   const wantsChatWarmup = pathname === '/chat' || pathname.startsWith('/project/')
   useEffect(() => {
     if (!userKey || !wantsChatWarmup) return
-    const run = () => { warmRecommendations(userKey); warmConnectApps() }
+    const run = () => { warmRecommendations(userKey); void getQueryClient().prefetchQuery(featuredAppsQuery()) }
     if (typeof window.requestIdleCallback === 'function') {
       const id = window.requestIdleCallback(run, { timeout: 3000 })
       return () => window.cancelIdleCallback(id)
@@ -125,14 +128,20 @@ export function AppLayout({
   // isConnectorsOrSlackPage below: give them the tight 3px card padding too, so
   // their scrollbar sits close to the rounded border instead of 12px inset.
   const isChatPage = pathname === CHAT_ROUTE || (isAnyProjectPage && pathname.includes('/chat/'))
+  // On phones the chat's floating tool column (FloatingPanel) would sit on top of
+  // the messages, so the chat main keeps a right gutter for it.
+  const isMobile = useMobile()
+  const reserveChatToolsGutter = isMobile && isChatPage
   const isChatSharesPage = pathname.startsWith('/chat-shares')
+  // A file page fills the card edge to edge and owns its scrolling, like /agents.
+  const isLibraryFilePage = pathname.startsWith('/library/files/')
   // Every route below already owns a full-height inner scroll container that
   // does the real scrolling (projects list/new, project detail, the team
   // settings shell, chat shares) — same reasoning as isConnectorsOrSlackPage/
   // isChatPage: this shared main must not ALSO reserve a scrollbar-gutter, and
   // the card padding should match the tight 3px these already use, or the
   // page's own scrollbar sits inset by an extra, pointless gap.
-  const usesTightCard = isConnectorsOrSlackPage || isChatPage || isProjectPage || isTeamPage || isChatsListPage || isChatSharesPage
+  const usesTightCard = isConnectorsOrSlackPage || isChatPage || isProjectPage || isTeamPage || isChatsListPage || isChatSharesPage || isLibraryFilePage
 
   // Settings pages manage their own full layout — bypass global chrome entirely.
   // No ErrorBoundary wrap here: `children` is the settings shell (its own
@@ -171,17 +180,20 @@ export function AppLayout({
           backgroundColor: 'var(--neutral-white)',
         }}
       >
-        <Suspense fallback={null}>
-          <LeftSidebar
-            activeChatId={activeChatId}
-            onSelectChat={onSelectChat}
-            onNewChat={onNewChat}
-            defaultCollapsed={defaultSidebarCollapsed}
-          />
-        </Suspense>
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <ErrorBoundary variant="region" label="Sidebar">
+          <Suspense fallback={null}>
+            <LeftSidebar
+              activeChatId={activeChatId}
+              onSelectChat={onSelectChat}
+              onNewChat={onNewChat}
+              defaultCollapsed={defaultSidebarCollapsed}
+              />
+          </Suspense>
+        </ErrorBoundary>
+        {/* The page's landmark — every other branch wraps the page in a <main> too. */}
+        <main style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <ErrorBoundary>{children}</ErrorBoundary>
-        </div>
+        </main>
         <AppDialogs />
       </div>
     )
@@ -198,14 +210,16 @@ export function AppLayout({
       }}
     >
       {/* ── Left sidebar ── */}
-      <Suspense fallback={null}>
-        <LeftSidebar
-          activeChatId={activeChatId}
-          onSelectChat={onSelectChat}
-          onNewChat={onNewChat}
-          defaultCollapsed={defaultSidebarCollapsed}
-        />
-      </Suspense>
+      <ErrorBoundary variant="region" label="Sidebar">
+        <Suspense fallback={null}>
+          <LeftSidebar
+            activeChatId={activeChatId}
+            onSelectChat={onSelectChat}
+            onNewChat={onNewChat}
+            defaultCollapsed={defaultSidebarCollapsed}
+            />
+        </Suspense>
+      </ErrorBoundary>
 
       {/* ── Center column - neutral-50 bg, flex-column so credit banner sits above content ── */}
       <div
@@ -263,16 +277,19 @@ export function AppLayout({
               alignItems:      "flex-start",
               gap:             "2px",
               padding:         usesTightCard ? "3px" : "12px",
-              borderRadius:    "22px",
+              borderRadius:    "var(--layout-radius)",
               border:          "1px solid var(--border-default)",
               backgroundColor: "var(--color-surface-container)",
               overflow:        "hidden",
               isolation:       "isolate",
             }}
           >
-            {/* ── TopBar - absolute, overlaps the 1px border on three sides ── */}
+            {/* Pages put their back button / actions into the TopBar through these slots. */}
+            <TopBarSlotsProvider>
+            {/* ── TopBar - a defined bar along the top of the card, edge to edge, hairline below ── */}
             {!isAdminPage && !isTeamPage && !isConnectorsOrSlackPage && (
               <TopBar
+                edgeInset={usesTightCard ? 3 : 12}
                 showCitationsToggle={showCitationsToggle}
                 citationsOpen={citationsOpen}
                 onCitationsToggle={onCitationsToggle}
@@ -296,6 +313,8 @@ export function AppLayout({
                 overscrollBehaviorY: (isPersonaChatPage || usesTightCard) ? undefined : "contain",
                 display:             "flex",
                 flexDirection:       "column",
+                paddingRight:        reserveChatToolsGutter ? 40 : undefined,
+                boxSizing:           "border-box",
               }}
             >
               <ErrorBoundary>{children}</ErrorBoundary>
@@ -307,6 +326,7 @@ export function AppLayout({
                 <FloatingPanel />
               </Suspense>
             )}
+            </TopBarSlotsProvider>
           </div>
         )}
         </div>
@@ -319,9 +339,11 @@ export function AppLayout({
 
       {/* ── Right sidebar (Pinboard) ── */}
       {PINS_ENABLED && (
-        <Suspense fallback={null}>
-          <RightSidebar />
-        </Suspense>
+        <ErrorBoundary variant="region" label="Pinboard">
+          <Suspense fallback={null}>
+            <RightSidebar />
+          </Suspense>
+        </ErrorBoundary>
       )}
 
       {/* ── Highlight sidebar ── */}
@@ -343,15 +365,30 @@ export function AppLayout({
 // provides the animated shell plus the same neutral-50 background + titled
 // header/close-button chrome as Pinboard (see PinboardHeader), so the two
 // side panels read as one consistent system.
+const PANEL_SIDE_PADDING = 8;
+
 function ProjectPanelSidebar() {
-  const { panel, isOpen } = useProjectPanel();
-  const sidePadding = panel?.sidePadding ?? 24;
+  const { panel: livePanel, isOpen } = useProjectPanel();
+  // Mounting or unmounting the panel's body is the expensive part, so it never happens while the
+  // panel slides: on open the shell slides in with its header and the body mounts once it has
+  // settled; on close the last panel stays rendered until the slide-out finishes.
+  const [shownPanel, setShownPanel] = useState(livePanel);
+  const [settled, setSettled] = useState(false);
+  if (livePanel && livePanel !== shownPanel) setShownPanel(livePanel);
+  if (!isOpen && settled) setSettled(false);
+  const panel = livePanel ?? shownPanel;
+  // One inset for every panel (header title and content share a left edge): the 8px Pinboard uses.
+  const sidePadding = PANEL_SIDE_PADDING;
 
   return (
     <m.div
       animate={isOpen ? { width: 356, opacity: 1 } : { width: 0, opacity: 0 }}
       initial={{ width: 0, opacity: 0 }}
       transition={{ type: "spring", stiffness: 260, damping: 32, mass: 0.9 }}
+      onAnimationComplete={() => {
+        if (isOpen) setSettled(true);
+        else setShownPanel(null);
+      }}
       style={{
         height:        "100%",
         flexShrink:    0,
@@ -378,8 +415,10 @@ function ProjectPanelSidebar() {
             alignItems:     "center",
             justifyContent: "space-between",
             gap:            8,
-            minHeight:      58,
-            padding:        `22px 16px 0 ${sidePadding}px`,
+            // The panel starts at the window's top (the card starts 11px lower), so 19px of padding puts
+            // its title and close button on the TopBar's 19–51px band, as the left sidebar's header is.
+            minHeight:      51,
+            padding:        `19px 16px 0 ${sidePadding}px`,
             flexShrink:     0,
           }}
         >
@@ -415,7 +454,7 @@ function ProjectPanelSidebar() {
           style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", overflowX: "hidden", boxSizing: "border-box" }}
         >
           <div style={{ padding: `14px ${sidePadding}px ${sidePadding}px`, boxSizing: "border-box", height: "100%" }}>
-            {panel?.content}
+            {(settled || !isOpen) && panel?.content}
           </div>
         </div>
       </div>

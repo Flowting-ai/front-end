@@ -1,9 +1,9 @@
 import React from 'react'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { ArrowLeftOneIcon } from '@strange-huge/icons'
 
 interface SettingsPageShellProps {
-  title: string
+  title: React.ReactNode
   description: string
   children: React.ReactNode
   backLabel?: string
@@ -18,7 +18,7 @@ export function SettingsPageShell({
   children,
   backLabel,
   onBack,
-  maxWidth = 1114,
+  maxWidth = 860,
   fluid = false,
 }: SettingsPageShellProps) {
   return (

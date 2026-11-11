@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 
 // ── Shared canvas ───────────────────────────────────────────────────────────────
 // All new onboarding steps (hello, account-type, workspace) render through this

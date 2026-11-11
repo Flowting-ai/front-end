@@ -3,7 +3,7 @@
 import React from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { m } from 'framer-motion'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { ConnectorStatusBadge } from '@/components/ConnectorStatusBadge'
 import { springs } from '@/lib/springs'
 import { cn } from '@/lib/utils'
@@ -132,8 +132,8 @@ export const ConnectorRequestRow = React.forwardRef<HTMLDivElement, ConnectorReq
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, alignSelf: 'center' }}>
             {status === 'pending' && (
               <>
-                <Button variant="outline" size="sm" onClick={onDecline}>Decline</Button>
-                <Button variant="default" size="sm" onClick={onApprove}>Approve &amp; connect</Button>
+                <Button variant="reject" size="sm" onClick={onDecline}>Decline</Button>
+                <Button variant="approve" size="sm" attention onClick={onApprove}>Approve &amp; connect</Button>
               </>
             )}
             {status === 'not-available' && (

@@ -1,9 +1,8 @@
 'use client'
 
 import React, { useState } from 'react'
-import { PlusSignIcon, ArrowUpRightOneIcon, RedoIcon, DeleteTwoIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { PlusSignIcon, ArrowUpRightOneIcon, RedoIcon } from '@strange-huge/icons'
+import { Button, IconButton } from '@/components/ui/button'
 import { Skeleton } from '@/components/Skeleton'
 import { Spinner } from '@/components/Spinner'
 import { Dropdown } from '@/components/Dropdown'
@@ -459,18 +458,10 @@ export function SuperLinksTab({
                     </SettingsTableCell>
                     <SettingsTableCell align="end">
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <Button size="sm" variant="secondary" onClick={() => void onUseReceivedShareInChat(share)}>
+                        {/* Only a live link can be used. There is no "remove from my list" call yet, so no Remove button: it used to open Delete agent for the viewer's own copy. */}
+                        <Button size="sm" variant="secondary" disabled={status !== 'active'} onClick={() => void onUseReceivedShareInChat(share)}>
                           Use in chat
                         </Button>
-                        <Tooltip content="Remove" side="top">
-                          <IconButton
-                            aria-label={`Remove ${share.name}`}
-                            size="xs"
-                            variant="ghost"
-                            onClick={() => persona && setDeleteTarget(persona)}
-                            icon={<DeleteTwoIcon size={14} />}
-                          />
-                        </Tooltip>
                       </div>
                     </SettingsTableCell>
                   </SettingsTableRow>

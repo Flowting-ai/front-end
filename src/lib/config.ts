@@ -137,6 +137,9 @@ export const CHAT_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}`);
 export const CHAT_DELETE_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}`)
+/** Brings back a chat deleted inside the Trash window (404 after it). */
+export const CHAT_RESTORE_ENDPOINT = (chatId: string) =>
+  withBase(`/chats/${chatId}/restore`)
 // PATCH .../visibility never existed on this backend's chat router (confirmed
 // by reading services/chat/router.py's full route list) — every call 404s.
 // The real mechanism is this one-way, no-body action route: it looks up the
@@ -192,29 +195,12 @@ export const PERSONA_VERSION_DOCUMENT_DELETE_ENDPOINT = (repoId: string, version
   withBase(`/persona/${repoId}/versions/${versionId}/document/${documentId}`);
 export const PERSONA_VERSION_KNOWLEDGE_URL_ENDPOINT = (repoId: string, versionId: string) =>
   withBase(`/persona/${repoId}/versions/${versionId}/knowledge-url`);
-export const PERSONA_VERSION_FILES_ENDPOINT = (repoId: string, versionId: string) =>
-  withBase(`/persona/${repoId}/versions/${versionId}/files`);
+export const PERSONA_VERSION_IMAGE_ENDPOINT = (repoId: string, versionId: string) =>
+  withBase(`/persona/${repoId}/versions/${versionId}/image`);
 export const PERSONA_VERSION_BLOCKED_CONNECTORS_ENDPOINT = (repoId: string, versionId: string) =>
   withBase(`/persona/${repoId}/versions/${versionId}/blocked-connectors`);
 export const PERSONA_VERSION_BLOCKED_CONNECTOR_ENDPOINT = (repoId: string, versionId: string, slug: string) =>
   withBase(`/persona/${repoId}/versions/${versionId}/blocked-connectors/${encodeURIComponent(slug)}`);
-export const PERSONA_CHATS_ENDPOINT = (personaId: string) =>
-  withBase(`/persona/${personaId}/chats`);
-export const PERSONA_CHATS_CREATE_ENDPOINT = (personaId: string) =>
-  withBase(`/persona/${personaId}/chats/create`);
-export const PERSONA_CHAT_MESSAGES_ENDPOINT = (personaId: string, chatId: string) =>
-  withBase(`/persona/${personaId}/chats/${chatId}/messages`);
-export const PERSONA_CHAT_STREAM_ENDPOINT = (personaId: string, chatId: string) =>
-  withBase(`/persona/${personaId}/chats/${chatId}/stream`);
-export const PERSONA_CHAT_STOP_ENDPOINT = (personaId: string, chatId: string) =>
-  withBase(`/persona/${personaId}/chats/${chatId}/stop`);
-export const PERSONA_CHATS_RENAME_ENDPOINT = (personaId: string) =>
-  withBase(`/persona/${personaId}/chats/rename`);
-export const PERSONA_CHAT_DELETE_MESSAGE_ENDPOINT = (
-  personaId: string,
-  chatId: string,
-  messageId: string,
-) => withBase(`/persona/${personaId}/chats/${chatId}/message/${messageId}`);
 
 // ── Highlights ───────────────────────────────────────────────────────────────
 export const HIGHLIGHTS_ENDPOINT = withBase('/highlights')

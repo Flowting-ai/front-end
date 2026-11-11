@@ -4,7 +4,7 @@ import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { ArrowLeftOneIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { Spinner } from '@/components/Spinner'
 import { AgentEditor } from '@/components/AgentEditor/AgentEditor'
@@ -33,6 +33,7 @@ import { recordFromRepo } from '@/lib/agent-record'
 import { regenerateInstructions } from '@/lib/agent-generate'
 import { defaultAvatarChoice } from '@/components/PersonaCard/AnimatedPersonaAvatar'
 import { setStoredAvatarChoice, useStoredAvatarChoice } from '@/lib/avatar-choice'
+import { useNavGuard } from '@/context/nav-guard-context'
 import {
   AGENT_EDIT_ROUTE,
   AGENTS_ROUTE,
@@ -98,6 +99,15 @@ function EditAgentContent() {
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
+
+  // Leaving by the sidebar, a link or browser Back goes through the app's navigation guard, which
+  // asks before unsaved edits are dropped (the header Back has its own dialog via go()).
+  const { setIsDirty, setGuardMessage } = useNavGuard()
+  useEffect(() => {
+    setIsDirty(dirty)
+    setGuardMessage(dirty ? { title: 'Leave without saving?', description: 'Your changes to this agent will be lost.' } : null)
+  }, [dirty, setIsDirty, setGuardMessage])
+  useEffect(() => () => { setIsDirty(false); setGuardMessage(null) }, [setIsDirty, setGuardMessage])
 
   // ── Who may edit ────────────────────────────────────────────────────────────
   const viewerUserId = resolveViewerUserId(members, user?.email)
@@ -208,7 +218,7 @@ function EditAgentContent() {
           <>
             <Button variant="outline" size="sm" onClick={() => go(AGENTS_ROUTE)} disabled={saving}>Back</Button>
             <Button
-              variant="default"
+              variant="save"
               size="sm"
               onClick={() => void handleSave()}
               loading={saving}

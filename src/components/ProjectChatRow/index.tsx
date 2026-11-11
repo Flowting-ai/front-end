@@ -2,8 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { MoreVerticalIcon, PinIcon } from '@strange-huge/icons'
-import { IconButton } from '@/components/IconButton'
-import { Button } from '@/components/Button'
+import { IconButton, Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/Dropdown'
 import { Badge } from '@/components/Badge'
 import { RESET_BUTTON_STYLE } from '@/lib/reset-button-style'
@@ -33,6 +32,8 @@ export interface ProjectChatRowProps {
   onPinsClick?:     (e: React.MouseEvent) => void
   onRename?:        (newTitle: string) => void
   onDelete?:        () => void
+  /** Takes the chat out of the project and keeps it (back in Recent Chats). */
+  onRemoveFromProject?: () => void
   /** Editable shared chat, not yet owned — shows "Create a copy" instead of Rename/Delete. */
   onCreateCopy?:    () => void
 }
@@ -82,7 +83,7 @@ export function ProjectChatEmptyRow() {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export function ProjectChatRow(
-  { title, timestamp, pinCount, active, author, readOnly, canPublish, published, onPublishToggle, onChatClick, onPinsClick, onRename, onDelete, onCreateCopy, ref }: ProjectChatRowProps & { ref?: React.Ref<HTMLDivElement> },
+  { title, timestamp, pinCount, active, author, readOnly, canPublish, published, onPublishToggle, onChatClick, onPinsClick, onRename, onDelete, onRemoveFromProject, onCreateCopy, ref }: ProjectChatRowProps & { ref?: React.Ref<HTMLDivElement> },
 ) {
     const [hovered,   setHovered]   = useState(false)
     const [menuOpen,  setMenuOpen]  = useState(false)
@@ -136,7 +137,7 @@ export function ProjectChatRow(
     // "Unpublish" entry — see the menu section below — so a published chat's
     // publish state alone no longer justifies showing the menu.
     const showMoreMenu = hovered || menuOpen
-    const hasMenu = !readOnly && (!!onRename || !!onDelete || !!onCreateCopy)
+    const hasMenu = !readOnly && (!!onRename || !!onDelete || !!onRemoveFromProject || !!onCreateCopy)
     // Pin badge uses warm hover style when the row is active or hovered
     const showPinAction = hovered || menuOpen || !!active
 
@@ -223,7 +224,7 @@ export function ProjectChatRow(
                 fontWeight:   'var(--font-weight-regular)',
                 fontSize: '12px',
                 lineHeight:   '16px',
-                color:        'var(--neutral-400)',
+                color:        'var(--neutral-600)',
                 overflow:     'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace:   'nowrap',
@@ -264,7 +265,7 @@ export function ProjectChatRow(
                 fontWeight:   'var(--font-weight-regular)',
                 fontSize: '12px',
                 lineHeight:   '16px',
-                color:        'var(--neutral-400)',
+                color:        'var(--neutral-600)',
                 overflow:     'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace:   'nowrap',
@@ -302,7 +303,7 @@ export function ProjectChatRow(
                 : 'This chat would be published to all members of this project'}
             </span>
             <Button
-              variant="ghost"
+              variant="cancel"
               size="sm"
               onClick={() => setPublishState(publishState === 'unpublishing' ? 'published' : 'idle')}
             >
@@ -346,7 +347,7 @@ export function ProjectChatRow(
                   variant="ghost"
                   size="sm"
                   icon={<MoreVerticalIcon triggered={showMoreMenu} />}
-                  aria-label="Chat options"
+                  aria-label={`Options for "${title}"`}
                 />
               }
             >
@@ -368,6 +369,13 @@ export function ProjectChatRow(
                     <Dropdown.Item
                       label="Create a copy"
                       onClick={() => { setMenuOpen(false); onCreateCopy() }}
+                      fluid
+                    />
+                  )}
+                  {onRemoveFromProject && (
+                    <Dropdown.Item
+                      label="Remove from project"
+                      onClick={() => { setMenuOpen(false); onRemoveFromProject() }}
                       fluid
                     />
                   )}

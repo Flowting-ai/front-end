@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { routeToScreen } from "./screens";
+import { routeToScreen, routeToScreenView } from "./screens";
 
 describe("routeToScreen", () => {
   it("maps primary surfaces to their screen concepts", () => {
@@ -81,5 +81,19 @@ describe("routeToScreen", () => {
   it("ignores trailing slashes", () => {
     expect(routeToScreen("/chat/")).toBe("chat");
     expect(routeToScreen("/settings/ai/")).toBe("settings_models");
+  });
+});
+
+describe("routeToScreenView", () => {
+  it("adds the page as tab only for org_manage", () => {
+    expect(routeToScreenView("/settings/members")).toEqual({ screen: "org_manage", tab: "members" });
+    expect(routeToScreenView("/settings/plans-and-billing/")).toEqual({ screen: "org_manage", tab: "plans-and-billing" });
+    expect(routeToScreenView("/connectors")).toEqual({ screen: "org_manage", tab: "connectors" });
+    expect(routeToScreenView("/chat")).toEqual({ screen: "chat" });
+    expect(routeToScreenView("/")).toBeNull();
+  });
+
+  it("maps template pages", () => {
+    expect(routeToScreen("/template/0b9c2f6e-2c8f-4a39-9a0e-111111111111")).toBe("template_view");
   });
 });

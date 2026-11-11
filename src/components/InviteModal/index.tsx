@@ -3,13 +3,12 @@
 import { Tooltip } from '@/components/Tooltip'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
+import { useFocusReturn } from '@/components/ui/dialog'
 import * as VisuallyHidden from '@radix-ui/react-visually-hidden'
 import { Slot } from '@radix-ui/react-slot'
-import { AnimatePresence, m } from 'framer-motion'
 import { CancelOneIcon, ArrowDownOneIcon, InformationCircleIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
-import { Popover } from '@/components/Popover'
-import { DropdownMenuItem } from '@/components/DropdownMenuItem'
+import { Button } from '@/components/ui/button'
+import { Dropdown } from '@/components/Dropdown'
 import { cn } from '@/lib/utils'
 import type { WorkspaceRole } from '@/types/teams'
 
@@ -23,6 +22,11 @@ const SECTION_LABEL_STYLE: React.CSSProperties = {
   fontSize:   13,
   lineHeight: '18px',
   color:      'var(--neutral-600)',
+}
+
+/** Splits raw input on whitespace, commas and semicolons into non-empty tokens. */
+function splitTokens(raw: string): string[] {
+  return raw.split(/[\s,;]+/).map(t => t.trim()).filter(Boolean)
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -135,64 +139,32 @@ function EmailChipPill({ chip, onRemove }: { chip: EmailChip; onRemove: () => vo
 
 function RoleSelector({ value, onChange }: { value: WorkspaceRole; onChange: (r: WorkspaceRole) => void }) {
   const [open, setOpen] = useState(false)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const panelRef   = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const h = (e: MouseEvent) => {
-      if (panelRef.current?.contains(e.target as Node) || triggerRef.current?.contains(e.target as Node)) return
-      setOpen(false)
-    }
-    document.addEventListener('mousedown', h, { capture: true })
-    return () => document.removeEventListener('mousedown', h, { capture: true })
-  }, [open])
-
+  // Radix DropdownMenu (via Dropdown.Float): roving focus, and Escape closes only this menu,
+  // not the invite dialog around it.
   return (
     <div style={{ position: 'relative', flexShrink: 0 }}>
-      <Button
-        ref={triggerRef}
-        type="button"
-        variant="secondary"
-        size="sm"
-        rightIcon={<ArrowDownOneIcon size={11} />}
-        onClick={() => setOpen(o => !o)}
-        aria-haspopup="menu"
-        aria-expanded={open}
+      <Dropdown.Float
+        open={open}
+        onOpenChange={setOpen}
+        placement="bottom-end"
+        trigger={
+          <Button type="button" variant="secondary" size="sm" rightIcon={<ArrowDownOneIcon size={11} />}>
+            {ROLE_LABELS[value]}
+          </Button>
+        }
       >
-        {ROLE_LABELS[value]}
-      </Button>
-
-      <AnimatePresence>
-        {open && (
-          <m.div
-            key="role-panel"
-            initial={{ opacity: 0, scaleY: 0.8, transformOrigin: 'top center' }}
-            animate={{ opacity: 1, scaleY: 1, transition: { duration: 0.15, ease: [0.16, 1, 0.3, 1] } }}
-            exit={{ opacity: 0, scaleY: 0.85, transition: { duration: 0.08 } }}
-            style={{ position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 100, minWidth: 220 }}
-          >
-            <Popover
-              ref={panelRef}
-              variant="dropdown"
-              maxHeight={false}
-              role="menu"
-              aria-label="Select role"
-              style={{ padding: 4 }}
-            >
-              {ROLE_OPTIONS.map(role => (
-                <DropdownMenuItem
-                  key={role}
-                  fluid
-                  label={ROLE_LABELS[role]}
-                  selected={value === role}
-                  onClick={() => { onChange(role); setOpen(false) }}
-                />
-              ))}
-            </Popover>
-          </m.div>
-        )}
-      </AnimatePresence>
+        <Dropdown maxHeight={false} aria-label="Select role" style={{ padding: 4, minWidth: 220 }}>
+          {ROLE_OPTIONS.map(role => (
+            <Dropdown.Item
+              key={role}
+              fluid
+              label={ROLE_LABELS[role]}
+              selected={value === role}
+              onClick={() => { onChange(role); setOpen(false) }}
+            />
+          ))}
+        </Dropdown>
+      </Dropdown.Float>
     </div>
   )
 }
@@ -259,6 +231,8 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
     const [draft,      setDraft]      = useState('')
     const [role,       setRole]       = useState<WorkspaceRole>('member')
     const [submitting, setSubmitting] = useState(false)
+    // Button 30: after every invite goes out, the button shows "Sent" briefly before the modal closes.
+    const [sent, setSent] = useState(false)
 
     useEffect(() => { inputRef.current?.focus() }, [])
 
@@ -284,7 +258,7 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
     }, [existingEmails, allowedDomains])
 
     const commitTokens = useCallback((raw: string) => {
-      const tokens = raw.split(/[\s,;]+/).map(t => t.trim()).filter(Boolean)
+      const tokens = splitTokens(raw)
       if (tokens.length === 0) return
       setEmailChips(prev => {
         const next = [...prev]
@@ -304,7 +278,9 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
     }, [])
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key === 'Escape') { onClose?.(); return }
+      // A Radix layer (the role menu, or the wrapping Dialog) that already handled this Escape
+      // marks it defaultPrevented; only close when nothing else did.
+      if (e.key === 'Escape') { if (!e.defaultPrevented) onClose?.(); return }
       if (e.key !== 'Tab') return
       const modal = e.currentTarget
       const els = Array.from(
@@ -318,7 +294,23 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
     }, [onClose])
 
     const handleSubmit = useCallback(async () => {
-      const pending = emailChips.filter(c => c.status === 'pending').map(c => c.value)
+      // A valid address still sitting in the input (never committed with Enter /
+      // comma / blur) counts: the button is enabled for it, so submitting has to
+      // send it rather than silently drop it.
+      const draftChips = splitTokens(draft)
+        .filter(t => !emailChips.some(c => c.value.toLowerCase() === t.toLowerCase()))
+        .map(classify)
+      if (draftChips.length > 0) {
+        // The input's blur (fired by the click that got us here) may already have
+        // committed these, so dedupe against whatever is in state by then.
+        setEmailChips(prev => {
+          const seen = new Set(prev.map(c => c.value.toLowerCase()))
+          return [...prev, ...draftChips.filter(c => !seen.has(c.value.toLowerCase()))]
+        })
+        setDraft('')
+      }
+      const pending = [...emailChips, ...draftChips]
+        .filter(c => c.status === 'pending').map(c => c.value)
       if (pending.length === 0 || loading || submitting) return
 
       setSubmitting(true)
@@ -341,12 +333,13 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
           }))
 
         if (result.failed.length === 0) {
-          onClose?.()
+          setSent(true)
+          window.setTimeout(() => { setSent(false); onClose?.() }, 900)
         }
       } finally {
         setSubmitting(false)
       }
-    }, [emailChips, loading, submitting, onInvite, onClose, role])
+    }, [emailChips, draft, classify, loading, submitting, onInvite, onClose, role])
 
     const handleDraftKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter' || e.key === ',') {
@@ -376,7 +369,13 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
       if (draft.trim()) { commitTokens(draft); setDraft('') }
     }, [draft, commitTokens])
 
-    const pendingCount = emailChips.filter(c => c.status === 'pending').length
+    // The draft counts alongside the chips, so a typed-but-uncommitted address
+    // enables the button instead of leaving it dead.
+    const draftPendingCount = splitTokens(draft)
+      .filter(t => !emailChips.some(c => c.value.toLowerCase() === t.toLowerCase()))
+      .filter(t => classify(t).status === 'pending').length
+    const pendingCount =
+      emailChips.filter(c => c.status === 'pending').length + draftPendingCount
 
     return (
       <Comp
@@ -492,12 +491,13 @@ export const InviteModal = React.forwardRef<HTMLDivElement, InviteModalProps>(
 
         {/* Footer */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
-          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+          <Button variant="cancel" size="sm" onClick={onClose}>Cancel</Button>
           <Button
             variant="default"
             size="sm"
-            loading={loading || submitting}
-            disabled={pendingCount === 0}
+            sendState={sent ? 'success' : loading || submitting ? 'loading' : 'idle'}
+            successLabel={pendingCount > 1 ? 'Invites sent' : 'Invite sent'}
+            disabled={pendingCount === 0 && !sent}
             onClick={() => void handleSubmit()}
           >
             {pendingCount > 1 ? `Send ${pendingCount} invites` : 'Send invite'}
@@ -534,6 +534,8 @@ export function AppInviteModal({
   existingEmails,
   allowedDomains,
 }: AppInviteModalProps) {
+  // Opened from a button without a Dialog.Trigger: hand focus back to it on close.
+  const { capture, handleCloseAutoFocus } = useFocusReturn()
   return (
     <Dialog.Root open={isOpen} onOpenChange={open => { if (!open) onClose() }}>
       <Dialog.Portal>
@@ -555,7 +557,9 @@ export function AppInviteModal({
             zIndex:    101,
             outline:   'none',
           }}
+          onCloseAutoFocus={handleCloseAutoFocus}
         >
+          {capture}
           <VisuallyHidden.Root asChild>
             <Dialog.Title>{workspaceName ? `Invite to ${workspaceName}` : 'Invite member'}</Dialog.Title>
           </VisuallyHidden.Root>

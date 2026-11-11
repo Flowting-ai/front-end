@@ -1,0 +1,72 @@
+/* Library pieces in a routine's pane (prototype `.pane-*`), with this app's tokens. */
+
+.section { padding: 12px 0; border-top: 1px solid var(--border-default); font-family: var(--font-body); }
+.section:first-child { border-top: 0; }
+.section h4 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--neutral-500);
+}
+.empty { margin: 0; font-size: 14px; line-height: 22px; color: var(--neutral-600); }
+
+.row { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 4px 0; }
+.row > svg { flex: none; color: var(--neutral-600); }
+.fail > svg { color: var(--color-tag-Red-text); }
+.grow { flex: 1; min-width: 0; line-height: 1.3; }
+.grow > span { display: block; font-size: 14px; color: var(--neutral-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grow > small { font-size: 12px; color: var(--neutral-600); }
+.fail .grow > span { color: var(--color-tag-Red-text); }
+.at { flex: none; font-size: 12px; color: var(--neutral-500); }
+
+.rowLink {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  text-decoration: none;
+  line-height: 1.3;
+  cursor: pointer;
+}
+.rowLink > span { display: block; font-size: 14px; color: var(--neutral-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rowLink > small { font-size: 12px; color: var(--neutral-600); }
+.rowLink[aria-disabled='true'] { cursor: default; }
+.rowLink:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 6px; }
+
+.tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--neutral-100);
+  color: var(--neutral-600);
+}
+
+.warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--color-tag-Yellow-highlight, var(--neutral-50));
+  box-shadow: inset 0 0 0 1px var(--color-tag-Yellow-ring);
+  color: var(--color-tag-Yellow-text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.warn > svg { flex: none; margin-top: 2px; }
+.warnText { flex: 1; min-width: 0; }
+.warnCenter { align-items: center; }

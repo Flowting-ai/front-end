@@ -5,13 +5,13 @@
 // reconnecting afterwards go through the usual account screens.
 
 import React, { useState } from 'react'
-import { z } from 'zod'
+import { customApiCredentialsSchema, customApiSchema, httpsUrl } from '@/lib/connectors/custom-api-schema'
 import { toast } from 'sonner'
 import { ArrowDownOneIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/Dropdown'
 import { InputField } from '@/components/InputField'
-import { ConnectorCatalog, createCustomApi, initiateLink, type CustomApiAuth } from '@/lib/api/connectors'
+import { bustConnectorCatalogCache, ConnectorCatalog, createCustomApi, initiateLink, type CustomApiAuth } from '@/lib/api/connectors'
 import { Modal } from './SetupModal'
 
 const SPACE = { xs: 4, sm: 6, md: 8, lg: 12, xl: 16, xxl: 24 } as const
@@ -29,26 +29,8 @@ const AUTH_OPTIONS: { value: AuthType; label: string; nameLabel?: string; namePl
   { value: 'basic',  label: 'Basic auth (username + password)' },
 ]
 
-// Same rule as the backend's CredentialName: an HTTP token, never Host.
-const credentialName = z.string().trim().regex(/^[A-Za-z0-9!#$%&'*+.^_`|~-]{1,64}$/).refine(v => v.toLowerCase() !== 'host')
-
-const customApiSchema = z.object({
-  name:     z.string().trim().min(1).max(128),
-  base_url: z.string().trim().url().startsWith('https://'),
-  auth:     z.discriminatedUnion('type', [
-    z.object({ type: z.literal('bearer') }),
-    z.object({ type: z.literal('header'), name: credentialName }),
-    z.object({ type: z.literal('query'), name: credentialName }),
-    z.object({ type: z.literal('basic') }),
-  ]),
-  docs_url: z.string().trim().url().optional(),
-})
-
-// What the link call files, keyed by the backend's api_key field names.
-const credentialsSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('basic'), username: z.string().trim().min(1), password: z.string().min(1) }),
-  z.object({ type: z.enum(['bearer', 'header', 'query']), token: z.string().trim().min(1) }),
-])
+// Schemas shared with createCustomApi: lib/connectors/custom-api-schema.ts.
+const credentialsSchema = customApiCredentialsSchema
 
 function AuthDropdown({ value, onChange }: { value: AuthType; onChange: (value: AuthType) => void }) {
   const [open, setOpen] = useState(false)
@@ -79,6 +61,10 @@ function AuthDropdown({ value, onChange }: { value: AuthType; onChange: (value: 
   )
 }
 
+// An API created whose token then failed to link, kept past this modal closing: reopening and
+// trying again with the same name and URL links to it instead of defining the API a second time.
+let unlinkedCustomApi: { entry: ConnectorCatalog; name: string; baseUrl: string } | null = null
+
 export function CustomApiModal({
   cancel, onCreated,
 }: {
@@ -98,6 +84,16 @@ export function CustomApiModal({
   // Kept once created, so retrying a failed token link does not define it twice.
   const [created, setCreated] = useState<ConnectorCatalog | null>(null)
 
+  // Closing after the API was created but its token failed: the API exists, so show it in the list
+  // and say where to finish, instead of leaving it hidden (and a retry from scratch defining it twice).
+  const close = () => {
+    if (created) {
+      bustConnectorCatalogCache()
+      toast.info(`${created.name} was added without its token`, { description: 'Open it under Connectors to add the token.' })
+    }
+    cancel()
+  }
+
   const authOption = AUTH_OPTIONS.find(option => option.value === authType)
   const auth = authOption?.nameLabel ? { type: authType, name: credentialNameValue } : { type: authType }
   const validation = customApiSchema.safeParse({
@@ -107,18 +103,21 @@ export function CustomApiModal({
     docs_url: docsUrl.trim() || undefined,
   })
   const credentials = credentialsSchema.safeParse({ type: authType, token, username, password })
-  const baseUrlInvalid = Boolean(baseUrl.trim()) && !z.string().trim().url().startsWith('https://').safeParse(baseUrl).success
+  const baseUrlInvalid = Boolean(baseUrl.trim()) && !httpsUrl.safeParse(baseUrl).success
 
   async function submit() {
     if (!validation.success || !credentials.success || busy) return
     setBusy(true)
     try {
-      const entry = created ?? await createCustomApi(validation.data)
+      const leftOver = unlinkedCustomApi?.name === validation.data.name && unlinkedCustomApi.baseUrl === validation.data.base_url ? unlinkedCustomApi.entry : null
+      const entry = created ?? leftOver ?? await createCustomApi(validation.data)
       setCreated(entry)
+      unlinkedCustomApi = { entry, name: validation.data.name, baseUrl: validation.data.base_url }
       const secret = credentials.data
       await initiateLink(entry.slug, secret.type === 'basic'
         ? { username: secret.username, password: secret.password }
         : { token: secret.token })
+      unlinkedCustomApi = null
       onCreated(entry)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to add API')
@@ -127,7 +126,7 @@ export function CustomApiModal({
   }
 
   return (
-    <Modal label="Add custom API" onDismiss={cancel}>
+    <Modal label="Add custom API" onDismiss={close} busy={busy} dirty={[name, baseUrl, credentialNameValue, docsUrl, token, username, password].some(v => v.trim() !== '')}>
       <h2 style={heading}>Add custom API</h2>
       <p style={{ ...muted, marginTop: SPACE.xs }}>
         Connect any REST API so Souvenir can call it with your credentials.
@@ -191,7 +190,7 @@ export function CustomApiModal({
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: SPACE.md, marginTop: SPACE.xxl }}>
-        <Button variant="ghost" size="sm" onClick={cancel} disabled={busy}>Cancel</Button>
+        <Button variant="cancel" size="sm" onClick={close} disabled={busy}>Cancel</Button>
         <Button variant="default" size="sm" onClick={() => void submit()} loading={busy} disabled={!validation.success || !credentials.success}>Add API</Button>
       </div>
     </Modal>

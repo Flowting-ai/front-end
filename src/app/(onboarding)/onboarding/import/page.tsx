@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding, deriveRoleFit, effectiveUserRole } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { updateOnboarding, updateUser } from "@/lib/api/user";
 import { apiFetch } from "@/lib/api/client";
 import { toast } from "sonner";
@@ -78,19 +78,18 @@ export default function OnboardingImportPage() {
       // user_role enum can't store it. Sent regardless of skipContext (it's a
       // captured answer, not the optional paste); fire-and-forget so a memory
       // failure never blocks onboarding completion.
-      if (data.role === "Other" && data.roleOther.trim().length > 0) {
-        void apiFetch(MEMORY_USER_ENDPOINT, {
+      // POST /memory/user takes `memory` and replaces the whole value, so the role and the pasted
+      // context go together in one call; two calls would leave only the second.
+      const memory = [
+        data.role === "Other" && data.roleOther.trim() ? `My role: ${data.roleOther.trim()}` : "",
+        !skipContext ? data.aiContext.trim() : "",
+      ].filter(Boolean).join("\n\n");
+      if (memory) {
+        const res = await apiFetch(MEMORY_USER_ENDPOINT, {
           method: "POST",
-          body: JSON.stringify({ content: `My role: ${data.roleOther.trim()}` }),
-        });
-      }
-
-      // Send user memory/context to backend if provided
-      if (!skipContext && data.aiContext.trim().length > 0) {
-        await apiFetch(MEMORY_USER_ENDPOINT, {
-          method: "POST",
-          body: JSON.stringify({ content: data.aiContext.trim() }),
-        });
+          body: JSON.stringify({ memory }),
+        }).catch(() => null);
+        if (!res?.ok) console.error("[onboarding] saving memory failed", res?.status);
       }
 
       await refreshUser();

@@ -1,0 +1,237 @@
+/* Text styles shared by the Share dialog and its Remove confirm. */
+
+.sectionLabel {
+  margin: 0;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-700);
+}
+
+.name {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-900);
+}
+
+.quiet {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--neutral-500);
+}
+
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.confirmBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── Title ────────────────────────────────────────────────────────────────── */
+
+.title {
+  display: flex;
+  min-width: 0;
+  padding-right: 28px;
+}
+
+.titlePrefix {
+  flex: none;
+}
+
+.titleName {
+  min-width: 0;
+}
+
+/* ── Field with chips and the people list ─────────────────────────────────── */
+
+.mainBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.picker {
+  position: relative;
+}
+
+.field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: var(--text-field-bg);
+  cursor: text;
+  box-shadow: 0px 1px 1.5px 0px rgba(82, 75, 71, 0.12), 0px 0px 0px 1px var(--text-field-ring);
+}
+
+.field[data-has-chips='true'] {
+  padding: 5px 8px;
+}
+
+.input {
+  flex: 1 1 120px;
+  min-width: 120px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-900);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 4px 0 3px;
+  border-radius: 999px;
+  background: var(--neutral-100);
+  max-width: 100%;
+}
+
+.chipLabel {
+  font-size: 13px;
+}
+
+.listbox {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow: auto;
+  padding: 6px;
+  border-radius: 12px;
+  background: var(--card-bg);
+  box-shadow: var(--shadow-card-default);
+}
+
+.noMatch {
+  padding: 10px 8px;
+  font-size: 13px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+
+.option {
+  min-height: 40px;
+  padding: 0 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  background: transparent;
+}
+
+.option[aria-selected='true'] {
+  background: var(--neutral-100);
+}
+
+/* ── Who has access ───────────────────────────────────────────────────────── */
+
+.accessSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 240px;
+}
+
+.loadingList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.linkButton {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  color: inherit;
+  font: inherit;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 360px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.entry {
+  padding: 0 8px;
+}
+
+.entryText {
+  flex: 1;
+}
+
+.role {
+  flex: none;
+}
+
+.empty {
+  flex: 1;
+  min-height: 140px;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 16px;
+  border: 1px dashed var(--neutral-200);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.emptyIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 4px;
+  border-radius: 999px;
+  background: var(--neutral-100);
+  color: var(--neutral-600);
+}
+
+.emptyHint {
+  font-size: 13px;
+  line-height: 18px;
+}
+

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { deriveInitials } from "@/components/Avatar";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { useTeamInviteOnboarding } from "@/context/team-invite-onboarding-context";
 import { ApiError } from "@/lib/api/client";
@@ -32,7 +33,7 @@ const AVATAR_SIZE = 24;
 const AVATAR_STACK_MAX = 3;
 
 function MemberAvatar({ member }: { member: InvitedMember }) {
-  const initials = member.initials || (member.name || member.email || "?").trim()[0]?.toUpperCase() || "?";
+  const initials = member.initials || deriveInitials(member.name || member.email || "?");
   const common: React.CSSProperties = {
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,

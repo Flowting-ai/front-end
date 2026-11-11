@@ -16,6 +16,7 @@ import { Switch } from '@/components/Switch'
 import { Checkbox } from '@/components/Checkbox'
 import { Spinner } from '@/components/Spinner'
 import { cn } from '@/lib/utils'
+import { useMenuMode, useSlotFocused, DropdownMenuPrimitiveItem, DropdownMenuLabel } from '@/components/ui/dropdown-menu'
 
 // ── Shadow tokens ──────────────────────────────────────────────────────────────
 
@@ -156,6 +157,14 @@ export interface DropdownMenuItemProps extends React.HTMLAttributes<HTMLDivEleme
    * default and danger variants.
    */
   children?: React.ReactNode
+  /**
+   * Type scale of the label column. `'strong'` promotes the row's primary line
+   * to body-lg / semibold and lifts the sublabel off the 11px caption step to
+   * 12px — for rows where the label IS the current value (the composer's model
+   * selector shows the chosen model on top, with the action as the subtext),
+   * where 14px over 11px reads too small. Default rows are unchanged.
+   */
+  emphasis?: 'default' | 'strong'
 }
 
 // ── Shared text styles ────────────────────────────────────────────────────────
@@ -172,6 +181,24 @@ const labelTextStyle: React.CSSProperties = {
   margin:       0,
 }
 
+/**
+ * `emphasis="strong"` — the label carries the current value, so it leads: Google
+ * Sans (`--font-title`, the face used for titles and the greeting) at medium, not
+ * bold Geist, so a name reads as a name rather than as another piece of chrome.
+ */
+const labelTextStyleStrong: React.CSSProperties = {
+  fontFamily: 'var(--font-title)',
+  fontWeight: 'var(--font-weight-medium)',
+  fontSize:   'var(--font-size-body)',
+  lineHeight: 'var(--line-height-body)',
+}
+
+/** 12px/16px — a readable step between the 11px caption and the 14px body. */
+const subLabelTextStyleStrong: React.CSSProperties = {
+  fontSize:   'calc(var(--font-size-body) - 2px)',
+  lineHeight: 'var(--line-height-caption)',
+}
+
 const subLabelTextStyle: React.CSSProperties = {
   fontFamily:   'var(--font-body)',
   fontWeight:   'var(--font-weight-regular)',
@@ -183,6 +210,13 @@ const subLabelTextStyle: React.CSSProperties = {
   textOverflow: 'ellipsis',
   width:        '100%',
   margin:       0,
+}
+
+/** `emphasis="strong"` on a header row — 13px/18px, off the 11px caption step. */
+const headerTextStyleStrong: React.CSSProperties = {
+  fontSize:   'var(--font-size-code)',
+  lineHeight: '18px',
+  color:      'var(--dropdown-menu-item-muted)',
 }
 
 const headerTextStyle: React.CSSProperties = {
@@ -223,11 +257,14 @@ export function DropdownMenuItem(
     asChild = false,
     headerBadge,
     children,
+    emphasis = 'default',
     className,
     style,
     onMouseEnter: externalMouseEnter,
     onMouseLeave: externalMouseLeave,
     onKeyDown:    externalKeyDown,
+    onFocus:      externalFocus,
+    onBlur:       externalBlur,
     onClick,
     ref,
     ...props
@@ -289,7 +326,9 @@ export function DropdownMenuItem(
     }
     // Header is a label-only row; danger has only Default + Hover (per Figma -
     // no Selected or Disabled). Default supports Hover, Selected, Disabled.
-    const isActive = !isHeader && !disabled && !loading && (isHovered || (variant === 'default' && selected))
+    // A submenu trigger row is focused through its Radix wrapper, not itself.
+    const slotFocused = useSlotFocused()
+    const isActive = !isHeader && !disabled && !loading && (isHovered || slotFocused || (variant === 'default' && selected))
 
     const labelColor = isDanger
       ? 'var(--dropdown-menu-item-danger-text)'
@@ -304,14 +343,26 @@ export function DropdownMenuItem(
 
     const Comp = asChild ? Slot : 'div'
 
-    return (
+    // Inside a Radix menu (`Dropdown.Float` / `Dropdown.Submenu`) Radix owns
+    // role, tabIndex, disabled state and Enter/Space activation. Outside one
+    // the row provides them itself. Keys are omitted (not set to undefined)
+    // when Radix owns them, because Slot lets child props win.
+    const menuMode = useMenuMode()
+    const radixManaged = menuMode !== 'none'
+    const a11yProps: React.HTMLAttributes<HTMLDivElement> & { 'data-disabled'?: boolean } = radixManaged
+      ? {}
+      : {
+          role:            isHeader ? undefined : 'menuitem',
+          tabIndex:        isHeader || disabled || loading ? undefined : 0,
+          'aria-disabled': disabled || undefined,
+          'data-disabled': disabled || undefined,
+        }
+
+    const row = (
       <Comp
         ref={ref}
-        role={isHeader ? undefined : 'menuitem'}
-        tabIndex={isHeader || disabled || loading ? undefined : 0}
-        aria-disabled={disabled || undefined}
+        {...a11yProps}
         aria-busy={loading || undefined}
-        data-disabled={disabled || undefined}
         className={cn(!isHeader && 'kaya-dropdown-item', className)}
         style={{
           position:        'relative',
@@ -353,8 +404,20 @@ export function DropdownMenuItem(
           setIsHovered(false)
           externalMouseLeave?.(e)
         }}
+        // Radix moves focus to the highlighted item on hover and on arrow
+        // keys alike, so in a menu focus drives the same highlight as hover.
+        // That background is the focus indicator there (see semantic.css).
+        onFocus={(e: React.FocusEvent<HTMLDivElement>) => {
+          if (radixManaged && !disabled && !loading) setIsHovered(true)
+          externalFocus?.(e)
+        }}
+        onBlur={(e: React.FocusEvent<HTMLDivElement>) => {
+          if (radixManaged) setIsHovered(false)
+          externalBlur?.(e)
+        }}
         onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
-          if (!isHeader && !disabled && !loading && (e.key === 'Enter' || e.key === ' ')) {
+          // Radix items turn Enter/Space into a click themselves.
+          if (!radixManaged && !isHeader && !disabled && !loading && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault()
             // When the row carries a Switch / Checkbox, Enter/Space toggles
             // it as well as firing the consumer's onClick - same intent as a
@@ -389,11 +452,11 @@ export function DropdownMenuItem(
                 display:    'flex',
                 alignItems: 'center',
                 gap:        8,
-                height:     17,
+                height:     emphasis === 'strong' ? 20 : 17,
                 flexShrink: 0,
               }}
             >
-              <p style={headerTextStyle}>{label}</p>
+              <p style={emphasis === 'strong' ? { ...headerTextStyle, ...headerTextStyleStrong } : headerTextStyle}>{label}</p>
               {headerBadge}
             </div>
             {/* Right slot - flex 1 0 0, fills remaining width. Figma 3206:32976.
@@ -496,14 +559,25 @@ export function DropdownMenuItem(
                   label's line-height. Pass an `<img>` for an image avatar,
                   or any ReactNode for custom content (e.g. an initials
                   bubble). Mutually exclusive with `icon` and `llm`. */}
-              {avatar && !isDanger && (
+              {avatar && !isDanger && (() => {
+                // 24px aligns with a body-14 label's line-height. An
+                // `emphasis="strong"` row is two lines, so the square grows to
+                // span them — but only the square: what it holds stays at the
+                // same size as every other icon in the menu, padded inside it.
+                const freeAvatarSize = emphasis === 'strong' && subLabel ? 28 : 24
+                const isTile = freeAvatarSize > 24
+                return (
                 <div
                   aria-hidden
                   style={{
-                    width:        24,
-                    height:       24,
+                    width:        freeAvatarSize,
+                    height:       freeAvatarSize,
                     flexShrink:   0,
-                    borderRadius: 6,
+                    borderRadius: isTile ? 8 : 6,
+                    // The tile reads as a card the logo sits on, so the logo can
+                    // stay small without looking lost beside a two-line label.
+                    backgroundColor: isTile ? 'var(--neutral-50)' : undefined,
+                    boxShadow:       isTile ? 'inset 0 0 0 1px var(--border-default)' : undefined,
                     overflow:     'hidden',
                     lineHeight:   0,
                     display:      'inline-flex',
@@ -513,7 +587,8 @@ export function DropdownMenuItem(
                 >
                   {avatar}
                 </div>
-              )}
+                )
+              })()}
 
               {/* Model avatar - Figma 3143:37109. Square, rounded-6 px,
                   sized to match the row's content height. LlmIcon variant
@@ -548,8 +623,12 @@ export function DropdownMenuItem(
                   minWidth:       1,
                 }}
               >
-                <p style={{ ...labelTextStyle, color: labelColor }}>{label}</p>
-                {subLabel && <p style={subLabelTextStyle}>{subLabel}</p>}
+                <p style={{ ...labelTextStyle, ...(emphasis === 'strong' ? labelTextStyleStrong : null), color: labelColor }}>{label}</p>
+                {subLabel && (
+                  <p style={emphasis === 'strong' ? { ...subLabelTextStyle, ...subLabelTextStyleStrong } : subLabelTextStyle}>
+                    {subLabel}
+                  </p>
+                )}
               </div>
 
               {/* Badge slot - Figma 1056:839 / 3437:2664. Sits after the
@@ -597,6 +676,9 @@ export function DropdownMenuItem(
               </div>
             ) : rightIcon ? (
               <div
+                // A stable hook for consumers that want to style the trailing
+                // icon from a class on the row, rather than guess at the markup.
+                data-slot="dropdown-item-right-icon"
                 style={{
                   width:      '20px',
                   height:     '20px',
@@ -627,6 +709,21 @@ export function DropdownMenuItem(
           </>
         )}
       </Comp>
+    )
+
+    if (menuMode !== 'menu') return row
+    if (isHeader) return <DropdownMenuLabel asChild>{row}</DropdownMenuLabel>
+    return (
+      <DropdownMenuPrimitiveItem
+        asChild
+        disabled={disabled || loading}
+        // Selecting a row never auto-closes the menu - callers close it
+        // explicitly (same contract as before the Radix migration), so
+        // Switch / Checkbox rows stay open while toggling.
+        onSelect={(e) => e.preventDefault()}
+      >
+        {row}
+      </DropdownMenuPrimitiveItem>
     )
 }
 

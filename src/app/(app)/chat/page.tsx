@@ -10,20 +10,30 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { ChatHomeActions } from "@/components/chat/ChatHomeActions";
 import homeStyles from "@/components/chat/ChatHome.module.css";
 import { useProjects } from "@/context/projects-context";
+import { useQuery } from "@tanstack/react-query";
+import { getChatLibraryState } from "@/lib/api/chat";
+import { ApiError } from "@/lib/api/client";
 import { addChatToProject } from "@/lib/api/projects";
 import { ExhaustionBanner } from "@/components/ExhaustionBanner";
+import { takeLibraryChat } from "@/lib/library/chat-handoff";
 import { AttachmentManager, type PendingAttachment } from "@/components/chat/AttachmentManager";
 import { InitialPrompts } from "@/components/chat/InitialPrompts";
 const ModelSwitchDialog = dynamic(() => import("@/components/chat/ModelSwitchDialog").then(m => ({ default: m.ModelSwitchDialog })), { ssr: false, loading: () => null });
 import { PinMentionDropdown } from "@/components/chat/PinMentionDropdown";
 import { PinChipStrip } from "@/components/chat/PinChipStrip";
 import { useModelSelectorContext } from "@/context/model-selector-context";
-import { modelIconSource, pickDefaultModel } from "@/lib/ai-models";
+import { pickDefaultModel } from "@/lib/ai-models";
 import { useChatHistoryContext } from "@/context/chat-history-context";
 import { emitChatCreated, useSidebarEvents } from "@/hooks/use-sidebar-events";
 import { AGENT_SELECT_EVENT } from "@/components/AgentsPanel";
+import { agentChatBlocked } from "@/lib/agent-chat-gate";
 import { useHighlight } from "@/context/highlight-context";
-import { useFileUpload } from "@/hooks/use-file-upload";
+import { FILE_CONSTRAINTS, useFileUpload } from "@/hooks/use-file-upload";
+import { libraryPickAsFile, pickedLibraryFileId, useComposerUploads } from "@/lib/library/upload/composer-uploads";
+import { useAddFromLibrary } from "@/components/Library/chat/useAddFromLibrary";
+import { UploadNotices } from "@/components/Library/upload/UploadNotices";
+import { LibrarySearchOffNote } from "@/components/Library/chat/LibrarySearchOffNote";
+import { useSaveChoice } from "@/components/Library/chat/useSaveChoice";
 import { useFileDrop } from "@/hooks/use-file-drop";
 import { usePinboard } from "@/context/pinboard-context";
 import { usePinMentions } from "@/hooks/use-pin-mentions";
@@ -39,7 +49,7 @@ import { ChatAddMenu, type SelectedPersonaInfo } from "@/components/chat/AddMenu
 import { USE_STYLE_OPTIONS } from "@/lib/tone-options";
 import { ChatShareOverlay } from "@/components/chat/ChatShareOverlay";
 import { getVersion } from "@/lib/api/personas";
-import { ModelMenu } from "@/components/chat/ModelMenu";
+import { ModelMenu, useModelButtonIcon, useModelButtonLabel } from "@/components/chat/ModelMenu";
 import { toast } from "sonner";
 import { useCreditStatus } from "@/hooks/use-credit-status";
 import { useWorkspaceCreditNotice } from "@/hooks/use-workspace-credit-notice";
@@ -61,6 +71,7 @@ import { buildAgentCardMessages } from "@/lib/agent-card-messages";
 import { StarterList, StarterListSkeleton } from "@/components/StarterSuggestions";
 import { useRecommendationsState } from "@/hooks/use-recommendations";
 import { PENDING_PERSONA_KEY } from '@/lib/storage-keys'
+import { FileDropOverlay } from "@/components/chat/FileDropOverlay";
 
 
 // ── Per-chat settings helpers ─────────────────────────────────────────────────
@@ -98,17 +109,27 @@ export default function ChatPage() {
   // whatever state/highlights it was still carrying) outright, no race
   // possible. Lives here, not inside ChatPageInner, so the counter survives
   // the very remounts it triggers.
-  const [newChatEpoch, setNewChatEpoch] = useState(0);
-  useSidebarEvents({ onNewChat: () => setNewChatEpoch((e) => e + 1) });
+  //
+  // The event fires before the sidebar pushes /chat, so the fresh instance
+  // mounts while the URL (and useSearchParams) still names the chat being
+  // left. It is handed that id so it starts blank instead of re-adopting it —
+  // otherwise the next message could go into the old chat.
+  const [newChat, setNewChat] = useState<{ epoch: number; leftChatId?: string }>({ epoch: 0 });
+  useSidebarEvents({
+    onNewChat: () => setNewChat((prev) => ({
+      epoch: prev.epoch + 1,
+      leftChatId: new URLSearchParams(window.location.search).get("id") ?? undefined,
+    })),
+  });
   return (
     <Suspense fallback={null}>
-      <ChatPageInner key={`chat-${newChatEpoch}`} />
+      <ChatPageInner key={`chat-${newChat.epoch}`} leftChatId={newChat.leftChatId} />
       <WelcomeModal />
     </Suspense>
   );
 }
 
-function ChatPageInner() {
+function ChatPageInner({ leftChatId }: { leftChatId?: string }) {
   const searchParams = useSearchParams();
   const { replace, push } = useRouter();
   const creditStatus = useCreditStatus();
@@ -116,7 +137,11 @@ function ChatPageInner() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const { status: creditNoticeStatus, isAdmin: isOrgAdmin, dismiss: dismissCreditNotice, goToPlans } = useWorkspaceCreditNotice();
 
-  const chatIdFromUrl = searchParams.get("id") ?? undefined;
+  const urlChatId = searchParams.get("id") ?? undefined;
+  // The chat "New chat" just left, ignored until the URL moves off it.
+  const [staleChatId, setStaleChatId] = useState(leftChatId);
+  if (staleChatId && urlChatId !== staleChatId) setStaleChatId(undefined);
+  const chatIdFromUrl = urlChatId === staleChatId ? undefined : urlChatId;
   const msgFromUrl    = searchParams.get("msg") ?? undefined;
   // Deep-link trigger for the Share modal (?share=1) — set by the sidebar's
   // "Share" chat-menu item, which navigates here instead of opening the
@@ -220,7 +245,34 @@ function ChatPageInner() {
   // @-mentioned pins from the new-chat landing, passed once to ChatInterface for the initial send.
   const [initialMentionedPins, setInitialMentionedPins] = useState<Array<{ id: string; label: string }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { processFiles, FILE_ACCEPT } = useFileUpload();
+  const { processFiles, FILE_ACCEPT } = useFileUpload({ libraryValidates: true });
+  // Files upload into Library as soon as they are attached; Send waits until they are ready.
+  const { attachments: newChatAttachmentChips, uploadsBusy: newChatUploadsBusy, notices: newChatUploadNotices } = useComposerUploads(newChatAttachments, setNewChatAttachments);
+  // Auto-save setting (Always / Ask each time / Never) applied to the files on send.
+  const { decideSave, saveDialog } = useSaveChoice();
+
+  // "Ask about this file" in Library: the file (and any typed question) waits in memory. A question starts
+  // the chat right away with the file attached; with none the file just lands in the composer.
+  const libraryFileId = searchParams.get("libraryFileId");
+  const libraryHandoffTaken = useRef(false);
+  useEffect(() => {
+    if (!libraryFileId || chatIdFromUrl || libraryHandoffTaken.current) return;
+    libraryHandoffTaken.current = true;
+    const handoff = takeLibraryChat();
+    replace(CHAT_ROUTE);
+    if (!handoff?.file) return;
+    /* eslint-disable react-hooks/set-state-in-effect -- one-shot hand-off from Library, applied on arrival */
+    if (handoff.text) {
+      setAddMenuFiles([handoff.file]);
+      setInitialPrompt(handoff.text);
+      setHasMessages(true);
+    } else {
+      const file = handoff.file;
+      setNewChatAttachments((prev) => processFiles([file], prev));
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [libraryFileId]);
 
   const {
     mentionedPins: newChatMentionedPins,
@@ -389,8 +441,22 @@ function ChatPageInner() {
 
   // ── Add menu ──────────────────────────────────────────────────────────────
 
+  // "Add from Library": picked files join the composer like device files (same hand-off to an open chat),
+  // but as Library references that never upload again.
+  const libraryPicker = useAddFromLibrary({
+    confirmLabel: "Add to chat",
+    excludeIds: newChatAttachments.flatMap((a) => pickedLibraryFileId(a.file) ?? []),
+    max: FILE_CONSTRAINTS.maxFiles,
+    onAdd: (files) => {
+      const picked = files.map((file) => libraryPickAsFile({ id: file.id, name: file.name, sizeBytes: file.sizeBytes }));
+      if (isNewChat) setNewChatAttachments((prev) => processFiles(picked, prev));
+      else setAddMenuFiles(picked);
+    },
+  });
+
   const addMenu = (
     <ChatAddMenu
+      onAddFromLibraryClick={libraryPicker.open}
       webSearchEnabled={webSearchEnabled}
       onWebSearchChange={setWebSearchEnabled}
       onAddFilesClick={handleAddFilesClick}
@@ -505,8 +571,9 @@ function ChatPageInner() {
     return () => { cancelled = true }
   }, [selectedPersona, models])
 
-  const modelButtonLabel = selectedModel?.modelName;
-  const modelButtonIcon = selectedModel ? modelIconSource(selectedModel) : null;
+  // The shared hooks: an Auto Routing tier shows its own name ("Souvenir Standard" / "Souvenir Pro"), not the "Souvenir" fallback.
+  const modelButtonLabel = useModelButtonLabel();
+  const modelButtonIcon = useModelButtonIcon();
 
   const { chats: chatHistory, renameLocal, addOptimistic, moveToTop, refreshChatTitle } = useChatHistoryContext();
   const activeChatRecord = activeChatId
@@ -519,7 +586,19 @@ function ChatPageInner() {
   // that copy option, so it stays a separate flag (see ChatInterface's and
   // ChatShareOverlay's own `archived` props) rather than folding into readOnly.
   const activeChatCanManage = activeChatRecord?.can_edit === true && !activeChatArchived;
-  const activeChatReadOnly = activeChatRecord?.can_edit === false;
+  // A chat missing from the viewer's own list may be someone else's, opened by its URL (a link
+  // pasted into Slack, say). Its messages load for anyone it is shared with, but GET /chats/<id>
+  // answers only its owner: a 404 there means view-only, so it gets the read-only view and
+  // "Make a copy" instead of a composer whose sends fail with "chat no longer exists".
+  const ownership = useQuery({
+    queryKey: ["chat-ownership", activeChatId],
+    queryFn: () => getChatLibraryState(activeChatId!),
+    enabled: !!activeChatId && !activeChatRecord && !activeChatId.startsWith("temp-"),
+    retry: false,
+    staleTime: Infinity,
+  });
+  const notOwnedByViewer = !activeChatRecord && ownership.error instanceof ApiError && ownership.error.status === 404;
+  const activeChatReadOnly = activeChatRecord?.can_edit === false || notOwnedByViewer;
   const { loadForChat: loadHighlightsForChat, clearHighlights } = useHighlight();
 
   // Load highlights whenever the URL chat ID changes — reads chatIdFromUrl directly
@@ -537,7 +616,8 @@ function ChatPageInner() {
   useLayoutEffect(() => {
     // Read directly from the live URL to avoid stale/transient undefined values
     // that useSearchParams() can return during Suspense transitions or hydration.
-    const liveId = new URLSearchParams(window.location.search).get("id") ?? undefined;
+    const urlId = new URLSearchParams(window.location.search).get("id") ?? undefined;
+    const liveId = urlId === staleChatId ? undefined : urlId;
     if (liveId !== activeChatId) {
       // Intentional: layout effect so the state commits before paint (see comment above).
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -743,7 +823,7 @@ function ChatPageInner() {
       push(PROJECT_CHAT_NEW_ROUTE(selectedProjectId) + `?q=${encodeURIComponent(value.trim())}`);
       return;
     }
-    submitNewChat(value);
+    void decideSave(newChatAttachments.map((a) => a.file)).then(() => submitNewChat(value));
   };
 
   // Capture typed message from new-chat landing → transition to ChatInterface
@@ -771,7 +851,9 @@ function ChatPageInner() {
         overflow:      "hidden",
       }}
     >
-      {/* Hidden file input - triggered by "Add files or photos" in add menu */}
+      {saveDialog}
+      {libraryPicker.dialog}
+      {/* Hidden file input - triggered by "Add photos & files" in add menu */}
       <input
         ref={fileInputRef}
         type="file"
@@ -794,34 +876,7 @@ function ChatPageInner() {
               overflowY: "auto",
             }}
           >
-            {/* Drop overlay */}
-            {isNewChatDragging && (
-              <div
-                style={{
-                  position:        "fixed",
-                  inset:           0,
-                  zIndex:          40,
-                  display:         "flex",
-                  alignItems:      "center",
-                  justifyContent:  "center",
-                  backgroundColor: "rgba(var(--surface-rgb), 0.88)",
-                  border:          "2px dashed var(--focus-ring)",
-                  borderRadius:    "16px",
-                  pointerEvents:   "none",
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: "var(--font-body)",
-                    fontSize:   "var(--font-size-body-md)",
-                    color:      "var(--blue-600)",
-                    fontWeight: 500,
-                  }}
-                >
-                  Drop files here
-                </span>
-              </div>
-            )}
+            <FileDropOverlay visible={isNewChatDragging} />
 
             <div className={homeStyles.home}>
               <div className={homeStyles.content}>
@@ -864,6 +919,7 @@ function ChatPageInner() {
                       value={newChatInput}
                       onChange={setNewChatInput}
                       onSend={handleNewChatSend}
+                      sendBlocked={newChatUploadsBusy}
                       agentMention={{ onSelect: setSelectedPersona, selectedAgentId: selectedPersona?.id ?? null }}
                       onFilePaste={(files) => setNewChatAttachments((prev) => processFiles(files, prev))}
                       hasAttachments={newChatAttachments.length > 0}
@@ -887,16 +943,22 @@ function ChatPageInner() {
                                 />
                               ))}
                             </PinChipStrip>
+                            <UploadNotices {...newChatUploadNotices} />
                             <AttachmentManager
-                              attachments={newChatAttachments}
+                              attachments={newChatAttachmentChips}
                               onAttachmentsChange={setNewChatAttachments}
+                              libraryValidates
                             />
                           </div>
                         ) : (
-                          <AttachmentManager
-                            attachments={newChatAttachments}
-                            onAttachmentsChange={setNewChatAttachments}
-                          />
+                          <>
+                            <UploadNotices {...newChatUploadNotices} />
+                            <AttachmentManager
+                              attachments={newChatAttachmentChips}
+                              onAttachmentsChange={setNewChatAttachments}
+                              libraryValidates
+                            />
+                          </>
                         )
                       }
                       placeholder={
@@ -911,6 +973,7 @@ function ChatPageInner() {
                   </div>
                   </ExhaustionBanner>
                   <ChatHomeActions projectId={selectedProjectId} onProjectChange={setSelectedProjectId} />
+                  <LibrarySearchOffNote />
 
                   {/* ── Starter cards ───────────────────────────────────────── */}
                   {/* Generated per user by /recommendations; absent until it lands. */}
@@ -939,6 +1002,7 @@ function ChatPageInner() {
           >
             <ChatInterface
               chatId={activeChatId}
+              projectId={selectedProjectId}
               onChatCreated={handleChatCreated}
               onTitleUpdate={handleTitleUpdate}
               onChatMoveToTop={handleChatMoveToTop}
@@ -971,7 +1035,7 @@ function ChatPageInner() {
               onBeforeSend={interceptCreateAgent}
               injectedMessages={injectedMessages}
               onInjectedMessagesConsumed={() => setInjectedMessages(null)}
-              onUseAgent={setSelectedPersona}
+              onUseAgent={(agent) => { if (!agentChatBlocked()) setSelectedPersona(agent) }}
               agentMention={{ onSelect: setSelectedPersona, selectedAgentId: selectedPersona?.id ?? null }}
             />
           </m.div>

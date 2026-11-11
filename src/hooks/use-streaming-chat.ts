@@ -1,86 +1,48 @@
 "use client"
 
 import { useRef } from "react"
-import { appendChatModelSelection } from "@/lib/chat-model-selection"
-import { extractThinkingContent } from "@/lib/parsers/content-parser"
-import { mergeStreamingText } from "@/lib/streaming"
+import { flushSync } from "react-dom"
+import { clearStreamFields, publishStreamFields } from "@/lib/chat/stream-store"
+import { stopActiveActivities } from "@/lib/activity"
 import { apiFetch } from "@/lib/api/client"
-import { parseChatPrompt, parsePermissionPrompt } from "@/lib/api/prompts"
-import { friendlyModelError } from "@/lib/model-error"
-import { resolveTurnOutcome, type TurnEnd } from "@/lib/turn-outcome"
-import {
-  CHAT_STOP_ENDPOINT,
-  CHATS_CREATE_ENDPOINT,
-  CHAT_STREAM_ENDPOINT,
-  directUpload,
-  shouldUseDirectBackend,
-} from "@/lib/config"
+import { CHAT_STOP_ENDPOINT } from "@/lib/config"
+import { notifyLibraryFilesChanged } from "@/lib/library/files-changed"
+import { libraryFileIdFor } from "@/lib/library/upload/composer-uploads"
 import { ensureFreshToken } from "@/lib/jwt-utils"
-import { clientGeoHeaders } from "@/lib/geo-headers"
 import { logger } from "@/lib/logger"
+import { friendlyModelError } from "@/lib/model-error"
 import { AguiSSEDecoder } from "@/lib/sse-decoder"
-import { toConnector } from "@/lib/connector"
-import { responseBlockFromEventPayload } from "@/lib/response-blocks"
 import type { UIMessage } from "@/types/chat"
-import { toPlan } from "@/lib/plan"
 import { registerStream, completeStream, type StreamOutcome } from "@/lib/stream-registry"
+import { updateMessage } from "@/lib/chat/stream/message-patches"
 import {
-  createReasoningAccumulator,
-  eventRoundIndex,
-  reasoningEventText,
-} from "@/lib/reasoning"
-import { normalizeActivityStatus, stopActiveActivities, toolNameToType, webSearchResults } from "@/lib/activity"
-import { deriveActivityDetail } from "@/lib/activity-detail"
+  AuthExpiredError,
+  ConnectionDroppedError,
+  FriendlyStreamError,
+  SESSION_EXPIRED_MESSAGE,
+  dispatchSessionExpired,
+  isAuthErrorText,
+} from "@/lib/chat/stream/stream-errors"
+import { processStreamEvents } from "@/lib/chat/stream/stream-events"
+import { buildStreamFormData, resolveStreamTarget, type StreamRequestOptions } from "@/lib/chat/stream/stream-request"
+import { createStreamTurn, finishTurn, type StreamEventContext } from "@/lib/chat/stream/stream-turn"
+import { sendStreamRequest } from "@/lib/chat/stream/xhr-transport"
 
-// ── Error markers ─────────────────────────────────────────────────────────────
+// The stream's layers live in lib/chat/stream: the request (stream-request),
+// the XHR transport (xhr-transport), and the event handlers that turn decoded
+// events into message updates (stream-events, tool-events, message-patches).
+// This hook owns the refs, the batching of streamed text, and the turn's
+// start and end.
 
-/**
- * Marks an Error's `message` as already user-facing copy — produced by
- * `friendlyModelError` at the point of failure, when the real status code /
- * raw backend text was still available. The outer catch checks this before
- * deciding whether to translate: re-running an already-friendly message
- * through `friendlyModelError` again would match no known pattern and
- * flatten it into the generic fallback, destroying the specific reason.
- */
-class FriendlyStreamError extends Error {
-  readonly alreadyFriendly = true as const
-}
-
-/** The connection went away while the turn was still running. The backend keeps
- *  running it, so the reply can be picked up again from GET /chats/{id}/stream. */
-class ConnectionDroppedError extends FriendlyStreamError {
-  constructor() {
-    super(friendlyModelError("", 503))
-  }
-}
+export type { TurnResume } from "@/lib/chat/stream/stream-request"
 
 /** How many times one turn re-attaches to its stream, and the pause before each. */
 const FOLLOW_ATTEMPTS = 5
 const FOLLOW_RETRY_MS = 1000
 
 /** How a follow of a running turn went: it reached the stream, the chat has no
- *  running turn any more (it ended while nobody was reading), or it couldn't connect. */
+ *  running turn any more (it ended while nobody was reading), or it could not connect. */
 type FollowResult = "attached" | "gone" | "failed"
-
-/** The agent chat endpoint answers 409 for an agent that can't be chatted with right now
- *  (no published version, paused, or disabled) — not for a retired model, which is what
- *  the generic 409 copy says. */
-const AGENT_UNAVAILABLE_MESSAGE = "This agent isn't available to chat right now — it may not be published yet, or it was paused or disabled."
-
-function streamFailureMessage(rawText: string, status: number, endpoint: string): string {
-  if (status === 409 && endpoint.includes("persona")) return AGENT_UNAVAILABLE_MESSAGE
-  return friendlyModelError(rawText, status)
-}
-
-/** A 401 (or auth-flavored error text) from the XHR transport — the caller
- *  should sign the user out rather than show any chat error content. */
-const SESSION_EXPIRED_MESSAGE = "Your session has expired. Signing you out…"
-
-class AuthExpiredError extends Error {
-  constructor() {
-    super(SESSION_EXPIRED_MESSAGE)
-  }
-}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -96,10 +58,10 @@ export interface UseStreamingChatParams {
   onChatMoveToTop?: (chatId: string) => void
   /** Optional - lets the caller render a loading indicator from stream state. */
   setStreamState?: React.Dispatch<React.SetStateAction<StreamState>>
+  /** The turn ended while this view was not reading it: the saved reply is in the chat history. */
+  onStreamLost?: (chatId: string) => void
   /** Called after a stream completes successfully (for refreshing usage data). */
   onStreamDone?: () => void
-  /** The turn ended while this view wasn't reading it: the saved reply is in the chat's history. */
-  onStreamLost?: (chatId: string) => void
   /** Override the proxy endpoint (defaults to "/api/chat"). Use for persona chat, etc. */
   endpoint?: string
   /** Absolute backend endpoints for proxy-less streaming on deployed origins.
@@ -113,6 +75,11 @@ export interface UseStreamingChatParams {
   /** Ref to the chatId currently displayed in the UI. When provided, setStreamState calls are
    *  suppressed for background streams whose chatId no longer matches what is displayed. */
   currentChatIdRef?: React.RefObject<string | undefined>
+  /** Keep the streaming message's in-flight fields (text, reasoning) in
+   *  lib/chat/stream-store instead of React state, committing them into
+   *  `messages` only at milestones (tool events, end, stop, error). The caller
+   *  must render rows through useLiveMessage or tokens won't show until then. */
+  liveOverlay?: boolean
 }
 
 // ── Batch-flush interval ──────────────────────────────────────────────────────
@@ -133,14 +100,19 @@ export function useStreamingChat({
   directEndpoints,
   onStopBackend,
   currentChatIdRef,
+  liveOverlay = false,
 }: UseStreamingChatParams) {
   const xhrRef = useRef<XMLHttpRequest | null>(null)
   const stopRequestedRef = useRef(false)
+  // Set by a follow of a running turn, read by whoever started it.
+  const followResultRef = useRef<FollowResult>("attached")
 
   // Pending message field updates - flushed to React every FLUSH_INTERVAL_MS
   const pendingFieldsRef = useRef<Partial<UIMessage> | null>(null)
   const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const rafScheduledRef = useRef(false)
+  // liveOverlay: the message id whose uncommitted fields sit in the stream store.
+  const publishedKeyRef = useRef<string | null>(null)
 
   // The temp ID of the loading placeholder being updated during a stream
   const loadingMessageIdRef = useRef<string | null>(null)
@@ -151,8 +123,6 @@ export function useStreamingChat({
   // Stops the current call's stream, and only that one — registered with the
   // stream registry so the stream can be stopped from wherever its chat is shown.
   const activeStopRef = useRef<(() => void) | null>(null)
-  // Set by a follow of a running turn, read by whoever started it.
-  const followResultRef = useRef<FollowResult>("attached")
 
   // ── Flush helpers ───────────────────────────────────────────────────────────
 
@@ -164,11 +134,20 @@ export function useStreamingChat({
     )
   }
 
+  // Commits the pending fields into messages. In liveOverlay mode this is the
+  // only path to React state for streamed text: the commit renders
+  // synchronously, then the store entry is dropped, so the row never shows a
+  // frame with neither (no flash back to older text).
   const flushPending = () => {
-    if (!pendingFieldsRef.current) return
     const fields = pendingFieldsRef.current
+    const key = publishedKeyRef.current
     pendingFieldsRef.current = null
-    applyUpdate(fields)
+    publishedKeyRef.current = null
+    if (fields) {
+      if (key) flushSync(() => applyUpdate(fields))
+      else applyUpdate(fields)
+    }
+    if (key) clearStreamFields(key)
   }
 
   const queueUpdate = (fields: Partial<UIMessage>, immediate = false) => {
@@ -177,6 +156,16 @@ export function useStreamingChat({
       : fields
     if (immediate) {
       flushPending()
+      return
+    }
+    if (liveOverlay) {
+      // Stays out of React state until the next commit; the store batches
+      // notifications to one per animation frame.
+      const msgId = loadingMessageIdRef.current
+      if (!msgId) return
+      if (publishedKeyRef.current && publishedKeyRef.current !== msgId) clearStreamFields(publishedKeyRef.current)
+      publishedKeyRef.current = msgId
+      publishStreamFields(msgId, pendingFieldsRef.current)
       return
     }
     // Schedule a microtask flush as backup (in case setInterval is delayed)
@@ -190,7 +179,7 @@ export function useStreamingChat({
   }
 
   const startFlushInterval = () => {
-    if (flushTimerRef.current) return
+    if (liveOverlay || flushTimerRef.current) return
     flushTimerRef.current = setInterval(flushPending, FLUSH_INTERVAL_MS)
   }
 
@@ -220,7 +209,8 @@ export function useStreamingChat({
                 isLoading: false,
                 isThinkingInProgress: false,
                 stoppedByUser: true,
-                content: msg.content || "Generation stopped.",
+                // The "Generation stopped" line under the bubble says it; no second copy as text.
+                content: msg.content,
                 activities: stopActiveActivities(msg.activities),
               }
             : msg,
@@ -257,16 +247,15 @@ export function useStreamingChat({
     chatId: string | null,
     loadingMessageId: string,
     modelId?: string | number | null,
-    options?: { webSearch?: boolean; files?: File[]; enableReasoning?: boolean; reasoningEffort?: string | null; algorithm?: 'base' | 'pro' | null; userMessageId?: string; pinIds?: string[]; onUploadProgress?: (pct: number) => void; personaId?: string; systemPrompt?: string; temperature?: number; toneId?: string; connectorSlugs?: string[]; replaceMessageId?: string; chatOwnershipConfirmed?: boolean; follow?: boolean; followAttempt?: number },
+    options?: StreamRequestOptions,
   ): Promise<StreamOutcome> => {
-    // A follow reads the chat's running turn from its first event; it sends nothing.
-    const follow = options?.follow === true
+    stopRequestedRef.current = false
+    xhrRef.current = null
     // A follow owns the reply only once its stream answers; until then the reply is left as it is.
+    const follow = options?.follow === true
     let attached = !follow
     let failedStatus = 0
     followResultRef.current = "attached"
-    stopRequestedRef.current = false
-    xhrRef.current = null
     loadingMessageIdRef.current = loadingMessageId
     userMessageIdRef.current = options?.userMessageId ?? null
     resolvedChatIdRef.current = chatId
@@ -288,1345 +277,85 @@ export function useStreamingChat({
 
     setStreamState?.("waiting")
 
-    let assistantContent = ""
-    const reasoning = createReasoningAccumulator()
-    let streamFinished = false
-    // The turn ended with an error (shown as the reply or as a notice below it).
-    let turnFailed = false
-    let terminalErrorSeen = false
-    let titleWasSet = false    // guards: prevent `done` from overwriting a title already set by the `title` SSE event
-    let receivedRenderableOutput = false
-    // Maps toolName → activityId so tool_progress events can find the activity
-    // created by the preceding tool_executing event.
-    const toolCallIdByName = new Map<string, string>()
-    // Tool names that errored — tool_complete still fires right after tool_error,
-    // so this stops it from clobbering the "error" status back to "done".
-    const erroredToolNames = new Set<string>()
-    // Agent name → its open activity row, between agent_started and agent_finished.
-    const agentActivityIds = new Map<string, string>()
-    // Prompt cards already marked in the reasoning trace (events can repeat).
-    const promptMarkerIds = new Set<string>()
-    // Reasoning time behind the "Thought for Ns" label: from the turn's first
-    // reasoning to its first answer token, or to the end of the turn.
-    let reasoningStartedAt: number | null = null
-    let reasoningDurationMs: number | undefined
-
-    const startReasoningClock = () => {
-      if (reasoningStartedAt === null && reasoningDurationMs === undefined) reasoningStartedAt = Date.now()
-    }
-
-    const stopReasoningClock = (): Pick<UIMessage, "reasoningDurationMs"> => {
-      if (reasoningStartedAt !== null && reasoningDurationMs === undefined) {
-        reasoningDurationMs = Date.now() - reasoningStartedAt
-      }
-      return reasoningDurationMs === undefined ? {} : { reasoningDurationMs }
-    }
-
-    // Every way the turn ends goes through here, so text the user has already
-    // seen is never replaced by an error (see resolveTurnOutcome). Reasoning is
-    // finalised either way; tools still running on an early end are marked stopped.
-    const finishTurn = (end: TurnEnd, error?: string) => {
-      flushPending()
-      streamFinished = true
-      const msgId = loadingMessageIdRef.current
-      if (!msgId) return
-      const outcome = resolveTurnOutcome({
-        end,
-        rawContent: assistantContent,
-        reasoningText: reasoning.text(),
-        error,
-        hasOtherOutput: receivedRenderableOutput,
-      })
-      if (outcome.isError || outcome.errorNotice) turnFailed = true
-      const sections = reasoning.sections()
-      const timeline = reasoning.timeline()
-      const duration = stopReasoningClock()
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === msgId
-            ? {
-                ...msg,
-                ...outcome,
-                ...duration,
-                isThinkingInProgress: false,
-                isLoading: false,
-                ...(end === "done"
-                  ? { stoppedByUser: false }
-                  : { activities: stopActiveActivities(msg.activities) }),
-                reasoning_sections: sections.length > 0 ? sections : undefined,
-                reasoningTimeline: timeline.length > 0 ? timeline : undefined,
-              }
-            : msg,
-        ),
-      )
+    const turn = createStreamTurn()
+    // The event handlers' view of this call: its refs, batching and callbacks.
+    const ctx: StreamEventContext = {
+      setMessages,
+      queueUpdate,
+      flushPending,
+      messageId: () => loadingMessageIdRef.current,
+      setMessageId: (id) => { loadingMessageIdRef.current = id },
+      userMessageId: () => userMessageIdRef.current,
+      chatId: () => resolvedChatIdRef.current,
+      adoptChatId: (id) => adoptChatId(id),
+      onRunStarted: () => { if (isActiveStream()) setStreamState?.("streaming") },
+      onTitleUpdate,
+      onChatMoveToTop,
+      saveToLibrary: undefined,
     }
 
     try {
-      // ── Resolve transport: direct-to-backend vs proxy ─────────────────────
-      // Deployed origins stream straight to the backend (absolute URL + Bearer):
-      // no Vercel serverless proxy in the path, so its stream duration limits
-      // (300/800s kills) and 4.5MB request-body cap don't apply. The proxy
-      // (`endpoint`) remains for local dev — the backend CORS allowlist has no
-      // localhost — and for callers with a bespoke proxy but no directEndpoints.
-      const isExistingChat = Boolean(chatId && !chatId.startsWith("temp-"))
-      const direct = directEndpoints ?? (endpoint === "/api/chat"
-        ? { create: CHATS_CREATE_ENDPOINT, stream: CHAT_STREAM_ENDPOINT }
-        : null)
-      // For an existing chat, only take the direct-to-backend path once the
-      // caller has explicitly confirmed this chat is the user's own (or at
-      // least readable/editable by them) — see `chatOwnershipConfirmed` below.
-      // Without that confirmation the backend's own ownership check on
-      // POST /chats/{id}/stream can 404 with a raw "Chat not found" the
-      // proxy would otherwise have absorbed. Creating a brand-new chat has
-      // no ownership question (isExistingChat is false), so this never
-      // affects that path, and callers that don't pass the option at all
-      // keep today's behavior (undefined !== false).
-      const useDirectBackend = follow
-        ? shouldUseDirectBackend()
-        : direct !== null &&
-          shouldUseDirectBackend() &&
-          (!isExistingChat || options?.chatOwnershipConfirmed !== false)
-      const directToken = useDirectBackend ? await ensureFreshToken() : null
-      // Direct-to-backend requests must opt into the AG-UI stream themselves;
-      // proxied requests get the parameter added by the proxy route.
-      const resolvedEndpoint = follow
-        ? directUpload(CHAT_STREAM_ENDPOINT(chatId!))
-        : useDirectBackend
-          ? directUpload(isExistingChat ? direct!.stream(chatId!) : direct!.create)
-          : endpoint
-
-      const fd = new FormData()
-      fd.append("input", input)
-      if (useDirectBackend) {
-        // Backend-native field names — this request skips /api/chat entirely,
-        // so nothing renames these camelCase → snake_case on the way through.
-        appendChatModelSelection(fd, modelId, options?.algorithm, "model_id")
-        if (options?.webSearch) fd.append("web_search", "true")
-        if (options?.pinIds && options.pinIds.length > 0) fd.append("pin_ids", JSON.stringify(options.pinIds))
-        // No system_prompt/temperature: the backend answers 400 "field that isn't accepted"
-        // to them and applies the agent's own settings from persona_id.
-        if (options?.personaId) fd.append("persona_id", options.personaId)
-        if (options?.toneId) fd.append("tone_id", options.toneId)
-        if (options?.enableReasoning !== undefined) {
-          fd.append("thinking", options.enableReasoning ? "true" : "false")
-          if (options.reasoningEffort) fd.append("effort", options.reasoningEffort)
-        }
-        if (options?.replaceMessageId && isExistingChat) fd.append("replace_message_id", options.replaceMessageId)
-      } else {
-        if (chatId) fd.append("chatId", chatId)
-        appendChatModelSelection(fd, modelId, options?.algorithm, "modelId")
-        if (options?.webSearch) fd.append("webSearch", "true")
-        if (options?.enableReasoning !== undefined) {
-          fd.append("enable_thinking", options.enableReasoning ? "true" : "false")
-          if (options.reasoningEffort) fd.append("effort", options.reasoningEffort)
-        }
-        if (options?.pinIds && options.pinIds.length > 0) fd.append("pinIds", JSON.stringify(options.pinIds))
-        if (options?.personaId) fd.append("personaId", options.personaId)
-        if (options?.systemPrompt) fd.append("systemPrompt", options.systemPrompt)
-        if (options?.temperature != null) fd.append("temperature", String(options.temperature))
-        if (options?.toneId) fd.append("toneId", options.toneId)
-        options?.connectorSlugs?.forEach((s) => fd.append("connectorSlugs", s))
-        if (options?.replaceMessageId) fd.append("replaceMessageId", options.replaceMessageId)
+      const target = resolveStreamTarget(chatId, endpoint, directEndpoints, options)
+      const directToken = target.useDirectBackend ? await ensureFreshToken() : null
+      const { fd, fileRefs } = buildStreamFormData(input, chatId, modelId, options, target)
+      ctx.saveToLibrary = fileRefs.saveToLibrary
+      // The sent message remembers its Library files, for the chat's Sources panel.
+      if (fileRefs.libraryFileIds.length > 0 && options?.userMessageId) {
+        const sentIds = fileRefs.libraryFileIds
+        // Each attachment that went as a Library file is marked, so Sources lists it once (as that file).
+        const sentFiles = options.files ?? []
+        setMessages(updateMessage(options.userMessageId, (msg) => ({
+          ...msg,
+          libraryFileIds: sentIds,
+          attachments: msg.attachments?.map((att, index) => {
+            const libraryFileId = sentFiles[index] ? libraryFileIdFor(sentFiles[index]) : undefined
+            return libraryFileId && !att.libraryFileId ? { ...att, libraryFileId } : att
+          }),
+        })))
       }
-      options?.files?.forEach((f) => fd.append("files", f))
 
       const sseDecoder = new AguiSSEDecoder()
-
-      // ── SSE processor ─────────────────────────────────────────────────────
-      // Called with each new text slice arriving from the XHR response stream.
-
-      const processSSEText = (text: string, flush = false) => {
-        const decodedEvents = sseDecoder.push(text)
-        if (flush) decodedEvents.push(...sseDecoder.flush())
-
-        for (const decoded of decodedEvents) {
-          if (decoded.event.type === "RUN_STARTED") {
-            // threadId is the chat id. This is the primary id source for new
-            // chats on direct streams: the X-Chat-Id response header is not
-            // CORS-exposed, so cross-origin JS can't read it.
-            adoptChatId(decoded.event.threadId)
-            if (isActiveStream()) setStreamState?.("streaming")
-          }
-          // The reasoning phase is over when AG-UI closes its thinking span.
-          if (decoded.event.type === "THINKING_END") {
-            queueUpdate({ isThinkingInProgress: false }, true)
-          }
-
-          if (!decoded.appEvent) continue
-          const { eventName, parsed } = decoded.appEvent
-
-          // ── Universal file_attachments extractor ──────────────────────────
-          // Run before any specific handler so file links are captured
-          // regardless of which SSE event the backend places them in.
-          {
-            const universalMsgId = loadingMessageIdRef.current
-            const universalAtts = Array.isArray(parsed.file_attachments)
-              ? (parsed.file_attachments as Array<Record<string, unknown>>)
-              : Array.isArray(
-                  (parsed.message as Record<string, unknown> | undefined)
-                    ?.file_attachments,
-                )
-              ? (
-                  (parsed.message as Record<string, unknown>)
-                    .file_attachments as Array<Record<string, unknown>>
-                )
-              : null
-
-            if (universalMsgId && universalAtts) {
-              const newGeneratedFiles: import("@/types/chat").GeneratedFile[] = []
-              const newGeneratedImages: import("@/types/chat").GeneratedImage[] = []
-
-              for (const a of universalAtts) {
-                if (a.origin !== "generated") continue
-                const url = (
-                  typeof a.file_link === "string" ? a.file_link
-                  : typeof a.url === "string" ? a.url
-                  : typeof a.link === "string" ? a.link
-                  : ""
-                ).trim()
-                if (!url) continue
-                const mimeType = typeof a.mime_type === "string" ? a.mime_type : undefined
-                if (mimeType && mimeType.startsWith("image/")) {
-                  // Route generated images to msg.images for inline display,
-                  // matching the `image` SSE event behaviour.
-                  newGeneratedImages.push({ url })
-                } else {
-                  const rawName =
-                    typeof a.file_name === "string" ? a.file_name
-                    : typeof a.name === "string" ? a.name
-                    : undefined
-                  const filename = rawName?.trim() || url.split("/").pop() || "file"
-                  newGeneratedFiles.push({ url, filename, mimeType })
-                }
-              }
-
-              if (newGeneratedFiles.length > 0 || newGeneratedImages.length > 0) {
-                receivedRenderableOutput = true
-                setMessages((prev) =>
-                  prev.map((msg) => {
-                    if (msg.id !== universalMsgId) return msg
-                    let updated = msg
-                    if (newGeneratedFiles.length > 0) {
-                      const existingUrls = new Set((msg.generatedFiles ?? []).map((f) => f.url))
-                      const toAdd = newGeneratedFiles.filter((f) => !existingUrls.has(f.url))
-                      if (toAdd.length > 0) {
-                        updated = { ...updated, generatedFiles: [...(updated.generatedFiles ?? []), ...toAdd] }
-                      }
-                    }
-                    if (newGeneratedImages.length > 0) {
-                      const existingUrls = new Set((msg.images ?? []).map((i) => i.url))
-                      const toAdd = newGeneratedImages.filter((i) => !existingUrls.has(i.url))
-                      if (toAdd.length > 0) {
-                        updated = { ...updated, images: [...(updated.images ?? []), ...toAdd] }
-                      }
-                    }
-                    return updated
-                  }),
-                )
-              }
-            }
-          }
-
-          // ── Event handlers ──────────────────────────────────────────────────
-
-          if (eventName === "metadata" || eventName === "title") {
-            const evtChatId = extractChatId(parsed)
-            if (evtChatId) adoptChatId(evtChatId)
-            const title = asString(parsed.title ?? parsed.chat_title)
-            if (title && resolvedChatIdRef.current) {
-              titleWasSet = true
-              onTitleUpdate?.(resolvedChatIdRef.current, title)
-            }
-            continue
-          }
-
-          if (eventName === "reasoning_heading" || eventName === "reasoning_body") {
-            const wasEmpty = reasoning.isEmpty()
-            startReasoningClock()
-            reasoning.event(eventName, reasoningEventText(parsed), eventRoundIndex(parsed))
-            const sections = reasoning.sections()
-            queueUpdate({
-              thinking: reasoning.text(),
-              isThinkingInProgress: true,
-              isLoading: true,
-              ...(sections.length > 0 ? { reasoning_sections: sections } : {}),
-              reasoningTimeline: reasoning.timeline(),
-            }, wasEmpty)  // flush immediately on first reasoning chunk
-            continue
-          }
-
-          if (eventName === "content") {
-            const delta = typeof parsed.content === "string" ? parsed.content : ""
-            const wasEmpty = !assistantContent
-            assistantContent = mergeStreamingText(assistantContent, delta)
-            // Only a leading <think> block is reasoning; while it is open,
-            // everything after it is reasoning too.
-            const { visibleText, thinkingText, thinkingOpen } = extractThinkingContent(assistantContent)
-            if (thinkingText || thinkingOpen) startReasoningClock()
-            queueUpdate({
-              content: visibleText,
-              thinking: reasoning.text() || thinkingText || undefined,
-              isThinkingInProgress: thinkingOpen && !reasoning.text(),
-              isLoading: true,
-              // The first answer token ends the reasoning time.
-              ...(visibleText ? stopReasoningClock() : {}),
-            }, wasEmpty)  // flush immediately on first content chunk
-            continue
-          }
-
-          if (eventName === "model_selected") {
-            const modelName = asString(parsed.model_name)
-            if (modelName) {
-              queueUpdate({
-                modelName,
-                modelMeta: {
-                  modelId: asString(parsed.model_id) ?? modelName,
-                  modelName,
-                  deploymentName: asString(parsed.deployment_name),
-                  company: asString(parsed.company),
-                },
-              }, true)
-            }
-            continue
-          }
-
-          if (eventName === "message_saved") {
-            // Backend confirmed the message was persisted.
-            const evtChatId = extractChatId(parsed)
-            if (evtChatId) adoptChatId(evtChatId)
-
-            const savedMsg = parsed
-
-            const msgId = loadingMessageIdRef.current
-
-            // ── Replace temp ID with the real backend message ID ─────────────
-            // The backend sends message_id in this event. Without this, the
-            // temp "loading-assistant-…" ID is never replaced and features
-            // like pinning will fail because the backend doesn't know that ID.
-            const realMessageId =
-              asString(savedMsg.message_id)
-            if (realMessageId && msgId && realMessageId !== msgId) {
-              loadingMessageIdRef.current = realMessageId
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === msgId ? { ...msg, id: realMessageId } : msg,
-                ),
-              )
-            }
-
-            // ── sources / citations ──────────────────────────────────────────
-            // Use the (possibly updated) real message ID from the ref.
-            const currentMsgId = loadingMessageIdRef.current
-            const rawSources = Array.isArray(savedMsg.sources) ? savedMsg.sources : null
-            if (rawSources && rawSources.length > 0 && currentMsgId) {
-              const hydratedCitations = (rawSources as Array<Record<string, unknown>>)
-                .flatMap((s) => s.url || s.title ? [{
-                  title: asString(s.title) ?? asString(s.url) ?? "",
-                  url: asString(s.url),
-                  domain: asString(s.domain) ?? (() => {
-                    try { return new URL(asString(s.url) ?? "").hostname.replace(/^www\./, "") } catch { return undefined }
-                  })(),
-                }] : [])
-              if (hydratedCitations.length > 0) {
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === currentMsgId ? { ...msg, webCitations: hydratedCitations } : msg,
-                  ),
-                )
-              }
-            }
-
-            // ── file_attachments → generatedFiles / images ────────────────────
-            // The backend returns uploaded + generated files in `file_attachments`.
-            // origin === "generated" + image/* mime → inline image display (msg.images)
-            // origin === "generated" + other       → downloadable file card (msg.generatedFiles)
-            if (currentMsgId) {
-              const rawAtts = Array.isArray(savedMsg.file_attachments)
-                ? (savedMsg.file_attachments as Array<Record<string, unknown>>)
-                : []
-              const generatedFromSaved: import("@/types/chat").GeneratedFile[] = []
-              const imagesFromSaved: import("@/types/chat").GeneratedImage[] = []
-
-              for (const a of rawAtts) {
-                if (a.origin !== "generated") continue
-                const url = (
-                  typeof a.file_link === "string" ? a.file_link :
-                  typeof a.url      === "string" ? a.url :
-                  typeof a.link     === "string" ? a.link : ""
-                ).trim()
-                if (!url) continue
-                const mimeType = typeof a.mime_type === "string" ? a.mime_type : undefined
-                if (mimeType && mimeType.startsWith("image/")) {
-                  imagesFromSaved.push({ url })
-                } else {
-                  const rawName = typeof a.file_name === "string" ? a.file_name
-                    : typeof a.name === "string" ? a.name : undefined
-                  const filename = rawName?.trim() || url.split("/").pop() || "file"
-                  generatedFromSaved.push({ url, filename, mimeType })
-                }
-              }
-
-              if (generatedFromSaved.length > 0 || imagesFromSaved.length > 0) {
-                receivedRenderableOutput = true
-                setMessages((prev) =>
-                  prev.map((msg) => {
-                    if (msg.id !== currentMsgId) return msg
-                    let updated = msg
-                    if (generatedFromSaved.length > 0) {
-                      const existingUrls = new Set((msg.generatedFiles ?? []).map((f) => f.url))
-                      const toAdd = generatedFromSaved.filter((f) => !existingUrls.has(f.url))
-                      if (toAdd.length > 0) {
-                        updated = { ...updated, generatedFiles: [...(updated.generatedFiles ?? []), ...toAdd] }
-                      }
-                    }
-                    if (imagesFromSaved.length > 0) {
-                      const existingUrls = new Set((msg.images ?? []).map((i) => i.url))
-                      const toAdd = imagesFromSaved.filter((i) => !existingUrls.has(i.url))
-                      if (toAdd.length > 0) {
-                        updated = { ...updated, images: [...(updated.images ?? []), ...toAdd] }
-                      }
-                    }
-                    return updated
-                  }),
-                )
-              }
-
-              // ── file_attachments → user message attachment URLs ─────────────
-              // origin === "uploaded" → backend has saved the file; update the
-              // optimistic user message's attachments with the real file_link URL
-              // so the chip in the user bubble becomes a proper link.
-              const userMsgId = userMessageIdRef.current
-              if (userMsgId) {
-                const uploadedAtts = rawAtts
-                  .flatMap((a) => {
-                    if (a.origin !== "uploaded" && a.origin !== "user") return []
-                    const url = (
-                      typeof a.file_link === "string" ? a.file_link :
-                      typeof a.url       === "string" ? a.url :
-                      typeof a.link      === "string" ? a.link : ""
-                    ).trim()
-                    if (!url) return []
-                    const rawName = typeof a.file_name === "string" ? a.file_name
-                      : typeof a.name === "string" ? a.name : undefined
-                    const filename = rawName?.trim() || url.split("/").pop() || "file"
-                    const mimeType = typeof a.mime_type === "string" ? a.mime_type : "application/octet-stream"
-                    return [{ filename, url, mimeType }]
-                  })
-
-                if (uploadedAtts.length > 0) {
-                  setMessages((prev) =>
-                    prev.map((msg) => {
-                      if (msg.id !== userMsgId) return msg
-                      const existing = msg.attachments ?? []
-                      // Try filename match first; fall back to positional match
-                      // for backends that don't return file_name (e.g. persona chat).
-                      const updated = existing.map((att, idx) => {
-                        const match = uploadedAtts.find((u) => u.filename === att.file_name)
-                        if (match) return { ...att, url: match.url, uploading: false }
-                        // Positional fallback: if no name match and this slot has no URL yet
-                        if (!att.url && uploadedAtts[idx]) return { ...att, url: uploadedAtts[idx].url, uploading: false }
-                        return att
-                      })
-                      // If the optimistic message had no attachments yet (initial-prompt path),
-                      // create them fresh from the backend data.
-                      const merged = existing.length > 0 ? updated : uploadedAtts.map((u, i) => ({
-                        id: `srv-att-${i}-${Date.now()}`,
-                        file_name: u.filename,
-                        file_type: u.mimeType,
-                        file_size: 0,
-                        url: u.url,
-                      }))
-                      return { ...msg, attachments: merged }
-                    }),
-                  )
-                }
-              }
-            }
-
-            continue
-          }
-
-          if (eventName === "web_search") {
-            // Web search activity - schema: {query, links[], results[]}
-            const query = asString(parsed.query) ?? ""
-            const results = webSearchResults(parsed.links, parsed.results)
-
-            const activity: import("@/types/chat").ActivityItem = {
-              id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-              type: "web-search",
-              detail: query,
-              status: "done",
-              results,
-            }
-            reasoning.activity(activity.id, eventRoundIndex(parsed))
-            flushPending()
-
-            const msgId = loadingMessageIdRef.current
-            if (msgId) {
-              setMessages((prev) =>
-                prev.map((msg) => {
-                  if (msg.id !== msgId) return msg
-                  // Merge new web-search results into webCitations (deduped by url)
-                  const existing = msg.webCitations ?? []
-                  const newCitations = results
-                    .flatMap((r) => r.url && !existing.some((c) => c.url === r.url)
-                      ? [{ title: r.title, url: r.url, domain: r.domain ?? "" }]
-                      : [])
-                  return {
-                    ...msg,
-                    activities: [...(msg.activities ?? []), activity],
-                    reasoningTimeline: reasoning.timeline(),
-                    webCitations: newCitations.length > 0 ? [...existing, ...newCitations] : existing,
-                  }
-                }),
-              )
-            }
-            continue
-          }
-
-          if (eventName === "structured_block" || eventName === "block") {
-            // Accept both the app envelope ({ block: ResponseBlock }) and the
-            // chat-preview contract where the ResponseBlock is the payload.
-            const block = responseBlockFromEventPayload(parsed)
-            if (block) {
-              receivedRenderableOutput = true
-              const msgId = loadingMessageIdRef.current
-              if (msgId) {
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === msgId
-                      ? { ...msg, responseBlocks: [...(msg.responseBlocks ?? []), block] }
-                      : msg,
-                  ),
-                )
-              }
-            }
-            continue
-          }
-
-          if (eventName === "tool_progress") {
-            // Tool progress - schema: {tool, label, status, filename, step?, message?, code_preview?}
-            const toolName = asString(parsed.tool) ?? "unknown"
-            const label = asString(parsed.label)
-            const status = normalizeActivityStatus(asString(parsed.status))
-            const filename = asString(parsed.filename)
-            const progressMessage = asString(parsed.message)
-            const codePreview = asString(parsed.code_preview)
-            // Prefer the activityId linked from tool_executing; fall back to constructed key
-            const activityId = toolCallIdByName.get(toolName) ?? `tp-${toolName}-${filename ?? "default"}`
-            if (status === "error") erroredToolNames.add(toolName)
-
-            const activityType = toolNameToType(toolName)
-            reasoning.activity(activityId, eventRoundIndex(parsed))
-            flushPending()
-
-            const msgId = loadingMessageIdRef.current
-            if (msgId) {
-              setMessages((prev) =>
-                prev.map((msg) => {
-                  if (msg.id !== msgId) return msg
-                  const existing = (msg.activities ?? []).find((a) => a.id === activityId)
-                  if (existing) {
-                    // Update existing activity
-                    return {
-                      ...msg,
-                      activities: (msg.activities ?? []).map((a) =>
-                        a.id === activityId
-                          // The detail (e.g. the search query) came from the tool's
-                          // args; a progress label must not replace it.
-                          ? { ...a, status, label: label ?? a.label, detail: a.detail ?? label, progressMessage, codePreview }
-                          : a,
-                      ),
-                      reasoningTimeline: reasoning.timeline(),
-                    }
-                  }
-                  // Create new activity (tool_executing may have been missed)
-                  const newActivity: import("@/types/chat").ActivityItem = {
-                    id: activityId,
-                    type: activityType,
-                    toolName,
-                    label,
-                    detail: label || progressMessage || filename || toolName,
-                    status,
-                    filename,
-                    progressMessage,
-                    codePreview,
-                  }
-                  return {
-                    ...msg,
-                    activities: [...(msg.activities ?? []), newActivity],
-                    reasoningTimeline: reasoning.timeline(),
-                  }
-                }),
-              )
-            }
-            continue
-          }
-
-          if (eventName === "tool_executing" || parsed.type === "tool_executing") {
-            // Tool is about to execute - schema: {content (tool name), label, tool_call: {name, arguments, ...}}
-            const toolCall = parsed.tool_call as Record<string, unknown> | undefined
-            const toolName = asString(toolCall?.name) ?? asString(parsed.content) ?? "tool"
-            const label = asString(parsed.label)
-            const toolCallId = asString(toolCall?.tool_call_id) ?? `te-${toolName}-${Date.now()}`
-
-            // Check if tool_calls_streaming already created a preliminary activity
-            const existingActivityId = toolCallIdByName.get(toolName)
-
-            // Register the real tool_call_id so subsequent tool_progress/tool_complete events can find it
-            toolCallIdByName.set(toolName, toolCallId)
-
-            const activityType = toolNameToType(toolName)
-            // What the call was given (its query, URL…), not the tool's name again.
-            const detail = deriveActivityDetail(toolName, toolCall?.arguments)
-            if (existingActivityId) {
-              reasoning.renameActivity(existingActivityId, toolCallId)
-            } else {
-              reasoning.activity(toolCallId, eventRoundIndex(parsed))
-            }
-            flushPending()
-
-            const msgId = loadingMessageIdRef.current
-            if (msgId) {
-              if (existingActivityId) {
-                // Upgrade the preliminary activity in place (replacing its ID
-                // when the preliminary one was synthetic) and mark it executing.
-                setMessages((prev) =>
-                  prev.map((msg) => {
-                    if (msg.id !== msgId) return msg
-                    return {
-                      ...msg,
-                      activities: (msg.activities ?? []).map((a) =>
-                        a.id === existingActivityId
-                          ? { ...a, id: toolCallId, status: "executing" as const, label: label ?? a.label, detail: detail ?? a.detail }
-                          : a,
-                      ),
-                      reasoningTimeline: reasoning.timeline(),
-                    }
-                  }),
-                )
-              } else {
-                // No preliminary activity — create a new one
-                const activity: import("@/types/chat").ActivityItem = {
-                  id: toolCallId,
-                  type: activityType,
-                  toolName,
-                  label,
-                  detail,
-                  status: "executing",
-                }
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === msgId
-                      ? {
-                          ...msg,
-                          activities: [...(msg.activities ?? []), activity],
-                          reasoningTimeline: reasoning.timeline(),
-                        }
-                      : msg,
-                  ),
-                )
-              }
-            }
-            continue
-          }
-
-          if (eventName === "tool_calls_streaming" || parsed.type === "tool_calls_streaming") {
-            // Model is streaming tool call arguments — show early activity indicator
-            const toolCall = parsed.tool_call as Record<string, unknown> | undefined
-            const toolName = asString(toolCall?.name) ?? asString(parsed.content) ?? ""
-            if (toolName) {
-              const existingId = toolCallIdByName.get(toolName)
-              if (!existingId) {
-                // First streaming chunk for this tool — create a preliminary activity.
-                // AG-UI streams carry the provider's real tool_call_id; keep the
-                // synthetic fallback for payloads without one.
-                const callId = asString(toolCall?.tool_call_id) ?? `tcs-${toolName}-${Date.now()}`
-                toolCallIdByName.set(toolName, callId)
-                const activityType = toolNameToType(toolName)
-                const label = asString(parsed.label) ?? undefined
-                const activity: import("@/types/chat").ActivityItem = {
-                  id: callId,
-                  type: activityType,
-                  toolName,
-                  label,
-                  detail: deriveActivityDetail(toolName, toolCall?.arguments),
-                  status: "start",
-                }
-                reasoning.activity(callId, eventRoundIndex(parsed))
-                flushPending()
-                const msgId = loadingMessageIdRef.current
-                if (msgId) {
-                  setMessages((prev) =>
-                    prev.map((msg) =>
-                      msg.id === msgId
-                        ? {
-                            ...msg,
-                            activities: [...(msg.activities ?? []), activity],
-                            reasoningTimeline: reasoning.timeline(),
-                          }
-                        : msg,
-                    ),
-                  )
-                }
-              }
-            }
-            continue
-          }
-
-          if (eventName === "tool_connect_prompt") {
-            // Backend requests the user to link a connector before the tool can run.
-            // Schema: { connector_slug, display_name, auth_mode, tool_slug, prompt_id, api_key_fields?, icon_url? }
-            // api_key_fields is an array of ApiKeyField objects: { name, label, help?, secret, required }
-            type ApiKeyField = import("@/lib/api/connectors").ApiKeyField
-            const rawFields = parsed.api_key_fields
-            const apiKeyFields: ApiKeyField[] | undefined = Array.isArray(rawFields)
-              ? rawFields.filter(
-                  (f): f is ApiKeyField =>
-                    typeof f === 'object' && f !== null &&
-                    typeof (f as Record<string, unknown>).name === 'string',
-                )
-              : undefined
-            const prompt: import("@/types/chat").ConnectorConnectPrompt = {
-              request_id:      asString(parsed.prompt_id) ?? `ccp-${Date.now()}`,
-              // The whole event goes to toConnector: slug, name and logo
-              // resolve together from whichever fields the wire used.
-              connector:       toConnector(parsed),
-              auth_mode:       (asString(parsed.auth_mode) ?? "oauth2") as 'oauth2' | 'api_key',
-              provider:        (['pipedream', 'mcp', 'zapier', 'api'] as const).find(value => value === parsed.provider),
-              tool_name:       asString(parsed.tool_slug) ?? "",
-              api_key_fields:  apiKeyFields,
-            }
-            const msgId = loadingMessageIdRef.current
-            if (msgId) {
-              setMessages((prev) =>
-                prev.map((msg) => {
-                  if (msg.id !== msgId) return msg
-                  const existing = msg.connectorConnectPrompts ?? []
-                  // Deduplicate by request_id
-                  if (existing.some((p) => p.request_id === prompt.request_id)) return msg
-                  return { ...msg, connectorConnectPrompts: [...existing, prompt] }
-                }),
-              )
-            }
-            receivedRenderableOutput = true
-            continue
-          }
-
-          if (eventName === "user_prompt" || eventName === "question_prompt" || eventName === "approval_prompt") {
-            const prompt = parseChatPrompt(eventName, parsed)
-            if (!prompt) continue
-            const promptId = prompt.request_id
-            // A card is the turn's output as much as text is: a turn that ends
-            // on one isn't empty or interrupted.
-            receivedRenderableOutput = true
-            // Mark in the reasoning trace where the turn stopped to ask, so
-            // reasoning after the answer reads as a new stretch.
-            if (!promptMarkerIds.has(promptId)) {
-              promptMarkerIds.add(promptId)
-              reasoning.prompt({ promptId, title: prompt.questions?.[0]?.question || prompt.title })
-            }
-            flushPending()
-            const msgId = loadingMessageIdRef.current
-            if (msgId) {
-              setMessages((prev) => prev.map((msg) => {
-                if (msg.id !== msgId) return msg
-                const existing = msg.chatPrompts ?? []
-                return existing.some((item) => item.request_id === promptId)
-                  ? msg
-                  : { ...msg, chatPrompts: [...existing, prompt], reasoningTimeline: reasoning.timeline() }
-              }))
-            }
-            continue
-          }
-
-          if (eventName === "permission_prompt") {
-            // Backend emits `prompt_id` + `respond_url` (spec fields). POST to respond_url
-            // (or /chats/prompts/{prompt_id}) with {"response":"allow"|"allow_once"|"block"}
-            // to unblock the stream. parsePermissionPrompt zod-validates the payload and
-            // returns the canonical permission-prompt shape.
-            const prompt = parsePermissionPrompt(parsed)
-            if (!prompt) continue
-            const msgId = loadingMessageIdRef.current
-            if (msgId) {
-              setMessages((prev) =>
-                prev.map((msg) => {
-                  if (msg.id !== msgId) return msg
-                  const existing = msg.connectorPermissionPrompts ?? []
-                  if (existing.some((p) => p.request_id === prompt.request_id)) return msg
-                  return { ...msg, connectorPermissionPrompts: [...existing, prompt] }
-                }),
-              )
-            }
-            receivedRenderableOutput = true
-            continue
-          }
-
-          if (eventName === "tool_complete" || parsed.type === "tool_complete") {
-            // Tool finished - schema: {content (tool name), label, tool_call: {name, tool_call_id, result, duration_s}}
-            const toolCall = parsed.tool_call as Record<string, unknown> | undefined
-            const label = asString(parsed.label)
-            const durationS = typeof toolCall?.duration_s === "number" ? toolCall.duration_s : undefined
-            const toolName = asString(toolCall?.name) ?? asString(parsed.content)
-            // Fall back to the id registered by tool_executing when the provider streamed no tool_call id
-            const toolCallId = asString(toolCall?.tool_call_id) ?? (toolName ? toolCallIdByName.get(toolName) : undefined)
-            const hadError = toolName ? erroredToolNames.has(toolName) : false
-            if (toolName) {
-              toolCallIdByName.delete(toolName)
-              erroredToolNames.delete(toolName)
-            }
-
-            if (toolCallId && !hadError) {
-              const msgId = loadingMessageIdRef.current
-              if (msgId) {
-                setMessages((prev) =>
-                  prev.map((msg) => {
-                    if (msg.id !== msgId) return msg
-                    return {
-                      ...msg,
-                      activities: (msg.activities ?? []).map((a) =>
-                        a.id === toolCallId
-                          ? { ...a, status: "done" as const, durationS, ...(label ? { label } : {}) }
-                          : a,
-                      ),
-                    }
-                  }),
-                )
-              }
-            }
-            continue
-          }
-
-          if (eventName === "tool_error" || parsed.type === "tool_error") {
-            // Tool handler raised - schema: {content (tool name), error}
-            const toolName = asString(parsed.content)
-            const errorMessage = asString(parsed.error) ?? "Tool failed"
-            const toolCallId = toolName ? toolCallIdByName.get(toolName) : undefined
-            if (toolName) erroredToolNames.add(toolName)
-
-            if (toolCallId) {
-              const msgId = loadingMessageIdRef.current
-              if (msgId) {
-                setMessages((prev) =>
-                  prev.map((msg) => {
-                    if (msg.id !== msgId) return msg
-                    return {
-                      ...msg,
-                      activities: (msg.activities ?? []).map((a) =>
-                        a.id === toolCallId
-                          ? { ...a, status: "error" as const, detail: errorMessage }
-                          : a,
-                      ),
-                    }
-                  }),
-                )
-              }
-            }
-            continue
-          }
-
-          if (eventName === "image" || parsed.type === "image") {
-            // Image event - either inline from LLM ({images: string[]}) or named ({url, s3_key})
-            const msgId = loadingMessageIdRef.current
-            if (msgId) {
-              if (Array.isArray(parsed.images)) {
-                const newImages = (parsed.images as string[]).map((url) => ({ url }))
-                receivedRenderableOutput = true
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === msgId
-                      ? { ...msg, images: [...(msg.images ?? []), ...newImages] }
-                      : msg,
-                  ),
-                )
-              } else if (parsed.url) {
-                const img = { url: asString(parsed.url) ?? "", s3Key: asString(parsed.s3_key) }
-                receivedRenderableOutput = true
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === msgId
-                      ? { ...msg, images: [...(msg.images ?? []), img] }
-                      : msg,
-                  ),
-                )
-              }
-            }
-            continue
-          }
-
-          if (eventName === "generated_file") {
-            // Generated file - schema: {url, s3_key, filename, mime_type}
-            receivedRenderableOutput = true
-            const msgId = loadingMessageIdRef.current
-            if (msgId) {
-              const file = {
-                url: asString(parsed.url) ?? "",
-                s3Key: asString(parsed.s3_key),
-                filename: asString(parsed.filename) ?? "file",
-                mimeType: asString(parsed.mime_type),
-              }
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === msgId
-                    ? { ...msg, generatedFiles: [...(msg.generatedFiles ?? []), file] }
-                    : msg,
-                ),
-              )
-            }
-            continue
-          }
-
-          if (eventName === "docx_progress") {
-            // Document generation progress - schema: {step, message, filename, code_preview?}
-            const step = asString(parsed.step) ?? "start"
-            const filename = asString(parsed.filename) ?? "document"
-            const progressMessage = asString(parsed.message) ?? ""
-            const activityId = `docx-${filename}`
-            reasoning.activity(activityId, eventRoundIndex(parsed))
-            flushPending()
-
-            const msgId = loadingMessageIdRef.current
-            if (msgId) {
-              setMessages((prev) =>
-                prev.map((msg) => {
-                  if (msg.id !== msgId) return msg
-                  const existing = (msg.activities ?? []).find((a) => a.id === activityId)
-                  const status: import("@/types/chat").ActivityStatus =
-                    step === "done" ? "done" : step === "error" ? "error" : "executing"
-                  if (existing) {
-                    return {
-                      ...msg,
-                      activities: (msg.activities ?? []).map((a) =>
-                        a.id === activityId
-                          ? { ...a, status, detail: progressMessage || a.detail, progressMessage, codePreview: asString(parsed.code_preview) }
-                          : a,
-                      ),
-                      reasoningTimeline: reasoning.timeline(),
-                    }
-                  }
-                  const newActivity: import("@/types/chat").ActivityItem = {
-                    id: activityId,
-                    type: "docx-progress",
-                    toolName: "docx",
-                    detail: progressMessage || `Generating ${filename}`,
-                    status,
-                    filename,
-                    progressMessage,
-                    codePreview: asString(parsed.code_preview),
-                  }
-                  return {
-                    ...msg,
-                    activities: [...(msg.activities ?? []), newActivity],
-                    reasoningTimeline: reasoning.timeline(),
-                  }
-                }),
-              )
-            }
-            continue
-          }
-
-          if (eventName === "agent_started") {
-            const agent = asString(parsed.agent)
-            const msgId = loadingMessageIdRef.current
-            if (agent && msgId) {
-              const activityId = `agent-${agent}-${Date.now()}`
-              agentActivityIds.set(agent, activityId)
-              reasoning.activity(activityId, eventRoundIndex(parsed))
-              flushPending()
-              const activity: import("@/types/chat").ActivityItem = {
-                id: activityId,
-                type: "agent",
-                toolName: "ask_agent",
-                label: agent,
-                detail: asString(parsed.task),
-                agentHandle: asString(parsed.handle),
-                status: "executing",
-              }
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === msgId
-                    ? { ...msg, activities: [...(msg.activities ?? []), activity], reasoningTimeline: reasoning.timeline() }
-                    : msg,
-                ),
-              )
-            }
-            continue
-          }
-
-          if (eventName === "agent_content" || eventName === "agent_finished") {
-            const agent = asString(parsed.agent)
-            const activityId = agent ? agentActivityIds.get(agent) : undefined
-            const msgId = loadingMessageIdRef.current
-            if (activityId && msgId) {
-              const content = typeof parsed.content === "string" ? parsed.content : ""
-              const failed = eventName === "agent_finished" && Boolean(asString(parsed.error))
-              if (eventName === "agent_finished") agentActivityIds.delete(agent!)
-              setMessages((prev) =>
-                prev.map((msg) => {
-                  if (msg.id !== msgId) return msg
-                  return {
-                    ...msg,
-                    activities: (msg.activities ?? []).map((a) => {
-                      if (a.id !== activityId) return a
-                      if (eventName === "agent_content") return { ...a, output: (a.output ?? "") + content }
-                      return { ...a, status: failed ? "error" as const : "done" as const }
-                    }),
-                  }
-                }),
-              )
-            }
-            continue
-          }
-
-          if (eventName === "plan_updated") {
-            // The turn's whole plan, re-sent in full on every change (see PlanItem).
-            const plan = toPlan(parsed.items)
-            const msgId = loadingMessageIdRef.current
-            if (plan && msgId) {
-              setMessages((prev) => prev.map((msg) => (msg.id === msgId ? { ...msg, plan } : msg)))
-            }
-            continue
-          }
-
-          if (eventName === "browser_view") {
-            const url = asString(parsed.url)
-            const msgId = loadingMessageIdRef.current
-            if (url && msgId) {
-              const browserView = { url, pageUrl: asString(parsed.page_url) ?? "", control: parsed.control === true }
-              setMessages((prev) => prev.map((msg) => (msg.id === msgId ? { ...msg, browserView } : msg)))
-            }
-            continue
-          }
-
-          if (eventName === "memory_updated") {
-            // Settings and memory-aware surfaces can refresh without coupling
-            // the stream hook to their cache implementation.
-            window.dispatchEvent(new CustomEvent("souvenir:memory-updated", { detail: parsed }))
-            continue
-          }
-
-          if (eventName === "done") {
-            const finishReason = asString(parsed.finish_reason)
-            const isToolCallRound = finishReason === "tool_calls"
-
-            const doneChatId = extractChatId(parsed)
-            if (doneChatId) adoptChatId(doneChatId)
-
-            const doneTitle = asString(parsed.title ?? parsed.chat_title)
-            if (doneTitle && !titleWasSet && resolvedChatIdRef.current) {
-              onTitleUpdate?.(resolvedChatIdRef.current, doneTitle)
-            }
-
-            flushPending()
-
-            // The backend contract allows a terminal error to be followed by
-            // done + message_saved. Preserve the error state; treating that
-            // cleanup frame as a successful empty answer is what exposed raw
-            // reasoning with Pin/Copy controls after request-limit failures.
-            if (terminalErrorSeen) {
-              streamFinished = true
-              continue
-            }
-
-            if (isToolCallRound) {
-              // Agentic intermediate round - tool calls are about to execute.
-              // More content rounds are coming; do not finalise the message.
-              queueUpdate({ isThinkingInProgress: false }, true)
-              continue
-            }
-
-            // Final round (finish_reason: "stop", "length", etc.)
-            if (resolvedChatIdRef.current) {
-              onChatMoveToTop?.(resolvedChatIdRef.current)
-            }
-
-            // Extract generated files from file_attachments in the done payload
-            const doneFileAttachments = Array.isArray(parsed.file_attachments)
-              ? (parsed.file_attachments as Array<Record<string, unknown>>)
-              : []
-            const doneGeneratedFiles = doneFileAttachments
-              .flatMap((a) => {
-                if (a.origin !== "generated") return []
-                const url = (
-                  typeof a.file_link === "string" ? a.file_link :
-                  typeof a.url === "string" ? a.url : ""
-                ).trim()
-                if (!url) return []
-                const rawName = typeof a.file_name === "string" ? a.file_name : typeof a.name === "string" ? a.name : undefined
-                const filename = rawName?.trim() || url.split("/").pop() || "file"
-                return [{ url, filename, mimeType: typeof a.mime_type === "string" ? a.mime_type : undefined }]
-              })
-
-            // Merge with any files already set via generated_file SSE events
-            const msgId = loadingMessageIdRef.current
-            if (doneGeneratedFiles.length > 0) receivedRenderableOutput = true
-            if (msgId && doneGeneratedFiles.length > 0) {
-              setMessages((prev) =>
-                prev.map((msg) => {
-                  if (msg.id !== msgId) return msg
-                  const existing = msg.generatedFiles ?? []
-                  const existingUrls = new Set(existing.map((f) => f.url))
-                  const toAdd = doneGeneratedFiles.filter((f) => !existingUrls.has(f.url))
-                  return toAdd.length > 0
-                    ? { ...msg, generatedFiles: [...existing, ...toAdd] }
-                    : msg
-                }),
-              )
-            }
-
-            // Update user message attachments with real backend URLs for uploaded files
-            const doneUserMsgId = userMessageIdRef.current
-            if (doneUserMsgId) {
-              const uploadedFromDone = doneFileAttachments
-                .flatMap((a) => {
-                  if (a.origin !== "uploaded" && a.origin !== "user") return []
-                  const url = (
-                    typeof a.file_link === "string" ? a.file_link :
-                    typeof a.url       === "string" ? a.url :
-                    typeof a.link      === "string" ? a.link : ""
-                  ).trim()
-                  if (!url) return []
-                  const rawName = typeof a.file_name === "string" ? a.file_name
-                    : typeof a.name === "string" ? a.name : undefined
-                  const filename = rawName?.trim() || url.split("/").pop() || "file"
-                  const mimeType = typeof a.mime_type === "string" ? a.mime_type : "application/octet-stream"
-                  return [{ filename, url, mimeType }]
-                })
-
-              if (uploadedFromDone.length > 0) {
-                setMessages((prev) =>
-                  prev.map((msg) => {
-                    if (msg.id !== doneUserMsgId) return msg
-                    const existing = msg.attachments ?? []
-                    const updated = existing.map((att, idx) => {
-                        const match = uploadedFromDone.find((u) => u.filename === att.file_name)
-                      if (match) return { ...att, url: match.url, uploading: false }
-                      // Positional fallback for backends without file_name
-                      if (!att.url && uploadedFromDone[idx]) return { ...att, url: uploadedFromDone[idx].url, uploading: false }
-                      return att
-                    })
-                    const merged = existing.length > 0 ? updated : uploadedFromDone.map((u, i) => ({
-                      id: `srv-att-${i}-${Date.now()}`,
-                      file_name: u.filename,
-                      file_type: u.mimeType,
-                      file_size: 0,
-                      url: u.url,
-                    }))
-                    return { ...msg, attachments: merged }
-                  }),
-                )
-              }
-            }
-
-            finishTurn("done")
-            continue
-          }
-
-          if (eventName === "stream_heartbeat") {
-            // Server-sent elapsed-time ping during long/silent generations (e.g. extended thinking).
-            // No UI action needed — the keepalive on the proxy side already handles connection keep-alive.
-            continue
-          }
-
-          if (eventName === "error") {
-            const rawError =
-              typeof parsed.error === "string"
-                ? parsed.error
-                : "Unexpected error from model"
-            const lower = rawError.toLowerCase()
-
-            flushPending()
-            terminalErrorSeen = true
-
-            if (lower.includes("token expired") ||
-              lower.includes("not authenticated") ||
-              lower.includes("unauthorized")
-            ) {
-              queueUpdate(
-                {
-                  content: SESSION_EXPIRED_MESSAGE,
-                  isLoading: false,
-                  isError: true,
-                },
-                true,
-              )
-              if (typeof window !== "undefined") {
-                window.dispatchEvent(new Event("auth:session-expired"))
-              }
-            } else {
-              finishTurn("error", friendlyModelError(rawError))
-            }
-
-            streamFinished = true
-            continue
-          }
-        }
-      }
-
-      // ── XHR transport with real upload progress ───────────────────────────
-
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest()
-        xhrRef.current = xhr
-
-        xhr.open(follow ? "GET" : "POST", resolvedEndpoint)
-        if (useDirectBackend) {
-          // Talking straight to the backend origin — carry credentials and the
-          // bearer token the proxy would otherwise have attached server-side.
-          xhr.withCredentials = true
-          if (directToken) xhr.setRequestHeader("Authorization", `Bearer ${directToken}`)
-        }
-
-        // Forward the user's timezone/locale/location so the backend resolves
-        // "today" in their zone and knows where they are. This XHR path bypasses
-        // apiClient, so set them here; the proxy route (or the backend directly)
-        // reads them via extract_geo.
-        for (const [name, value] of Object.entries(clientGeoHeaders())) {
-          xhr.setRequestHeader(name, value)
-        }
-
-        // Report real browser→proxy upload progress per file byte count
-        if (options?.files?.length && options.onUploadProgress) {
-          xhr.upload.addEventListener("progress", (e) => {
-            if (e.lengthComputable && e.total > 0) {
-              // Cap at 99 so the caller can set 100 only on confirmed completion
-              options.onUploadProgress!(Math.min(99, Math.round((e.loaded / e.total) * 100)))
-            }
-          })
-        }
-
-        // Upload finished → signal 100%, enter SSE streaming phase
-        xhr.upload.addEventListener("loadend", () => {
-          options?.onUploadProgress?.(100)
+      await sendStreamRequest({
+        target,
+        directToken,
+        fd,
+        chatId,
+        hasFiles: Boolean(options?.files?.length),
+        onUploadProgress: options?.onUploadProgress,
+        setXhr: (xhr) => { xhrRef.current = xhr },
+        onUploadEnd: () => {
           if (isActiveStream()) setStreamState?.("streaming")
           startFlushInterval()
-        })
-
-        let headersHandled = false
-        let processedLength = 0
-        // Set right before the HEADERS_RECEIVED branch rejects on a non-2xx
-        // status, so the DONE backstop below doesn't re-log/re-reject the
-        // same failure a second time.
-        let statusRejected = false
-
-        // onprogress fires for every incoming chunk of streaming data and is
-        // more reliable than relying on onreadystatechange LOADING events alone.
-        xhr.onprogress = () => {
-          // Safety-net: start flush interval if upload.loadend didn't fire yet
-          // (e.g. when there are no files to upload).
-          if (!flushTimerRef.current) startFlushInterval()
-          const text = xhr.responseText
-          if (text.length > processedLength) {
-            processSSEText(text.slice(processedLength))
-            processedLength = text.length
-          }
-        }
-
-        xhr.onreadystatechange = () => {
-          // Handle response headers once
-          if (xhr.readyState === XMLHttpRequest.HEADERS_RECEIVED && !headersHandled) {
-            headersHandled = true
-            if (xhr.status > 0 && (xhr.status < 200 || xhr.status >= 300)) {
-              const rawText = xhr.responseText || `Request failed with status ${xhr.status}`
-              const lowerText = rawText.toLowerCase()
-              failedStatus = xhr.status
-              // A follow that finds no running turn is the turn having ended, not a failure.
-              if (!(follow && xhr.status === 404)) {
-                logger.error("[useStreamingChat] Stream request failed", {
-                  status: xhr.status,
-                  chatId,
-                  isExistingChat,
-                  endpoint: resolvedEndpoint,
-                  responseText: xhr.responseText,
-                })
-              }
-              statusRejected = true
-              if (
-                xhr.status === 401 ||
-                lowerText.includes("token expired") ||
-                lowerText.includes("not authenticated") ||
-                lowerText.includes("unauthorized")
-              ) {
-                reject(new AuthExpiredError())
-              } else {
-                reject(new FriendlyStreamError(streamFailureMessage(rawText, xhr.status, resolvedEndpoint)))
-              }
-              return
-            }
-            if (follow && xhr.status > 0) {
-              // The stream replays the turn from its start, so the reply starts over with it.
-              attached = true
-              const replyId = loadingMessageIdRef.current
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === replyId
-                    ? { id: msg.id, reactKey: msg.reactKey, role: msg.role, created_at: msg.created_at, chat_id: msg.chat_id, content: "", isLoading: true }
-                    : msg,
-                ),
-              )
-            }
-            const headerChatId =
-              xhr.getResponseHeader("X-Chat-Id") ?? xhr.getResponseHeader("x-chat-id")
-            // Adopted like the stream's own chat-id events, so the new chat's
-            // stream is registered too — the message queue must not treat a
-            // chat whose first reply is still running as idle.
-            if (headerChatId && (!chatId || chatId.startsWith("temp-"))) {
-              adoptChatId(headerChatId)
-            }
-          }
-
-          if (xhr.readyState === XMLHttpRequest.DONE) {
-            xhrRef.current = null
-            // Process any data that onprogress may not have seen in the final chunk
-            const text = xhr.responseText
-            if (text.length > processedLength) {
-              processSSEText(text.slice(processedLength))
-              processedLength = text.length
-            }
-            // Flush a complete final event even if the server omitted the
-            // trailing blank-line delimiter.
-            processSSEText("", true)
-            if (xhr.status === 0 && !stopRequestedRef.current) {
-              logger.error("[useStreamingChat] Connection dropped mid-stream", {
-                chatId, isExistingChat, endpoint: resolvedEndpoint,
-              })
-              reject(new ConnectionDroppedError())
-            } else if (!statusRejected && xhr.status > 0 && (xhr.status < 200 || xhr.status >= 300)) {
-              // Backstop: HEADERS_RECEIVED should have already caught a non-2xx
-              // status, but if that branch was skipped/raced for any reason,
-              // this is the last chance to surface the real error instead of
-              // silently falling through to "Generation interrupted."
-              const rawText = xhr.responseText || `Request failed with status ${xhr.status}`
-              logger.error("[useStreamingChat] Stream request failed (caught at DONE)", {
-                status: xhr.status, chatId, isExistingChat, endpoint: resolvedEndpoint, responseText: xhr.responseText,
-              })
-              if (xhr.status === 401) {
-                reject(new AuthExpiredError())
-              } else {
-                reject(new FriendlyStreamError(streamFailureMessage(rawText, xhr.status, resolvedEndpoint)))
-              }
-            } else {
-              resolve()
-            }
-          }
-        }
-
-        // Distinguish a user-initiated abort (handleStopGeneration → xhr.abort())
-        // from a network error so we resolve cleanly instead of rejecting.
-        xhr.onabort = () => {
-          xhrRef.current = null
-          resolve()
-        }
-
-        xhr.onerror = () => {
-          xhrRef.current = null
-          logger.error("[useStreamingChat] XHR network error", {
-            chatId, isExistingChat, endpoint: resolvedEndpoint,
-          })
-          reject(new ConnectionDroppedError())
-        }
-
-        xhr.send(follow ? null : fd)
+        },
+        // Safety-net: start flush interval if upload.loadend didn't fire yet
+        // (e.g. when there are no files to upload).
+        onProgress: () => { if (!flushTimerRef.current) startFlushInterval() },
+        // Each new slice of the response stream, decoded and applied in order.
+        onText: (text, flush = false) => {
+          const decodedEvents = sseDecoder.push(text)
+          if (flush) decodedEvents.push(...sseDecoder.flush())
+          processStreamEvents(ctx, turn, decodedEvents)
+        },
+        // Adopted like the stream's own chat-id events, so the new chat's
+        // stream is registered too — the message queue must not treat a
+        // chat whose first reply is still running as idle.
+        onHeaderChatId: (headerChatId) => {
+          if (!chatId || chatId.startsWith("temp-")) adoptChatId(headerChatId)
+        },
+        isStopRequested: () => stopRequestedRef.current,
+        onFollowAttached: () => {
+          // The stream replays the turn from its start, so the reply starts over with it.
+          attached = true
+          const replyId = loadingMessageIdRef.current
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === replyId
+                ? { id: msg.id, reactKey: msg.reactKey, role: msg.role, created_at: msg.created_at, chat_id: msg.chat_id, content: "", isLoading: true }
+                : msg,
+            ),
+          )
+        },
+        onFollowFailed: (status) => { failedStatus = status },
       })
 
       stopFlushInterval()
@@ -1634,16 +363,27 @@ export function useStreamingChat({
 
       // Stream ended without a done or error event - treat what was shown as
       // the complete response. A user Stop already finalised the message.
-      if (!streamFinished && !stopRequestedRef.current) finishTurn("ended")
+      if (!turn.streamFinished && !stopRequestedRef.current) finishTurn(ctx, turn, "ended")
 
-      const outcome: StreamOutcome = stopRequestedRef.current ? "aborted" : turnFailed ? "error" : "done"
+      const outcome: StreamOutcome = stopRequestedRef.current ? "aborted" : turn.turnFailed ? "error" : "done"
       completeStream(resolvedChatIdRef.current, outcome)
+      // The backend saves the files this turn carried to Library; refresh what Library shows.
+      if (options?.files?.length) notifyLibraryFilesChanged()
       setStreamState?.("done")
       onStreamDone?.()
       return outcome
     } catch (error) {
       stopFlushInterval()
       flushPending()
+      completeStream(resolvedChatIdRef.current, stopRequestedRef.current ? "aborted" : "error")
+      // A turn that failed or was stopped part-way may still have saved its files.
+      if (options?.files?.length) notifyLibraryFilesChanged()
+
+      // User-initiated stop - not an error
+      if (stopRequestedRef.current) {
+        setStreamState?.("aborted")
+        return "aborted"
+      }
 
       // A follow that never reached the stream leaves the reply to whoever started it.
       if (!attached) {
@@ -1682,14 +422,6 @@ export function useStreamingChat({
         }
       }
 
-      completeStream(resolvedChatIdRef.current, stopRequestedRef.current ? "aborted" : "error")
-
-      // User-initiated stop - not an error
-      if (stopRequestedRef.current) {
-        setStreamState?.("aborted")
-        return "aborted"
-      }
-
       // A FriendlyStreamError was already logged where it was raised (status, endpoint,
       // body); logging it again here only doubles the dev overlay's issue count.
       if (!(error instanceof FriendlyStreamError)) logger.error("[useStreamingChat] Error", error)
@@ -1697,10 +429,8 @@ export function useStreamingChat({
       if (error instanceof AuthExpiredError) {
         setStreamState?.("error")
         // Settle the reply (no cursor or busy state) while the sign-out runs.
-        if (!streamFinished) finishTurn("error", SESSION_EXPIRED_MESSAGE)
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("auth:session-expired"))
-        }
+        if (!turn.streamFinished) finishTurn(ctx, turn, "error", SESSION_EXPIRED_MESSAGE)
+        dispatchSessionExpired()
         return "error"
       }
 
@@ -1709,32 +439,25 @@ export function useStreamingChat({
       const lower = rawMsg.toLowerCase()
 
       // Fallback for errors that never passed through the XHR reject paths
-      // above (e.g. a synchronous throw earlier in this function), so
-      // weren't already classified as AuthExpiredError there.
-      if (
-        lower.includes("token expired") ||
-        lower.includes("not authenticated") ||
-        lower.includes("unauthorized") ||
-        lower.includes("401")
-      ) {
+      // (e.g. a synchronous throw earlier in this function), so weren't
+      // already classified as AuthExpiredError there.
+      if (isAuthErrorText(lower) || lower.includes("401")) {
         setStreamState?.("error")
-        if (!streamFinished) finishTurn("error", SESSION_EXPIRED_MESSAGE)
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("auth:session-expired"))
-        }
+        if (!turn.streamFinished) finishTurn(ctx, turn, "error", SESSION_EXPIRED_MESSAGE)
+        dispatchSessionExpired()
         return "error"
       }
 
       setStreamState?.("error")
       // A turn already finished by its done/error event keeps that outcome.
-      if (!streamFinished) {
-        // Errors from the XHR paths above are already translated by
+      if (!turn.streamFinished) {
+        // Errors from the XHR paths are already translated by
         // friendlyModelError at the point of failure, when the real status
         // code / raw backend text was still available. Re-running the
         // translator on that already-friendly text would match no known
         // pattern and flatten it into the generic fallback — so only
         // translate genuinely-raw messages here.
-        finishTurn("error", error instanceof FriendlyStreamError ? rawMsg : friendlyModelError(rawMsg))
+        finishTurn(ctx, turn, "error", error instanceof FriendlyStreamError ? rawMsg : friendlyModelError(rawMsg))
       }
       return "error"
     }
@@ -1767,19 +490,4 @@ export function useStreamingChat({
   }
 
   return { fetchAiResponse, followStream, handleStopGeneration }
-}
-
-// ── Pure helpers ──────────────────────────────────────────────────────────────
-
-function extractChatId(parsed: Record<string, unknown>): string | null {
-  const raw = parsed.chat_id ?? parsed.chatId ?? null
-  if (raw === null || raw === undefined) return null
-  const resolved = String(raw).trim()
-  return resolved.length > 0 ? resolved : null
-}
-
-function asString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim().length > 0
-    ? value.trim()
-    : undefined
 }

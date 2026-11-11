@@ -1,26 +1,31 @@
 'use client'
 
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import React, {
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  useMemo,
+} from 'react'
 import { m, AnimatePresence } from 'framer-motion'
-import {
-  SearchOneIcon,
-  CancelOneIcon,
-  FolderOneIcon,
-  PinIcon,
-  UserAiIcon,
-  MessagePreviewOneIcon,
-  DashboardSquareOneIcon,
-  BubbleChatIcon,
-} from '@strange-huge/icons'
+import { useSearchParams } from 'next/navigation'
+import { useVirtualizer } from '@tanstack/react-virtual'
+import { SearchOneIcon } from '@strange-huge/icons'
 import { InputField } from '@/components/InputField'
-import { TabItem }    from '@/components/TabItem'
-import { highlightMatch } from '@/lib/highlightMatch'
+import { TabItem } from '@/components/TabItem'
 import { cn } from '@/lib/utils'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { resultCountMessage } from '@/lib/search/global-search'
 
-// ── Shadows ───────────────────────────────────────────────────────────────────
-
-const SHADOW_MODAL   = '0px 8px 32px 0px rgba(82,75,71,0.18), 0px 0px 0px 1px var(--neutral-100)'
-const SHADOW_FOCUSED = '0px 0px 0px 1.5px var(--blue-400)'
+import {
+  SHADOW_MODAL,
+  EMPTY_SEARCH_RESULTS,
+  TYPE_LABEL,
+  SectionHeader,
+  ResultRow,
+  CloseModalButton,
+  KbdHint,
+} from './ResultParts'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -52,262 +57,86 @@ export interface GlobalSearchModalProps {
   /** Pre-populate the input — useful for story/test fixtures */
   defaultQuery?: string
   loading?:      boolean
+  /** One line under the results, e.g. a source still loading or partly failed. */
+  notice?:       string
+  /** An action shown after the notice, e.g. "Search older chats". */
+  noticeAction?: { label: string; onClick: () => void; busy?: boolean }
   className?:    string
 }
 
-// ── Color system — mirrors KDS tag palette (Chip, Badge) ─────────────────────
-// Tokens live in aliases.css under `--color-tag-{Color}-{prop}`.
+// ── URL state ─────────────────────────────────────────────────────────────────
 
-const EMPTY_SEARCH_RESULTS: SearchResult[] = []
+/** Search params the open modal mirrors its query and filter into, so they survive back/forward. */
+export const SEARCH_QUERY_PARAM = 'search'
+export const SEARCH_FILTER_PARAM = 'searchType'
 
-const TYPE_ICON_BG: Record<SearchResultType, string> = {
-  chat:          'var(--color-tag-Blue-bg)',
-  'agent-chat':  'var(--color-tag-Green-bg-soft)',
-  project:       'var(--color-tag-Purple-bg)',
-  persona:       'var(--color-tag-Green-bg-soft)',
-  pin:           'var(--color-tag-Yellow-bg)',
-  page:          'var(--color-tag-Neutral-bg)',
+/**
+ * Shallow URL update: history.replaceState is picked up by Next's useSearchParams without a server
+ * round-trip, a navigation or a scroll. Only touches the given keys; no-op when nothing changes.
+ */
+function writeSearchParams(patch: Record<string, string | null>) {
+  if (typeof window === 'undefined') return
+  const url = new URL(window.location.href)
+  let changed = false
+  for (const [key, value] of Object.entries(patch)) {
+    if (!value) {
+      if (url.searchParams.has(key)) { url.searchParams.delete(key); changed = true }
+    } else if (url.searchParams.get(key) !== value) {
+      url.searchParams.set(key, value)
+      changed = true
+    }
+  }
+  if (changed) window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
 }
 
-const TYPE_ICON_COLOR: Record<SearchResultType, string> = {
-  chat:          'var(--color-tag-Blue-text)',
-  'agent-chat':  'var(--color-tag-Green-text)',
-  project:       'var(--color-tag-Purple-text)',
-  persona:       'var(--color-tag-Green-text)',
-  pin:           'var(--color-tag-Yellow-text)',
-  page:          'var(--color-tag-Neutral-text)',
-}
+// ── Virtualized flat list (one type filter can hold every match) ─────────────
 
-// ── Icon map by type ──────────────────────────────────────────────────────────
+const ROW_ESTIMATE = 54
 
-const TYPE_ICON: Record<SearchResultType, React.ComponentType<{ size: number; color: string }>> = {
-  chat:          MessagePreviewOneIcon,
-  'agent-chat':  BubbleChatIcon,
-  project:       FolderOneIcon,
-  persona:       UserAiIcon,
-  pin:           PinIcon,
-  page:          DashboardSquareOneIcon,
-}
-
-const TYPE_LABEL: Record<SearchResultType, string> = {
-  chat:          'Chats',
-  'agent-chat':  'Agent Chats',
-  project:       'Projects',
-  persona:       'Agents',
-  pin:           'Pins',
-  page:          'Pages',
-}
-
-// ── SectionHeader ─────────────────────────────────────────────────────────────
-
-function SectionHeader({ label }: { label: string }) {
-  return (
-    <p
-      style={{
-        margin:        '8px 16px 2px',
-        fontFamily:    'var(--font-body)',
-        fontSize:      'var(--font-size-caption)',
-        fontWeight:    600,
-        lineHeight:    'var(--line-height-caption)',
-        color:         'var(--neutral-400)',
-        letterSpacing: '0.06em',
-        textTransform: 'uppercase',
-      }}
-    >
-      {label}
-    </p>
-  )
-}
-
-// ── ResultRow ─────────────────────────────────────────────────────────────────
-
-interface ResultRowProps {
-  result:  SearchResult
-  focused: boolean
-  query:   string
-  onClick: () => void
+function VirtualResults({ items, focusedIndex, focusedId, query, scrollRef, onPick, onHover }: {
+  items: SearchResult[]
+  focusedIndex: number
+  focusedId: string | null
+  query: string
+  scrollRef: React.RefObject<HTMLDivElement | null>
+  onPick: (result: SearchResult) => void
   onHover: (id: string | null) => void
-}
-
-function ResultRow({ result, focused, query, onClick, onHover }: ResultRowProps) {
-  const [hovered, setHovered] = useState(false)
-  const Icon = TYPE_ICON[result.type]
-
+}) {
+  'use no memo' // useVirtualizer returns unmemoisable functions, so React Compiler skips this component.
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_ESTIMATE,
+    overscan: 8,
+    getItemKey: index => items[index].id,
+  })
+  // Keyboard focus may land on a row that isn't rendered yet: scroll it in (which also mounts it,
+  // so aria-activedescendant points at a real element).
+  useEffect(() => {
+    if (focusedIndex >= 0) virtualizer.scrollToIndex(focusedIndex, { align: 'auto' })
+  }, [focusedIndex, virtualizer])
   return (
-    <button
-      type="button"
-      id={`search-result-${result.id}`}
-      role="option"
-      aria-selected={focused}
-      aria-label={[
-        // "Chat: Onboarding flow redesign, Today"
-        // "Project: Souvenir V2, 18 components"
-        `${TYPE_LABEL[result.type].slice(0, -1)}: ${result.title}`,
-        result.meta      ?? result.subtitle,
-      ].filter(Boolean).join(', ')}
-      onClick={onClick}
-      onMouseEnter={() => { setHovered(true);  onHover(result.id) }}
-      onMouseLeave={() => { setHovered(false); onHover(null) }}
-      style={{
-        display:         'flex',
-        alignItems:      'center',
-        gap:             10,
-        padding:         '8px 8px',
-        margin:          '1px 8px',
-        borderRadius:    10,
-        border:          'none',
-        width:           'calc(100% - 16px)',
-        textAlign:       'left',
-        backgroundColor: focused
-          ? 'var(--neutral-100)'
-          : hovered
-            ? 'var(--neutral-50)'
-            : 'transparent',
-        boxShadow:       focused ? SHADOW_FOCUSED : 'none',
-        cursor:          'pointer',
-        outline:         'none',
-        transition:      'background-color 100ms, box-shadow 100ms',
-        flexShrink:      0,
-      }}
-    >
-      {/* Colour-coded icon container */}
-      <div
-        style={{
-          display:         'inline-flex',
-          alignItems:      'center',
-          justifyContent:  'center',
-          width:           28,
-          height:          28,
-          borderRadius:    8,
-          backgroundColor: TYPE_ICON_BG[result.type],
-          flexShrink:      0,
-        }}
-      >
-        <Icon size={14} color={TYPE_ICON_COLOR[result.type]} />
-      </div>
-
-      {/* Text */}
-      <div style={{ flex: '1 1 0', minWidth: 0 }}>
-        <p
-          style={{
-            margin:       0,
-            fontFamily:   'var(--font-body)',
-            fontSize:     'var(--font-size-body)',
-            fontWeight:   500,
-            lineHeight:   'var(--line-height-body)',
-            color:        'var(--neutral-800)',
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace:   'nowrap',
-          }}
-        >
-          {highlightMatch(result.title, query)}
-        </p>
-        {result.subtitle && (
-          <p
-            style={{
-              margin:       '2px 0 0',
-              fontFamily:   'var(--font-body)',
-              fontSize:     'var(--font-size-caption)',
-              fontWeight:   400,
-              lineHeight:   'var(--line-height-caption)',
-              color:        'var(--neutral-400)',
-              overflow:     'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace:   'nowrap',
-            }}
+    <div style={{ position: 'relative', width: '100%', height: virtualizer.getTotalSize() }}>
+      {virtualizer.getVirtualItems().map(row => {
+        const result = items[row.index]
+        return (
+          <div
+            key={row.key}
+            data-index={row.index}
+            ref={virtualizer.measureElement}
+            style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${row.start}px)` }}
           >
-            {highlightMatch(result.subtitle, query)}
-          </p>
-        )}
-      </div>
-
-      {/* Meta (timestamp, count, etc.) */}
-      {result.meta && (
-        <span
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontSize:   'var(--font-size-caption)',
-            fontWeight: 400,
-            lineHeight: 'var(--line-height-caption)',
-            color:      'var(--neutral-400)',
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-          }}
-        >
-          {result.meta}
-        </span>
-      )}
-    </button>
-  )
-}
-
-// ── CloseModalButton ──────────────────────────────────────────────────────────
-
-function CloseModalButton({ onClick }: { onClick: () => void }) {
-  const [hovered, setHovered] = useState(false)
-  return (
-    <button
-      type="button"
-      aria-label="Close search"
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display:         'inline-flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        width:           32,
-        height:          32,
-        borderRadius:    8,
-        border:          'none',
-        backgroundColor: hovered ? 'var(--neutral-100)' : 'transparent',
-        cursor:          'pointer',
-        flexShrink:      0,
-        transition:      'background-color 120ms',
-      }}
-    >
-      <CancelOneIcon size={16} color="var(--neutral-500)" />
-    </button>
-  )
-}
-
-// ── KbdHint ───────────────────────────────────────────────────────────────────
-
-function KbdHint({ keys, label }: { keys: string[]; label: string }) {
-  return (
-    <span
-      style={{
-        display:    'inline-flex',
-        alignItems: 'center',
-        gap:        4,
-        fontFamily: 'var(--font-body)',
-        fontSize:   'var(--font-size-caption)',
-        color:      'var(--neutral-400)',
-      }}
-    >
-      {keys.map(k => (
-        <kbd
-          key={k}
-          style={{
-            display:         'inline-flex',
-            alignItems:      'center',
-            justifyContent:  'center',
-            minWidth:        20,
-            padding:         '1px 5px',
-            borderRadius:    5,
-            backgroundColor: 'var(--neutral-100)',
-            boxShadow:       '0px 0px 0px 1px var(--neutral-200)',
-            fontFamily:      'var(--font-code)',
-            fontSize: 12,
-            color:           'var(--neutral-600)',
-          }}
-        >
-          {k}
-        </kbd>
-      ))}
-      <span>{label}</span>
-    </span>
+            <ResultRow
+              result={result}
+              focused={focusedId === result.id}
+              query={query}
+              onClick={() => onPick(result)}
+              onHover={onHover}
+            />
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -337,62 +166,45 @@ export function GlobalSearchModal({
   recents      = EMPTY_SEARCH_RESULTS,
   defaultQuery = '',
   loading      = false,
+  notice,
+  noticeAction,
   className,
 }: GlobalSearchModalProps) {
+  const searchParams = useSearchParams()
   const [query,        setQuery]        = useState(defaultQuery)
-  const [activeFilter, setActiveFilter] = useState<FilterValue>('all')
   const [focusedId,    setFocusedId]    = useState<string | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const modalRef = useRef<HTMLDivElement>(null)
+  // The query the modal opened with (from the URL, e.g. after back/forward), handed to the parent once.
+  const [seedQuery,    setSeedQuery]    = useState('')
+  const inputRef  = useRef<HTMLInputElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Reset state on close; focus input on open
-  useEffect(() => {
-    if (!open) {
+  // The filter lives in the URL (?searchType=) so it survives back/forward; unknown values mean All.
+  const rawFilter = searchParams.get(SEARCH_FILTER_PARAM)
+  const activeFilter: FilterValue = FILTER_TABS.some(tab => tab.value === rawFilter) ? rawFilter as FilterValue : 'all'
+  const setActiveFilter = useCallback((next: FilterValue) => {
+    writeSearchParams({ [SEARCH_FILTER_PARAM]: next === 'all' ? null : next })
+  }, [])
+
+  // Open edge: adopt the query from the URL (or the fixture default). Close edge: reset.
+  const [wasOpen, setWasOpen] = useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    setFocusedId(null)
+    if (open) {
+      const seed = searchParams.get(SEARCH_QUERY_PARAM) ?? defaultQuery
+      setQuery(seed)
+      setSeedQuery(seed)
+    } else {
       setQuery('')
-      setActiveFilter('all')
-      setFocusedId(null)
-      return
+      setSeedQuery('')
     }
-    const id = setTimeout(() => inputRef.current?.focus(), 50)
-    return () => clearTimeout(id)
-  }, [open])
-
-  // Focus trap — keep Tab / Shift+Tab cycling inside the modal card.
-  // Restores focus to the previously focused element on close.
+  }
   useEffect(() => {
-    if (!open) return
-
-    const previouslyFocused = document.activeElement as HTMLElement | null
-
-    const handleTab = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return
-      const modal = modalRef.current
-      if (!modal) return
-
-      const focusable = Array.from(
-        modal.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
-        ),
-      )
-      if (focusable.length === 0) return
-
-      const first = focusable[0]
-      const last  = focusable[focusable.length - 1]
-
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault()
-        last.focus()
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault()
-        first.focus()
-      }
-    }
-
-    document.addEventListener('keydown', handleTab)
-    return () => {
-      document.removeEventListener('keydown', handleTab)
-      previouslyFocused?.focus()
-    }
+    if (open && seedQuery) onQuery?.(seedQuery)
+  }, [open, seedQuery, onQuery])
+  // Closed by any route (parent included): drop the modal's params from the URL.
+  useEffect(() => {
+    if (!open) writeSearchParams({ [SEARCH_QUERY_PARAM]: null, [SEARCH_FILTER_PARAM]: null })
   }, [open])
 
   // Scroll focused result into view whenever it changes via keyboard
@@ -406,12 +218,13 @@ export function GlobalSearchModal({
   const handleQueryChange = useCallback((val: string) => {
     setQuery(val)
     setFocusedId(null)
+    writeSearchParams({ [SEARCH_QUERY_PARAM]: val })
     onQuery?.(val)
   }, [onQuery])
 
   const handleClose = useCallback(() => {
+    writeSearchParams({ [SEARCH_QUERY_PARAM]: null, [SEARCH_FILTER_PARAM]: null })
     setQuery('')
-    setActiveFilter('all')
     setFocusedId(null)
     onClose()
   }, [onClose])
@@ -444,17 +257,6 @@ export function GlobalSearchModal({
   // ── Keyboard navigation on the input ────────────────────────────────────────
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Escape') {
-      e.preventDefault()
-      // First Escape clears the query and returns to recents.
-      // Second Escape (or Escape with no query) closes the modal.
-      if (hasQuery) {
-        handleQueryChange('')
-      } else {
-        handleClose()
-      }
-      return
-    }
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       const next = focusedIndex < flatList.length - 1 ? focusedIndex + 1 : 0
@@ -470,62 +272,51 @@ export function GlobalSearchModal({
     if (e.key === 'Enter' && focusedId) {
       e.preventDefault()
       const hit = flatList.find(r => r.id === focusedId)
-      if (hit) { onSelect(hit); handleClose() }
+      // Close (and strip ?search=/?searchType=) before onSelect navigates: a history.replaceState
+      // issued after router.push has started overrides the pending navigation in Next.
+      if (hit) { handleClose(); onSelect(hit) }
     }
   }, [focusedIndex, flatList, focusedId, onSelect, handleClose])
 
   const handleResultClick = useCallback((result: SearchResult) => {
-    onSelect(result)
     handleClose()
+    onSelect(result)
   }, [onSelect, handleClose])
+
+  const filteredResults = useMemo(
+    () => (activeFilter === 'all' ? [] : results.filter(r => r.type === activeFilter)),
+    [activeFilter, results],
+  )
 
   const noResults = hasQuery && results.length === 0 && !loading
 
   return (
-    <AnimatePresence>
-      {open && (
-        <>
-          {/* Backdrop */}
+    <Dialog open={open} onOpenChange={next => { if (!next) handleClose() }}>
+      <DialogContent
+        hideClose
+        aria-describedby={undefined}
+        className={cn(className)}
+        // Focus the field rather than the first tabbable; Radix traps focus and returns it on close.
+        onOpenAutoFocus={e => { e.preventDefault(); inputRef.current?.focus() }}
+        // First Escape clears the query and returns to recents; Escape with no query closes.
+        onEscapeKeyDown={e => { if (hasQuery) { e.preventDefault(); handleQueryChange('') } }}
+        style={{
+          top:             132,
+          transform:       'translateX(-50%)',
+          width:           560,
+          maxHeight:       'none',
+          display:         'block',
+          backgroundColor: 'var(--modal-bg)',
+          boxShadow:       SHADOW_MODAL,
+          // The default entrance animates from the vertical centre; this card sits near the top instead.
+          animation:       'none',
+        }}
+      >
+        <DialogTitle className="sr-only">Search Souvenir</DialogTitle>
           <m.div
-            key="backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            onClick={handleClose}
-            style={{
-              position:        'fixed',
-              inset:           0,
-              backgroundColor: 'var(--overlay-bg)',
-              backdropFilter:  'blur(2px)',
-              zIndex:          20,
-            }}
-          />
-
-          {/* Modal card */}
-          <m.div
-            ref={modalRef}
-            key="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Search Souvenir"
-            initial={{ opacity: 0, scale: 0.97, y: -6, x: '-50%' }}
-            animate={{ opacity: 1, scale: 1, y: 0, x: '-50%' }}
-            exit={{ opacity: 0, scale: 0.97, y: -6, x: '-50%' }}
+            initial={{ opacity: 0, scale: 0.97, y: -6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className={cn(className)}
-            style={{
-              position:        'fixed',
-              top:             132,
-              left:            '50%',
-              zIndex:          21,
-              width:           560,
-              maxWidth:        'calc(100vw - 32px)',
-              borderRadius:    16,
-              backgroundColor: 'var(--modal-bg)',
-              boxShadow:       SHADOW_MODAL,
-              overflow:        'hidden',
-            }}
           >
 
             {/* ── Search header ──────────────────────────────────────────── */}
@@ -598,6 +389,7 @@ export function GlobalSearchModal({
 
             {/* ── Results list ────────────────────────────────────────────── */}
             <div
+              ref={scrollRef}
               id="global-search-results"
               role="listbox"
               className="kaya-scrollbar kaya-no-gutter"
@@ -726,7 +518,7 @@ export function GlobalSearchModal({
 
               {/* Has query + results + type filter → flat list */}
               {hasQuery && !loading && activeFilter !== 'all' && (
-                results.filter(r => r.type === activeFilter).length === 0 ? (
+                filteredResults.length === 0 ? (
                   <p style={{
                     margin:     '32px 0',
                     textAlign:  'center',
@@ -737,21 +529,50 @@ export function GlobalSearchModal({
                     No {TYPE_LABEL[activeFilter].toLowerCase()} match &ldquo;{query}&rdquo;
                   </p>
                 ) : (
-                  results
-                    .flatMap(result => result.type === activeFilter ? [(
-                      <ResultRow
-                        key={result.id}
-                        result={result}
-                        focused={focusedId === result.id}
-                        query={query}
-                        onClick={() => handleResultClick(result)}
-                        onHover={setFocusedId}
-                      />
-                    )] : [])
+                  <VirtualResults
+                    items={filteredResults}
+                    focusedIndex={focusedIndex}
+                    focusedId={focusedId}
+                    query={query}
+                    scrollRef={scrollRef}
+                    onPick={handleResultClick}
+                    onHover={setFocusedId}
+                  />
                 )
               )}
 
             </div>
+
+            {notice && (
+              <p role="note" style={{
+                margin:     0,
+                padding:    '0 16px 6px',
+                fontFamily: 'var(--font-body)',
+                fontSize:   'var(--font-size-caption)',
+                color:      'var(--neutral-500)',
+              }}>
+                {notice}
+                {noticeAction && (
+                  <>
+                    {' '}
+                    <button
+                      type="button"
+                      onClick={noticeAction.onClick}
+                      disabled={noticeAction.busy}
+                      aria-busy={noticeAction.busy || undefined}
+                      style={{ border: 0, padding: 0, background: 'none', font: 'inherit', color: 'var(--neutral-900)', textDecoration: 'underline', cursor: noticeAction.busy ? 'progress' : 'pointer' }}
+                    >
+                      {noticeAction.busy ? 'Loading…' : noticeAction.label}
+                    </button>
+                  </>
+                )}
+              </p>
+            )}
+
+            {/* Result count for screen readers; the list itself isn't a live region. */}
+            <p aria-live="polite" className="sr-only">
+              {resultCountMessage(hasQuery && activeFilter !== 'all' ? flatList.length : results.length, hasQuery, loading)}
+            </p>
 
             {/* ── Footer kbd hints — white bg, no divider ────────────────── */}
             <div
@@ -769,9 +590,8 @@ export function GlobalSearchModal({
             </div>
 
           </m.div>
-        </>
-      )}
-    </AnimatePresence>
+      </DialogContent>
+    </Dialog>
   )
 }
 

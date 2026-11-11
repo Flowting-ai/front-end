@@ -4,6 +4,10 @@ import { useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { hasActivePaidSubscription } from "@/lib/onboarding-access";
+import { redirectToLogin } from "@/lib/auth/logout-state";
+import { currentUser } from "@/lib/api/current-user";
+import { parseUserMeGate } from "@/lib/api/user-me-schema";
+import { determineNextOnboardingPath } from "@/lib/onboarding-next-step";
 import { AUTH_LOGIN_ROUTE, SETTINGS_BILLING_CONFIRMATION_ROUTE, TEAM_INVITE_BASE_ROUTE, ONBOARDING_SETUP_ROUTE, ONBOARDING_TEAM_WELCOME_ROUTE, SLACK_LINK_ROUTE } from "@/lib/routes";
 
 export function OnboardingGuard({ children }: { children: React.ReactNode }) {
@@ -14,7 +18,9 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isHydrated) return;
     if (!isAuthenticated) {
-      window.location.href = AUTH_LOGIN_ROUTE;
+      // Back to this page after signing in, as the server-side redirect does.
+      const here = window.location.pathname + window.location.search;
+      redirectToLogin(`${AUTH_LOGIN_ROUTE}?returnTo=${encodeURIComponent(here)}`);
       return;
     }
     // Never redirect away from the billing confirmation page (post-checkout return)
@@ -38,10 +44,18 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
       user.onboardingCompleted === true ||
       hasActivePaidSubscription(user.planType ?? null, user.subscriptionStatus ?? null);
 
-    // Mirrors proxy.ts's determineNextOnboardingPath: a waiting invite is
-    // accepted before setup, which would otherwise create a separate org.
+    // Someone back from checkout is let through, as the proxy does (souvenir_checkout_complete).
+    if (!allowsMainApp && document.cookie.split("; ").includes("souvenir_checkout_complete=1")) return;
+
+    // The same next step as the proxy (determineNextOnboardingPath), so a user part-way through
+    // resumes there instead of starting again at Setup. A waiting invite still comes first.
     if (!allowsMainApp) {
-      replace(user.pendingInviteId ? ONBOARDING_TEAM_WELCOME_ROUTE(user.pendingInviteId) : ONBOARDING_SETUP_ROUTE);
+      let next = user.pendingInviteId ? ONBOARDING_TEAM_WELCOME_ROUTE(user.pendingInviteId) : ONBOARDING_SETUP_ROUTE;
+      try {
+        const profile = currentUser.peek();
+        if (profile) next = determineNextOnboardingPath(parseUserMeGate(profile));
+      } catch { /* unexpected profile shape: keep the default step */ }
+      replace(next);
     }
   }, [isHydrated, isAuthenticated, user, replace, pathname]);
 

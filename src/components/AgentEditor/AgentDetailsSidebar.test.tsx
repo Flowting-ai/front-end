@@ -6,6 +6,7 @@
 
 import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AIModel } from '@/types/ai-model'
 import { PersonaRepo } from '@/lib/api/persona-repo'
@@ -32,7 +33,7 @@ vi.mock('@/hooks/use-persona-repos', () => ({
 vi.mock('@/lib/api/personas', () => api)
 vi.mock('@/lib/ai-models', async importOriginal => ({
   ...(await importOriginal<typeof import('@/lib/ai-models')>()),
-  fetchModelsWithCache: models.fetchModelsWithCache,
+  modelsQuery: () => ({ queryKey: ['models'], queryFn: () => models.fetchModelsWithCache(), retry: false }),
 }))
 vi.mock('@/lib/analytics/events', () => ({ trackBrowserEvent: vi.fn(), trackFeature: vi.fn() }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() } }))
@@ -86,6 +87,7 @@ beforeEach(() => {
   container = document.createElement('div')
   document.body.appendChild(container)
   root = createRoot(container)
+  queryClient = new QueryClient()
 })
 
 afterEach(async () => {
@@ -96,6 +98,8 @@ afterEach(async () => {
 
 async function settle() {
   for (let i = 0; i < 6; i++) await act(async () => { await Promise.resolve() })
+  // React Query notifies observers on a timer tick.
+  await act(async () => { await new Promise(r => setTimeout(r, 0)) })
 }
 // Stand-in for AppLayout's slide-in slot: the component hands its panel to the shared
 // project-panel context, so the tests render that slot (header + close button + content).
@@ -113,12 +117,15 @@ function PanelOutlet({ tick }: { tick: number }) {
   )
 }
 let renderTick = 0
+let queryClient = new QueryClient()
 async function render(props: Partial<React.ComponentProps<typeof AgentDetailsSidebar>> = {}) {
   await act(async () => root.render(
-    <ProjectPanelProvider>
-      <AgentDetailsSidebar repoId="repo-1" canEdit onClose={onClose} {...props} />
-      <PanelOutlet tick={++renderTick} />
-    </ProjectPanelProvider>,
+    <QueryClientProvider client={queryClient}>
+      <ProjectPanelProvider>
+        <AgentDetailsSidebar repoId="repo-1" canEdit onClose={onClose} {...props} />
+        <PanelOutlet tick={++renderTick} />
+      </ProjectPanelProvider>
+    </QueryClientProvider>,
   ))
   await settle()
 }

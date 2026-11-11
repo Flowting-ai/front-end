@@ -18,6 +18,17 @@
   --button-default-text:             var(--color-interactive-primary-text);
   --button-default-bg-disabled-from: var(--color-interactive-primary-surface-disabled-from);
   --button-default-bg-disabled-to:   var(--color-interactive-primary-surface-disabled-to);
+  /* The primary drawn like the secondary button, in black: same two-layer lift with a dark ring,
+     a light wash on hover, and the secondary's hover shadow. */
+  --button-primary-bg-hover:         rgba(255, 255, 255, 0.08);
+  --shadow-button-primary-outer:
+    0px 1.091px 1.091px 0px var(--neutral-800-05),
+    0px 1.455px 3.127px 0px var(--neutral-900-15),
+    inset 0px 0px 0px 1px var(--neutral-900),
+    inset 0px -2.182px 0.364px 0px rgba(0, 0, 0, 0.45);
+  --shadow-button-primary-outer-hover:
+    0px 1px 1.5px 0px var(--neutral-700-12),
+    inset 0px 0px 0px 1px var(--neutral-700);
   --button-default-border-disabled:  var(--color-interactive-primary-border-disabled);
   --button-default-text-disabled:    var(--color-interactive-primary-text-disabled);
   --button-default-hover-glow:       linear-gradient(180deg, rgb(221,221,221) 0%, rgb(143,116,39) 21.635%, rgb(104,61,27) 36.058%, rgb(39,13,42) 63.462%, rgb(11,53,127) 82.212%, rgb(13,110,178) 97.115%);
@@ -46,12 +57,12 @@
   --shadow-button-secondary-outer:
     0px 1.091px 1.091px 0px var(--neutral-800-05),
     0px 1.455px 3.127px 0px var(--neutral-900-15),
-    0px 0px 0px 1px var(--neutral-100);
+    inset 0px 0px 0px 1px var(--neutral-100);
 
   /* Outer hover: subtle drop + ring - elevated look gives way to hover ring on interaction */
   --shadow-button-secondary-outer-hover:
     0px 1px 1.5px 0px var(--neutral-700-12),
-    0px 0px 0px 1px var(--neutral-300-40);
+    inset 0px 0px 0px 1px var(--neutral-300-40);
 
   /* Inner resting: bottom depth groove */
   --shadow-button-secondary-inner:
@@ -61,14 +72,20 @@
   --shadow-button-secondary-inner-hover: var(--shadow-item-inner);
 
   /* ── Button / Danger ─────────────────────────────────────────────────────
-     Red extension of Button/Secondary — shares secondary shadow tokens,
-     only bg and text colors differ. Light tint (not a bold fill), same
-     bg/text pairing already validated by the Badge/tag Red variant.
+     shadcn "destructive" style: solid red fill with white text. Literal hex
+     (not --red-*) because the dark theme remaps the red ramp; dark values
+     live in theme.css.
      ─────────────────────────────────────────────────────────────────────────── */
-  --button-danger-bg:            var(--red-100);
-  --button-danger-bg-hover:      var(--red-200);
-  --button-danger-text:          var(--red-700);
-  --button-danger-text-disabled: var(--red-700);
+  --button-danger-bg:            #DC2626;
+  --button-danger-bg-hover:      #B91C1C;
+  /* shadcnspace 10 Save (a deep green, not the lime brand scale) and 23 Approve (its tint) */
+  --button-save-bg:              #15803D;
+  --button-save-bg-hover:        #166534;
+  --button-approve-bg:           rgba(21, 128, 61, 0.10);
+  --button-approve-bg-hover:     rgba(21, 128, 61, 0.18);
+  --button-approve-text:         #15803D;
+  --button-danger-text:          #FFFFFF;
+  --button-danger-text-disabled: #FFFFFF;
 
   /* ── Button / Ghost + Outline - Hover/Active shared ──────────────────────── */
   --button-subtle-border-hover: var(--color-interactive-subtle-border-hover);
@@ -225,23 +242,27 @@
 
   /* Outer shadow + 1px ring on selected */
   --shadow-tab-item-selected:
-    0px 1px 1.5px 0px var(--neutral-700-12),
+    0px 3px 6px -1px rgba(82, 75, 71, 0.26),
+    0px 1px 2px 0px rgba(82, 75, 71, 0.22),
     0px 0px 0px 1px var(--neutral-100);
 
   /* Inner bottom shadow on selected */
   --shadow-tab-item-selected-inner:
-    inset 0px -1px 0px 0px var(--neutral-900-10);
+    inset 0px 1px 0px 0px rgba(255, 255, 255, 1),
+    inset 0px -1px 0px 0px rgba(82, 75, 71, 0.13);
 
   /* ── Tabs (pill container) ───────────────────────────────────────────────────
      Tab container: neutral-50 at 50% bg + multi-layer inner shadow.
      ─────────────────────────────────────────────────────────────────────────── */
+  /* Tabs (shadcnspace Tabs 08 look): the active pill's ring + soft drop shadow */
+  --shadow-tab-pill: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 10px -4px rgba(0, 0, 0, 0.15), 0 0 0 1px var(--border-default);
   --tab-bg: var(--neutral-100);  /* light gray track behind the white selected tab */
 
   /* 3-layer inner shadow: bottom white highlight, top depth, ambient glow */
   --shadow-tab-inner:
-    inset 0px -1px 0px 0px var(--neutral-white-90),
-    inset 0px  1px 0px 0px var(--neutral-100),
-    inset 0px  0px 4px 0px var(--neutral-200-50);
+    inset 0px 2px 3px 0px rgba(82, 75, 71, 0.12),
+    inset 0px 0px 0px 1px rgba(82, 75, 71, 0.05),
+    inset 0px -1px 0px 0px rgba(255, 255, 255, 0.9);
 
   /* ── Popover ────────────────────────────────────────────────────────────────
      Floating surface used for dropdown menus, command palettes, context menus.
@@ -254,6 +275,11 @@
   --widget-bg-from: #ffffff;  /* chat widgets: white fading to a light blue */
   --widget-bg-to:   #E8F2FC;
   --widget-accent:  var(--blue-500);  /* icon tiles, selected dates, accent bars */
+  /* Usage chart categories (Slack / Automations / Chat). Fixed order, checked for colour-blind and
+     normal-vision separation as a set; dark mode has its own selected steps in theme.css. */
+  --chart-slack:       #4A83BF;
+  --chart-automation:  #C9A227;
+  --chart-chat:        #EE3030;
   --widget-on-accent: #ffffff;  /* text/dots drawn on top of the accent (e.g. the selected date) */
 
   /* Soft shadow under the coloured ring around an agent avatar (edit panel). */
@@ -346,6 +372,11 @@
   /* ── FloatingMenuItem ──────────────────────────────────────────────────────── */
   --floating-menu-item-hover-bg: var(--neutral-100-60);  /* rgba(245, 245, 245,0.6) */
   --floating-menu-item-label:    var(--neutral-700);
+  /* The app's main layout cards (the chat/page card, settings, agents, schedules). 16px = the 8px
+     radius of the controls inside (TopBar chat name, buttons) + their 8px inset, so the corners nest. */
+  --layout-radius: 16px;
+  --floating-menu-item-active-bg: var(--neutral-100);  /* selected item (its panel is open): one step past hover */
+  --floating-menu-item-active-fg: var(--neutral-800);  /* icon / label on the selected item */
 
   /* Outer: drop shadow + 1px ring - applied via box-shadow on the element */
   --shadow-floating-menu-item-outer:
@@ -371,7 +402,7 @@
   --divider-color: var(--neutral-800-15);  /* rgba(59,54,50,0.15) */
 
   /* ── Focus ring ───────────────────────────────────────────────────────────── */
-  --focus-ring: var(--color-focus-ring);  /* #F92064 */
+  --focus-ring: var(--color-focus-ring);  /* #0D6EB2 */
 
   /* ── Switch ────────────────────────────────────────────────────────────────── */
   --switch-track-bg-off:   var(--neutral-100);     /* #F5F5F5 */
@@ -808,7 +839,7 @@
 
 /* ── Shared focus-visible ring ───────────────────────────────────────────────
    Every interactive KDS component must show a 2px keyboard-focus ring using
-   `--focus-ring` (#F92064). Per-component class hooks below own the offset and
+   `--focus-ring` (#0D6EB2). Per-component class hooks below own the offset and
    radius to avoid clipping. Mouse / touch interactions never trigger it because
    `:focus-visible` is keyboard-driven. Defined per-class instead of via a
    shared utility so each component can tune the offset to its own border-radius
@@ -826,6 +857,14 @@
   /* No `border-radius` here - would override the element's resting radius
      during focus. Modern browsers (Chrome 94+, Safari 16.4+) automatically
      match `outline`'s curvature to the element's `border-radius`. */
+}
+
+/* Inside a Radix menu the focused item is the highlighted one: Radix focuses
+   it on hover as well as on arrow keys, and Chrome treats that focus as
+   :focus-visible, so the ring would follow the mouse. DropdownMenuItem paints
+   its hover background on focus there, which is the indicator instead. */
+[role="menu"] .kaya-dropdown-item[data-highlighted]:focus-visible {
+  outline: none;
 }
 
 /* Switch - focus indicator moved to Pattern 2 (state-gated outline on the

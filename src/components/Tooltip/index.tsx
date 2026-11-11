@@ -110,9 +110,12 @@ export function Tooltip({
   const rafRef = useRef<number>(0)
   const contentBoxRef = useRef<HTMLDivElement | null>(null)
 
-  useEffect(() => {
+  // Adjusted during render when `disabled` changes, not in an effect.
+  const [prevDisabled, setPrevDisabled] = useState(disabled)
+  if (disabled !== prevDisabled) {
+    setPrevDisabled(disabled)
     if (disabled) setInternalOpen(false)
-  }, [disabled])
+  }
 
   const open = isControlled ? openProp : internalOpen
   const effectiveOpen = disabled ? false : open
@@ -129,7 +132,16 @@ export function Tooltip({
     } else {
       cancelAnimationFrame(rafRef.current)
       setEntered(false)
-      // unmount happens in onTransitionEnd once opacity transition settles
+      // Unmount normally happens in onTransitionEnd once the opacity transition settles. When
+      // the tooltip closes before it finished entering (e.g. Tab moving straight past the
+      // trigger) no transition runs, and the force-mounted Radix content would stay in the tree
+      // as an invisible dismissable layer that swallows Escape meant for an enclosing dialog.
+      // This fallback unmounts it once the exit transition would have finished anyway.
+      const unmountTimer = window.setTimeout(() => setMounted(false), 200)
+      return () => {
+        cancelAnimationFrame(rafRef.current)
+        window.clearTimeout(unmountTimer)
+      }
     }
     return () => cancelAnimationFrame(rafRef.current)
   }, [effectiveOpen])

@@ -32,13 +32,19 @@ export const maxDuration = 30;
 const UPSTREAM = "https://api-js.mixpanel.com";
 
 // Reverse the api_routes aliases set in mixpanel.ts (kept non-tracking so no
-// request path contains "track"/"engage"/"e"). Anything not in the map (record,
-// flags, or a future endpoint) is forwarded unchanged.
+// request path contains "track"/"engage"/"e"). `record` and `flags` keep their
+// names. This is the complete list: anything else is a 404, so the route is not
+// a general relay to Mixpanel. A new api_routes entry must be added here too.
 const ROUTE_ALIAS: Record<string, string> = {
   evt: "track",
   usr: "engage",
   grp: "groups",
+  record: "record",
+  flags: "flags",
 };
+
+// Event batches are a few KB; session-replay chunks (`record`) are the largest.
+const MAX_BODY_BYTES = 1_000_000;
 
 // Never forwarded upstream. `cookie` / `authorization` matter most: because
 // /dispatch is same-origin the browser auto-attaches the app's Auth0 session
@@ -86,8 +92,12 @@ async function handler(
 ): Promise<Response> {
   const { path } = await ctx.params;
   const segments = path ?? [];
-  const first = segments[0] ?? "";
-  const mapped = [ROUTE_ALIAS[first] ?? first, ...segments.slice(1)].join("/");
+  const upstreamRoute = ROUTE_ALIAS[segments[0] ?? ""];
+  // The SDK posts to "<route>/" at most, so one segment (plus an empty one).
+  if (!upstreamRoute || segments.slice(1).some(Boolean)) {
+    return new Response(null, { status: 404 });
+  }
+  const mapped = [upstreamRoute, ...segments.slice(1)].join("/");
   const search = new URL(req.url).search;
   const target = `${UPSTREAM}/${mapped}${search}`;
 
@@ -105,7 +115,12 @@ async function handler(
     redirect: "manual",
   };
   if (req.method !== "GET" && req.method !== "HEAD") {
-    init.body = await req.arrayBuffer();
+    if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) {
+      return new Response(null, { status: 413 });
+    }
+    const body = await req.arrayBuffer();
+    if (body.byteLength > MAX_BODY_BYTES) return new Response(null, { status: 413 });
+    init.body = body;
   }
 
   let upstream: Response;

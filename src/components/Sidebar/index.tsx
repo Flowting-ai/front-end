@@ -29,7 +29,7 @@ import {
 } from '@strange-huge/icons'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { SidebarProjectsSection } from '@/components/SidebarProjectsSection'
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/Tabs'
 import { OrgBadge } from '@/components/OrgBadge'
 import { Badge } from '@/components/Badge'

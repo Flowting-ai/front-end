@@ -4,14 +4,16 @@ import { Tooltip } from '@/components/Tooltip'
 import React, { useState } from 'react'
 import {
   AnalyticsOneIcon,
-  ArrowUpRightOneIcon,
   SettingsOneIcon,
   InformationCircleIcon,
   CourtHouseIcon,
+  ArrowUpRightOneIcon,
   AlertCircleIcon,
   LoginOneIcon,
 } from '@strange-huge/icons'
 import { Dropdown, type DropdownPlacement } from '@/components/Dropdown'
+import { Button } from '@/components/ui/button'
+import { UserAvatar } from '@/components/Avatar'
 import { Divider } from '@/components/Divider'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { ThemeModeSwitcher } from '@/components/ThemeModeSwitcher'
@@ -27,7 +29,7 @@ export interface AccountMenuProps {
   /** Workspace identity line under the name in the trigger — e.g. "Acme Corp". Omit for
    *  an individual account with no workspace context. */
   plan?: string
-  /** True when the viewer has no active plan — the plan card shows a "No plan selected"
+  /** True when the viewer has no active plan — the plan card shows a "Free Plan"
    *  chip instead of the credits. */
   planWarning?: boolean
   /** Plan name shown as the plan card's chip, e.g. "Free Plan", "Core", "Enterprise". The
@@ -40,8 +42,10 @@ export interface AccountMenuProps {
   planStatusVariant?: 'neutral' | 'blue'
   /** Avatar image URL. Falls back to initials if absent. */
   avatarSrc?: string
-  /** Signed-in email, shown at the top of the menu. Falls back to `name`. */
+  /** Signed-in email, shown under the name at the top of the menu. */
   email?: string
+  /** The viewer's workspace role ("Admin", "Member"…), shown as a chip in the menu header. */
+  roleLabel?: string
   /** Controlled open state. */
   open?: boolean
   onOpenChange?: (open: boolean) => void
@@ -120,33 +124,37 @@ const ShortcutPill = ({ label }: { label: string }) => (
   </div>
 )
 
-// ── Email header ─────────────────────────────────────────────────────────────────
-// Who the menu belongs to. The email alone: name and workspace already show on the
-// sidebar trigger, so repeating them (and the avatar) here only added noise.
+// ── Header ──────────────────────────────────────────────────────────────────────
+// Who the menu belongs to: avatar, name, email and workspace role — the same for every role.
 
-const EmailHeader = ({ email }: { email: string }) => (
-  <div style={{ padding: '6px 8px 2px' }}>
-    <Tooltip content={email} maxWidth={280}><p
-      style={{
-        margin:       0,
-        fontFamily:   'var(--font-body)',
-        fontWeight:   'var(--font-weight-medium)',
-        fontSize:     'var(--font-size-body)',
-        lineHeight:   'var(--line-height-body)',
-        color:        'var(--neutral-700)',
-        whiteSpace:   'nowrap',
-        overflow:     'hidden',
-        textOverflow: 'ellipsis',
-      }}
-    >
-      {email}
-    </p></Tooltip>
+const AccountHeader = ({ name, email, avatarSrc, roleLabel }: { name: string; email?: string; avatarSrc?: string; roleLabel?: string }) => (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 8px 10px' }}>
+    <UserAvatar name={name} src={avatarSrc} size={36} />
+    <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+        <p style={{ margin: 0, minWidth: 0, fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)', color: 'var(--neutral-900)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {name}
+        </p>
+        {roleLabel && (
+          <span style={{ flexShrink: 0, padding: '0 6px', borderRadius: 999, backgroundColor: 'var(--neutral-100)', boxShadow: 'inset 0 0 0 1px var(--border-default)', fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 11, lineHeight: '18px', color: 'var(--neutral-600)' }}>
+            {roleLabel}
+          </span>
+        )}
+      </div>
+      {email && (
+        <Tooltip content={email} maxWidth={280}>
+          <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)', color: 'var(--neutral-500)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {email}
+          </p>
+        </Tooltip>
+      )}
+    </div>
   </div>
 )
 
-// ── Plan card ──────────────────────────────────────────────────────────────────
-// Plan + credits in one card. The plan name is a chip coloured by plan, with the plan's
-// total credits beneath. The theme slider rides at the top right.
+// ── Plan row ───────────────────────────────────────────────────────────────────
+// The plan chip, and on the right what this viewer can act on: an upgrade link for whoever manages
+// the plan, or "Managed by your admin" for members — so the row is never half empty. Credits below.
 
 type PlanTone = 'blue' | 'purple' | 'green' | 'brown' | 'yellow' | 'neutral'
 
@@ -199,56 +207,64 @@ const PlanChip = ({ label, tone }: { label: string; tone: PlanTone }) => {
 
 /** "Core" → "Core Plan", "Pro" → "Pro Plan"; labels that already say what they are ("Free Plan", "Free Trial") are kept. */
 function withPlanSuffix(label: string): string {
-  return /(plan|trial)/i.test(label) ? label : `${label} Plan`
+  return /\b(plan|trial)\b/i.test(label) ? label : `${label} Plan`
 }
 
-const PlanCard = ({
+const CAPTION: React.CSSProperties = { fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)', color: 'var(--neutral-500)', whiteSpace: 'nowrap' }
+
+const PlanRow = ({
   planWarning,
   planType,
   credits,
+  planAction,
+  onPlanAction,
 }: {
   planWarning?: boolean
   planType?: string
   credits?: CreditsDisplay
+  /** "Upgrade", "View plan", "Choose a plan" — only for whoever can open the plan page. */
+  planAction?: string
+  onPlanAction?: () => void
 }) => {
-  const { enabled: themingEnabled } = useTheme()
+  if (!planWarning && !planType && credits === undefined) return null
+  // No subscription and no trial IS the free tier, named the way the rest of the app names it
+  // (Plan.chipLabel, the billing pages). The yellow tone still flags it as needing a choice.
+  const planLabel = planWarning ? 'Free Plan' : withPlanSuffix(planType ?? 'Plan')
   const shownCredits = planWarning ? undefined : credits
-  if (!planWarning && !planType && shownCredits === undefined && !themingEnabled) return null
-
-  const planLabel = planWarning ? 'No plan selected' : withPlanSuffix(planType ?? 'Plan')
-
-  const creditsBlock = shownCredits ? (
-    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5 }}>
-      <span style={{ fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-medium)', fontSize: 20, lineHeight: '24px', color: 'var(--neutral-900)', whiteSpace: 'nowrap' }}>
-        {shownCredits.value}
-      </span>
-      {shownCredits.caption && (
-        <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', lineHeight: 'var(--line-height-caption)', color: 'var(--neutral-500)', whiteSpace: 'nowrap' }}>
-          {shownCredits.caption}
-        </span>
-      )}
-    </span>
-  ) : null
-
   return (
-    <div style={{ padding: '4px 6px 6px' }}>
-      <div
-        style={{
-          display:         'flex',
-          flexDirection:   'column',
-          gap:             8,
-          padding:         10,
-          borderRadius:    10,
-          backgroundColor: 'var(--neutral-100)',
-          boxShadow:       'inset 0px 0px 0px 1px var(--neutral-200)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+    <div style={{ padding: '0 6px 6px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 10, borderRadius: 10, backgroundColor: 'var(--neutral-100)', boxShadow: 'inset 0px 0px 0px 1px var(--neutral-200)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minWidth: 0 }}>
           <PlanChip label={planLabel} tone={planTone(planLabel, !!planWarning)} />
-          <ThemeModeSwitcher />
+          {planAction ? (
+            <Button variant="secondary" size="xs" rightIcon={<ArrowUpRightOneIcon />} onClick={onPlanAction}>
+              {planAction}
+            </Button>
+          ) : (
+            <span style={CAPTION}>Managed by your admin</span>
+          )}
         </div>
-        {creditsBlock && <div style={{ display: 'flex' }}>{creditsBlock}</div>}
+        {shownCredits && (
+          <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5 }}>
+            <span style={{ fontFamily: 'var(--font-title)', fontWeight: 'var(--font-weight-medium)', fontSize: 18, lineHeight: '24px', color: 'var(--neutral-900)', whiteSpace: 'nowrap' }}>
+              {shownCredits.value}
+            </span>
+            {shownCredits.caption && <span style={CAPTION}>{shownCredits.caption}</span>}
+          </span>
+        )}
       </div>
+    </div>
+  )
+}
+
+/** Theme on its own labelled row (hidden when theming is off). */
+const ThemeRow = () => {
+  const { enabled } = useTheme()
+  if (!enabled) return null
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '2px 8px 6px' }}>
+      <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-body)', lineHeight: 'var(--line-height-body)', color: 'var(--neutral-700)' }}>Theme</span>
+      <ThemeModeSwitcher />
     </div>
   )
 }
@@ -264,6 +280,7 @@ export function AccountMenu({
   credits,
   avatarSrc,
   email,
+  roleLabel,
   open: controlledOpen,
   onOpenChange,
   placement = 'top-start',
@@ -300,7 +317,11 @@ export function AccountMenu({
   // item, which then stretches (align-self:stretch default) to fill the full
   // container width. Without this, fluid SidebarMenuItem's width:100% can't
   // resolve against an indefinite inline-flex containing block.
-  const onOpenSettingsClick = () => handleOpenChange(!open)
+  // Dropdown.Float (Radix DropdownMenu) already toggles the menu on pointerdown and on
+  // Enter / Space / ArrowDown at its trigger wrapper. Toggling again from the trigger's own
+  // click / key handler would immediately undo that (the menu never opened), so this is
+  // deliberately a no-op; it is kept so trigger visuals keep their click affordance.
+  const onOpenSettingsClick = () => {}
 
   const trigger: React.ReactElement = renderTrigger ? renderTrigger({ onOpenSettingsClick }) : (
     <SidebarMenuItem
@@ -335,13 +356,19 @@ export function AccountMenu({
       >
         <Dropdown maxHeight={false} style={{ width: typeof panelWidth === 'number' ? `${panelWidth}px` : panelWidth }}>
           <Dropdown.Section fluid>
-            <EmailHeader email={email ?? name} />
+            <AccountHeader name={name} email={email} avatarSrc={avatarSrc} roleLabel={roleLabel} />
 
-            <PlanCard
+            <PlanRow
               planWarning={planWarning}
               planType={planType}
               credits={credits}
+              planAction={showUpgradePlan ? (planWarning ? 'Choose a plan' : viewPlanOnly ? 'View plan' : 'Upgrade') : undefined}
+              onPlanAction={() => { onUpgradePlan?.(); close() }}
             />
+
+            <ThemeRow />
+
+            <Divider decorative />
 
             <Dropdown.Item
               icon={<AnalyticsOneIcon />}
@@ -349,17 +376,6 @@ export function AccountMenu({
               fluid
               onClick={() => { onUsage?.(); close() }}
             />
-            {showUpgradePlan && (
-              <Dropdown.Item
-                icon={<ArrowUpRightOneIcon />}
-                label={planWarning ? 'Choose a plan' : viewPlanOnly ? 'View plan' : 'Upgrade Plan'}
-                fluid
-                onClick={() => { onUpgradePlan?.(); close() }}
-              />
-            )}
-
-            <Divider decorative />
-
             <Dropdown.Item
               icon={<SettingsOneIcon />}
               label="Settings"

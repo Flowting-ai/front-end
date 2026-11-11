@@ -17,11 +17,6 @@ export interface FloatingMenuContextValue {
 export const FloatingMenuContext = createContext<FloatingMenuContextValue>({ opened: false })
 export const useFloatingMenuContext = () => use(FloatingMenuContext)
 
-// ── Shadow tokens ─────────────────────────────────────────────────────────────
-
-const SHADOW_OUTER = 'var(--shadow-floating-menu-item-outer)'
-const SHADOW_INNER = 'var(--shadow-floating-menu-item-inner)'
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface FloatingMenuItemProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -44,7 +39,7 @@ export interface FloatingMenuItemProps extends React.ButtonHTMLAttributes<HTMLBu
   /**
    * Persistent active state - item remains highlighted even without hover.
    * Use when the action this item triggers is currently "on" (e.g. pin is engaged).
-   * Visually identical to Hover but driven by prop, not pointer interaction.
+   * Driven by prop, not pointer interaction, and filled one step darker than Hover.
    */
   active?: boolean
   /** Render as a child element (e.g. wrap a `<Link>`). */
@@ -78,6 +73,8 @@ export function FloatingMenuItem(
     const [isHovered, setIsHovered] = useState(false)
     // Active visual state: persistent `active` prop OR hovered - never when disabled.
     const isActive = (active || isHovered) && !disabled
+    // Selected (its panel is open): the active fill and its own icon/label colour.
+    const isSelected = active && !disabled
 
     // ── Label width measurement ────────────────────────────────────────────────
     // A hidden span is always mounted so we can read the label's natural pixel
@@ -119,12 +116,14 @@ export function FloatingMenuItem(
           paddingLeft:   0,
           paddingRight:  0,
           opacity:       disabled ? 0.7 : 1,
-          cursor:        disabled ? 'default' : 'pointer',
-          boxShadow:     isActive ? SHADOW_OUTER : undefined,
-          transition:    'box-shadow 150ms',
+          cursor:        disabled ? 'not-allowed' : 'pointer',
+          // Outlined like the outline Button beside it (e.g. Share): field fill, 1px border, darker on hover.
+          transition:    'box-shadow 150ms, border-color 150ms',
           userSelect:    'none',
-          background:    'none',
-          border:        'none',
+          // Transparent: an item takes the menu's own colour; only hover / selected add a fill.
+          background:    'transparent',
+          border:        `1px solid ${isActive ? 'var(--button-subtle-border-hover)' : 'var(--button-outline-border)'}`,
+          boxSizing:     'border-box',
           textAlign:     'left',
           ...style,
         }}
@@ -140,7 +139,9 @@ export function FloatingMenuItem(
             style={{
               position:        'absolute',
               inset:           0,
-              backgroundColor: 'var(--floating-menu-item-hover-bg)',
+              // Same hover fill as the ghost IconButton, so it reads as one of our icon buttons.
+              // A selected item (its panel is open) is one step darker than plain hover.
+              backgroundColor: active && !disabled ? 'var(--floating-menu-item-active-bg)' : 'var(--icon-button-ghost-bg-hover)',
               pointerEvents:   'none',
             }}
           />
@@ -148,16 +149,19 @@ export function FloatingMenuItem(
 
         {/* ── Icon ── */}
         {icon !== undefined && (
+          // A 32px box with an 18px icon — the sm IconButton's proportions.
           <div
+            className="[&_svg]:size-[18px]"
             style={{
               display:        'flex',
               alignItems:     'center',
               justifyContent: 'center',
-              padding:        '6px',
+              width:          30,
+              height:         30,
               flexShrink:     0,
               position:       'relative',
               pointerEvents:  'none',
-              color:          'var(--floating-menu-item-label)',
+              color:          isSelected ? 'var(--floating-menu-item-active-fg)' : 'var(--floating-menu-item-label)',
               lineHeight:     0,
             }}
           >
@@ -174,7 +178,7 @@ export function FloatingMenuItem(
             visibility:  'hidden',
             pointerEvents: 'none',
             whiteSpace:  'nowrap',
-            fontFamily:  'var(--font-body)',
+            fontFamily:  'var(--font-title)',
             fontWeight:  'var(--font-weight-medium)',
             fontSize:    'var(--font-size-body)',
             lineHeight:  'var(--line-height-body)',
@@ -211,11 +215,11 @@ export function FloatingMenuItem(
                 },
               }}
               style={{
-                fontFamily:  'var(--font-body)',
+                fontFamily:  'var(--font-title)',
                 fontWeight:  'var(--font-weight-medium)',
                 fontSize:    'var(--font-size-body)',
                 lineHeight:  'var(--line-height-body)',
-                color:       'var(--floating-menu-item-label)',
+                color:       isSelected ? 'var(--floating-menu-item-active-fg)' : 'var(--floating-menu-item-label)',
                 whiteSpace:  'nowrap',
                 flexShrink:  0,
                 position:    'relative',
@@ -230,19 +234,6 @@ export function FloatingMenuItem(
           )}
         </AnimatePresence>
 
-        {/* ── Inner shadow overlay - renders above content ── */}
-        {isActive && (
-          <div
-            aria-hidden
-            style={{
-              position:      'absolute',
-              inset:         0,
-              borderRadius:  'inherit',
-              boxShadow:     SHADOW_INNER,
-              pointerEvents: 'none',
-            }}
-          />
-        )}
 
       </Comp>
       </Tooltip>

@@ -23,7 +23,7 @@ import * as React from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import { PlusSignIcon } from '@strange-huge/icons'
 import { Badge, type BadgeColor } from '@/components/Badge'
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/ui/button'
 import { springs } from '@/lib/springs'
 import { cn } from '@/lib/utils'
 

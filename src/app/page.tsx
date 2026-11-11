@@ -13,7 +13,9 @@ export default async function RootPage({
   const params = await searchParams;
   const qs = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
-    if (typeof value === "string") qs.set(key, value);
+    if (typeof value === "string") qs.append(key, value);
+    // A repeated param (?x=1&x=2) arrives as an array: keep every value.
+    else if (Array.isArray(value)) for (const item of value) qs.append(key, item);
   }
   const suffix = qs.size > 0 ? `?${qs.toString()}` : "";
   redirect(`${CHAT_ROUTE}${suffix}`);

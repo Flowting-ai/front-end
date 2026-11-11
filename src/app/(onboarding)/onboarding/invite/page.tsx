@@ -11,15 +11,23 @@ import { inviteMembers } from "@/lib/api/teams";
 import { listOrganizations } from "@/lib/api/organization";
 import { ApiError } from "@/lib/api/client";
 import { toast } from "sonner";
-import { Badge } from "@/components/Badge";
-import { ChipInput } from "@/components/ChipInput";
+import { Badge, type BadgeColor } from "@/components/Badge";
+import { Button } from "@/components/ui/button";
 import { StepCanvas, StepHeader, StepFooter, FieldLabel, useLeaveGuard, LeaveGuardModal } from "../_components/step-shell";
 import { ONBOARDING_PROFILE_ROUTE, WELCOME_ROUTE } from "@/lib/routes";
+import { isValidEmail, suggestEmail } from "@/lib/email/check";
 
-// Simple format check, not a deliverability check — "secure email verification
-// method" per the spec means catching obviously-malformed entries before they
-// reach the backend, not confirming the mailbox exists.
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// What's wrong with what was typed, shown under the box (the text stays in the box to fix):
+// a bad format, an address already added, or a likely domain typo with a suggested fix.
+// What can sit between addresses in a typed or pasted list: commas, semicolons (Outlook), line
+// breaks and tabs (a spreadsheet column or row), spaces.
+const SEPARATORS = /[\s,;]+/;
+// Chip colours cycle in order, so no two neighbouring chips share a colour.
+const CHIP_COLORS: BadgeColor[] = ["Blue", "Green", "Purple", "Yellow", "Red", "Brown"];
+
+type EmailProblem =
+  | { kind: "invalid" | "duplicate"; message: string }
+  | { kind: "suggest"; typed: string; suggestion: string };
 
 // ── A1 screen 4 — "Invite your team members" ─────────────────────────────────
 // Figma: node 27:1353. No error/field-rules annotation node exists for this
@@ -51,65 +59,76 @@ export default function OnboardingInvitePage() {
   // button instead (the button the user didn't click).
   const [submittingAction, setSubmittingAction] = useState<"skip" | "send" | null>(null);
   const submitting = submittingAction !== null;
+  const [problem, setProblem] = useState<EmailProblem | null>(null);
   const hasUnsavedChanges = emailList.length > 0 || emailInput.trim().length > 0;
   const leaveGuard = useLeaveGuard(hasUnsavedChanges);
 
-  // Splits raw comma/newline-separated text against the already-committed
-  // list, sorting each entry into: added (new + well-formed), invalid
-  // (fails the format check), or duplicate (already in `existing`, case-
-  // insensitively — including duplicates within the same paste batch).
-  function partitionEmailInput(raw: string, existing: string[]) {
-    const parts = raw.split(/[\n,]+/).map((e) => e.trim()).filter(Boolean);
+  // Splits raw comma/newline-separated text against the already-committed list, sorting each
+  // entry into: added (new + well-formed), invalid (fails the format check), duplicate (already
+  // added, case-insensitively, including within the same paste), or suspect (well-formed but
+  // its domain looks like a typo, e.g. gmial.com). `keepAsTyped` is a suspect the viewer chose to keep.
+  function partitionEmailInput(raw: string, existing: string[], keepAsTyped?: string) {
+    const parts = raw.split(SEPARATORS).map((e) => e.trim()).filter(Boolean);
     const seen = new Set(existing.map((e) => e.toLowerCase()));
     const additions: string[] = [];
     const invalid: string[] = [];
     const duplicates: string[] = [];
+    const suspects: { typed: string; suggestion: string }[] = [];
     for (const part of parts) {
-      if (!EMAIL_RE.test(part)) { invalid.push(part); continue; }
+      if (!isValidEmail(part)) { invalid.push(part); continue; }
       const key = part.toLowerCase();
       if (seen.has(key)) { duplicates.push(part); continue; }
+      const suggestion = part === keepAsTyped ? null : suggestEmail(part);
+      if (suggestion) { suspects.push({ typed: part, suggestion }); continue; }
       seen.add(key);
       additions.push(part);
     }
-    return { additions, invalid, duplicates };
+    return { additions, invalid, duplicates, suspects };
   }
 
-  function notifyInvalidAndDuplicates(invalid: string[], duplicates: string[]) {
-    if (invalid.length > 0) {
-      toast.error(
-        invalid.length === 1
-          ? `"${invalid[0]}" isn't a valid email address`
-          : `${invalid.length} entries weren't valid email addresses`,
-      );
-    }
-    if (duplicates.length > 0) {
-      toast.error(
-        duplicates.length === 1
-          ? `"${duplicates[0]}" is already added`
-          : `${duplicates.length} emails were already added`,
-      );
-    }
-  }
-
-  // Parses whatever's currently typed (comma/newline-separated), keeps only
-  // well-formed, not-yet-added addresses, and folds them into the committed
-  // list — same trim/dedupe/clear-input shape as EditProjectModal's tag chips.
-  function commitEmails(raw: string) {
-    const { additions, invalid, duplicates } = partitionEmailInput(raw, emailList);
+  // Adds the good addresses as chips; anything wrong stays in the box with the reason under it.
+  // Returns whether everything typed was added.
+  function commitEmails(raw: string, keepAsTyped?: string): boolean {
+    const { additions, invalid, duplicates, suspects } = partitionEmailInput(raw, emailList, keepAsTyped);
     if (additions.length > 0) setEmailList([...emailList, ...additions]);
-    notifyInvalidAndDuplicates(invalid, duplicates);
-    setEmailInput("");
+    setEmailInput([...invalid, ...suspects.map((s) => s.typed)].join(", "));
+    if (invalid.length > 0) {
+      setProblem({
+        kind: "invalid",
+        message: invalid.length === 1
+          ? `"${invalid[0]}" isn't a valid email address`
+          : `${invalid.length} entries aren't valid email addresses`,
+      });
+    } else if (suspects.length > 0) {
+      setProblem({ kind: "suggest", ...suspects[0] });
+    } else if (duplicates.length > 0) {
+      setProblem({
+        kind: "duplicate",
+        message: duplicates.length === 1 ? `"${duplicates[0]}" is already added` : `${duplicates.length} emails were already added`,
+      });
+    } else {
+      setProblem(null);
+    }
+    return invalid.length === 0 && suspects.length === 0;
+  }
+
+  // The "did you mean" answers: take the fix, or keep the address as typed.
+  function resolveSuggestion(use: "suggestion" | "typed") {
+    if (problem?.kind !== "suggest") return;
+    const rest = emailInput.split(SEPARATORS).map((e) => e.trim()).filter((e) => e && e !== problem.typed);
+    const chosen = use === "suggestion" ? problem.suggestion : problem.typed;
+    commitEmails([chosen, ...rest].join(", "), use === "typed" ? problem.typed : undefined);
   }
 
   function removeEmail(email: string) {
     setEmailList(emailList.filter((e) => e !== email));
   }
 
-  // Pasting "a@b.com, c@d.com" (or newline-separated) commits immediately —
-  // only bare single-address typing waits for Enter/comma/blur.
+  // Typing a comma or semicolon commits; a single address otherwise waits for Enter or blur.
   function handleEmailInputChange(next: string) {
-    if (/[\n,]/.test(next)) { commitEmails(next); return; }
+    if (/[,;]/.test(next)) { commitEmails(next); return; }
     setEmailInput(next);
+    if (problem) setProblem(null);
   }
 
   const finish = async (toastId?: string | number) => {
@@ -172,14 +191,14 @@ export default function OnboardingInvitePage() {
       // Fold in whatever's still sitting in the input (typed but not yet
       // committed via Enter/comma/blur) so clicking Next doesn't silently
       // drop the last address someone typed.
+      // Anything wrong (bad format, a likely typo) stays in the box with its reason, and nothing
+      // is sent until it's fixed or removed.
       let finalEmails = emailList;
       const pendingRaw = emailInput.trim();
       if (pendingRaw) {
-        const { additions, invalid, duplicates } = partitionEmailInput(pendingRaw, emailList);
-        notifyInvalidAndDuplicates(invalid, duplicates);
+        const { additions } = partitionEmailInput(pendingRaw, emailList);
+        if (!commitEmails(pendingRaw)) return;
         finalEmails = [...emailList, ...additions];
-        setEmailList(finalEmails);
-        setEmailInput("");
       }
       if (finalEmails.length > 0) {
         const inviteLabel = finalEmails.length === 1 ? "invite" : "invites";
@@ -251,15 +270,20 @@ export default function OnboardingInvitePage() {
             overscrollBehaviorY: "contain",
             padding: "7px 10px",
             borderRadius: 10,
-            backgroundColor: "var(--neutral-white)",
-            boxShadow: "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100,#F5F5F5)",
+            backgroundColor: "#FFFFFF",
+            boxShadow: problem?.kind === "invalid"
+              ? "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--red-500)"
+              : problem?.kind === "suggest"
+                ? "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--yellow-500)"
+                : "0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px var(--neutral-100,#F5F5F5)",
+            transition: "box-shadow 150ms ease",
             boxSizing: "border-box",
             alignContent: "flex-start",
             cursor: "text",
           }}
         >
           <AnimatePresence initial={false}>
-            {emailList.map((email) => (
+            {emailList.map((email, i) => (
               <m.div
                 key={email}
                 initial={{ opacity: 0, scale: 0.85 }}
@@ -268,7 +292,7 @@ export default function OnboardingInvitePage() {
                 transition={{ duration: 0.12 }}
                 style={{ display: "flex", alignItems: "center", gap: 2 }}
               >
-                <Badge label={email} color="Neutral" />
+                <Badge label={email} color={CHIP_COLORS[i % CHIP_COLORS.length]} />
                 <button
                   type="button"
                   onClick={() => removeEmail(email)}
@@ -292,29 +316,63 @@ export default function OnboardingInvitePage() {
               </m.div>
             ))}
           </AnimatePresence>
-          <ChipInput
-            placeholder="Add email id and press enter"
-            // ChipInput's own default cap (30) is sized for short tags. This
-            // field also accepts pasting several comma/newline-separated
-            // emails at once (see handleEmailInputChange), so the cap needs
-            // to cover a whole batch of addresses, not just one RFC-5321
-            // address (254 chars) — otherwise a multi-email paste gets
-            // silently rejected by ChipInput before the splitting logic ever
-            // sees it.
-            maxLength={2000}
-            // ChipInput's own default width is a 64px floor that only grows
-            // with typed content (Figma 3118:32829's tag-sizing) — fine for a
-            // short tag, but it leaves an email field looking like a tiny box
-            // in this much taller container. Let it fill the row instead.
-            style={{ flex: "1 1 240px" }}
+          {/* A plain, borderless input that fills the box like a text area; Enter or a comma turns
+              what's typed into a chip, and Backspace on an empty input takes the last chip back. */}
+          <input
+            type="text"
+            inputMode="email"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder={emailList.length === 0 ? "Add email id and press enter" : ""}
             value={emailInput}
             onChange={(e) => handleEmailInputChange(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === ",") { e.preventDefault(); commitEmails(emailInput); }
+              else if (e.key === "Backspace" && emailInput === "" && emailList.length > 0) { e.preventDefault(); removeEmail(emailList[emailList.length - 1]); }
             }}
-            onBlur={() => commitEmails(emailInput)}
-            aria-label="New email address"
+            // A pasted list is split here, before the single-line input strips its line breaks and
+            // glues neighbouring addresses together (a spreadsheet column → "a@x.comb@y.com").
+            onPaste={(e) => {
+              const pasted = e.clipboardData.getData("text");
+              if (!SEPARATORS.test(pasted.trim())) return;
+              e.preventDefault();
+              const el = e.currentTarget;
+              const start = el.selectionStart ?? emailInput.length;
+              const end = el.selectionEnd ?? emailInput.length;
+              commitEmails(`${emailInput.slice(0, start)}${pasted}${emailInput.slice(end)}`);
+            }}
+            onBlur={() => { if (emailInput.trim()) commitEmails(emailInput); }}
+            aria-label="Email addresses"
+            aria-invalid={problem?.kind === "invalid" || undefined}
+            aria-describedby="invite-email-help"
+            style={{
+              flex: "1 1 200px",
+              minWidth: 0,
+              height: 24,
+              padding: 0,
+              border: "none",
+              outline: "none",
+              background: "transparent",
+              fontFamily: "var(--font-body)",
+              fontSize: 14,
+              lineHeight: "22px",
+              color: "var(--neutral-900)",
+            }}
           />
+        </div>
+        {/* What's wrong with what's typed, or the usual how-to when nothing is. */}
+        <div id="invite-email-help" aria-live="polite" style={{ minHeight: 20, fontFamily: "var(--font-body)", fontSize: 12, lineHeight: "20px", color: "var(--neutral-500)" }}>
+          {problem?.kind === "suggest" ? (
+            <span style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", color: "var(--neutral-700)" }}>
+              Did you mean <strong style={{ fontWeight: 500, color: "var(--neutral-900)" }}>{problem.suggestion}</strong>?
+              <Button variant="outline" size="xs" onClick={() => resolveSuggestion("suggestion")}>Use it</Button>
+              <Button variant="ghost" size="xs" onClick={() => resolveSuggestion("typed")}>Keep {problem.typed}</Button>
+            </span>
+          ) : problem ? (
+            <span style={{ color: problem.kind === "invalid" ? "var(--red-600)" : "var(--neutral-600)" }}>{problem.message}</span>
+          ) : (
+            "Press Enter or comma after each email. You can also paste a list."
+          )}
         </div>
       </div>
 
@@ -324,8 +382,8 @@ export default function OnboardingInvitePage() {
         skipDisabled={submitting}
         skipLoading={submittingAction === "skip"}
         onNext={() => void handleNext()}
-        nextLabel={`Send ${emailList.length} ${emailList.length === 1 ? "Invite" : "Invites"}`}
-        nextDisabled={submitting || (emailList.length === 0 && emailInput.trim().length === 0)}
+        nextLabel={emailList.length === 0 ? "Send Invite" : `Send ${emailList.length} ${emailList.length === 1 ? "Invite" : "Invites"}`}
+        nextDisabled={submitting || emailList.length === 0}
         nextLoading={submittingAction === "send"}
       />
       <LeaveGuardModal open={leaveGuard.open} onStay={leaveGuard.stay} onLeave={leaveGuard.leave} />

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { CopyOneIcon, TickTwoIcon } from '@strange-huge/icons'
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/ui/button'
 import { Skeleton } from '@/components/Skeleton'
 import { Tooltip } from '@/components/Tooltip'
 

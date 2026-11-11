@@ -19,7 +19,7 @@ vi.mock('@/hooks/use-streaming-chat', () => ({
 }))
 vi.mock('@/context/auth-context', () => ({ useAuth: () => ({ refreshUser: vi.fn() }) }))
 vi.mock('@/context/chat-history-context', () => ({ useChatHistoryContext: () => ({ moveToTop: vi.fn() }) }))
-vi.mock('@/context/org-context', () => ({ useOrg: () => ({ plan: null }) }))
+vi.mock('@/context/org-context', () => ({ useOrgPlan: () => ({ plan: null }) }))
 vi.mock('@/hooks/use-credit-status', () => ({ useCreditStatus: () => ({ blocked: creditsBlocked }) }))
 vi.mock('@/lib/analytics/events', () => ({ trackBrowserEvent: vi.fn() }))
 

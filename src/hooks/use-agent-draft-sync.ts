@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useReducer } from 'react'
+import { useCallback, useReducer, useState } from 'react'
 import { isDraftDirty, type AgentDraft } from '@/lib/agent-draft'
 import type { AgentRecord } from '@/lib/agent-record'
 import { INITIAL_SYNC_STATE, syncReducer } from '@/lib/agent-sync'
@@ -14,9 +14,12 @@ import { INITIAL_SYNC_STATE, syncReducer } from '@/lib/agent-sync'
 export function useAgentDraftSync(record: AgentRecord | null) {
   const [state, dispatch] = useReducer(syncReducer, INITIAL_SYNC_STATE)
 
-  useEffect(() => {
+  // A new record is folded in during render (no effect, no extra render with stale fields).
+  const [seenRecord, setSeenRecord] = useState<AgentRecord | null>(null)
+  if (record !== seenRecord) {
+    setSeenRecord(record)
     if (record) dispatch({ type: 'record', record })
-  }, [record])
+  }
 
   const edit = useCallback((patch: Partial<AgentDraft>) => dispatch({ type: 'edit', patch }), [])
   const markSaved = useCallback((draft: AgentDraft) => dispatch({ type: 'saved', draft }), [])

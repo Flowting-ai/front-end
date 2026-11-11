@@ -1,301 +1,143 @@
 'use client'
 
 import React, { useEffect } from 'react'
+import { ArrowUpRightOneIcon, BookmarkTwoIcon, CustomerServiceOneIcon, FileTwoIcon } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
+import { useGuardedRouter } from '@/context/nav-guard-context'
+import { SETTINGS_FEATURE_REQUEST_ROUTE, SETTINGS_REPORT_BUG_ROUTE } from '@/lib/routes'
 import { trackFeature } from '@/lib/analytics/events'
+import styles from './help.module.css'
 
-// ── External link arrow icon ──────────────────────────────────────────────────
+// Settings → Help & Legal. Two jobs: get help (tiles that do something — open Slack, report a bug,
+// request a feature) and read the legal documents (a plain list of links). Help Center and Contact
+// Support are shown as "Coming soon" so people know they are planned, not missing.
 
-function ArrowUpRightIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="M4.5 11.5L11.5 4.5M11.5 4.5H6.5M11.5 4.5V9.5"
-        stroke="var(--neutral-700)"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
+const SLACK_INVITE = 'https://join.slack.com/t/souvenircommunity/shared_invite/zt-41rhgppbm-G7Z_dv1VJXdSL087irwKJg'
+
+const LEGAL = [
+  { title: 'Terms of Service', hint: 'Your agreement with Souvenir AI for using the platform', href: 'https://www.getsouvenir.com/legal/terms' },
+  { title: 'Privacy Policy', hint: 'How we collect, use and protect your personal data', href: 'https://www.getsouvenir.com/legal/privacy' },
+  { title: 'Cookie Policy', hint: 'How we use cookies and similar technologies', href: 'https://www.getsouvenir.com/legal/cookies' },
+] as const
+
+function AssetIcon({ src }: { src: string }) {
+  // eslint-disable-next-line @next/next/no-img-element -- static local icon
+  return <img src={src} width={20} height={20} alt="" aria-hidden style={{ display: 'block' }} />
 }
 
-// ── Ghost button (outline, transparent) ──────────────────────────────────────
-
-function GhostButton({ children, onClick, disabled }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean }) {
-  const [hovered, setHovered] = React.useState(false)
+function Tile({ icon, title, hint, onClick, external, comingSoon }: {
+  icon: React.ReactNode
+  title: string
+  hint: string
+  onClick?: () => void
+  external?: boolean
+  comingSoon?: boolean
+}) {
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      onMouseEnter={() => !disabled && setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display:         'inline-flex',
-        alignItems:      'center',
-        gap:             2,
-        justifyContent:  'center',
-        padding:         '5px 8px',
-        borderRadius:    8,
-        border:          'none',
-        cursor:          disabled ? 'not-allowed' : 'pointer',
-        backgroundColor: hovered ? 'var(--neutral-100, #F5F5F5)' : 'transparent',
-        boxShadow:       '0px 0px 0px 1px rgba(59,54,50,0.3)',
-        fontFamily:      'var(--font-body)',
-        fontWeight:      500,
-        fontSize:        14,
-        lineHeight:      '22px',
-        color:           disabled ? 'var(--neutral-400)' : hovered ? 'var(--neutral-900)' : 'var(--neutral-700)',
-        whiteSpace:      'nowrap',
-        flexShrink:      0,
-        opacity:         disabled ? 0.45 : 1,
-        transition:      'background-color 120ms, color 120ms, opacity 120ms',
-      }}
-    >
-      {children}
+    <button type="button" className={styles.tile} onClick={onClick} disabled={comingSoon}>
+      <span className={styles.tileIcon} aria-hidden="true">{icon}</span>
+      <span className={styles.tileText}>
+        <span className={styles.tileTitle}>
+          {title}
+          {comingSoon && <Badge label="Coming soon" color="Neutral" />}
+        </span>
+        <span className={styles.tileHint}>{hint}</span>
+      </span>
+      {!comingSoon && external && <ArrowUpRightOneIcon size={16} className={styles.tileArrow} aria-label="Opens in a new tab" />}
     </button>
   )
 }
 
-// ── Link row (used in both Help resources and Legal cards) ────────────────────
-
-function LinkRow({
-  title,
-  description,
-  divider,
-  href,
-  disabled,
-  comingSoon,
-}: {
-  title:       string
-  description: string
-  divider?:    boolean
-  href?:       string
-  disabled?:   boolean
-  /** Explains WHY it's disabled — a disabled row with no label just looks broken. */
-  comingSoon?: boolean
-}) {
-  return (
-    <div style={{
-      display:      'flex',
-      alignItems:   'center',
-      gap:          12,
-      padding:      '20px 24px',
-      borderBottom: divider ? '1px solid var(--neutral-100)' : undefined,
-    }}>
-      <div style={{ flex: '1 0 0', minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <p style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 500,
-            fontSize:   14,
-            lineHeight: '22px',
-            color:      'var(--neutral-900)',
-            margin:     0,
-          }}>
-            {title}
-          </p>
-          {comingSoon && <Badge label="Coming soon" color="Neutral" />}
-        </div>
-        <p style={{
-          fontFamily: 'var(--font-body)',
-          fontWeight: 400,
-          fontSize: 12,
-          lineHeight: '16px',
-          color:      'var(--neutral-500)',
-          margin:     0,
-          whiteSpace: 'nowrap',
-        }}>
-          {description}
-        </p>
-      </div>
-      <GhostButton
-        onClick={disabled ? undefined : () => href && window.open(href, '_blank', 'noopener,noreferrer')}
-        disabled={disabled}
-      >
-        View <ArrowUpRightIcon />
-      </GhostButton>
-    </div>
-  )
-}
-
-// ── Card shell ────────────────────────────────────────────────────────────────
-
-function InfoCard({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{
-      border:       '1px solid var(--border-default)',
-      borderRadius: 16,
-      boxShadow:    '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
-      overflow:     'hidden',
-    }}>
-      {children}
-    </div>
-  )
-}
-
-function CardHeader({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <div style={{
-      borderBottom: '1px solid var(--neutral-100)',
-      padding:      '24px',
-    }}>
-      <p style={{
-        fontFamily:   'var(--font-body)',
-        fontWeight:   500,
-        fontSize:     16,
-        lineHeight:   '22px',
-        color:        'var(--neutral-900)',
-        margin:       '0 0 6px',
-        overflow:     'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace:   'nowrap',
-      }}>
-        {title}
-      </p>
-      <p style={{
-        fontFamily:   'var(--font-body)',
-        fontWeight:   400,
-        fontSize:     14,
-        lineHeight:   '22px',
-        color:        'var(--neutral-500)',
-        margin:       0,
-        overflow:     'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace:   'nowrap',
-      }}>
-        {subtitle}
-      </p>
-    </div>
-  )
-}
-
-// ── Page ──────────────────────────────────────────────────────────────────────
-
 export default function HelpPage() {
-  // Was gated behind a `mounted` flag (useState(false) flipped true by a
-  // mount-only effect) purely to force one extra skeleton-then-real-content
-  // render pass — but every value this page renders (all static copy, no
-  // props/API/localStorage read) is identical on the server and the client's
-  // first render, so there was nothing here that actually needed guarding.
-  // The gate only added a pointless flash: real content is now shown
-  // immediately. Same root cause, same fix, reapplied to
-  // notifications/preferences/security below.
+  const { push } = useGuardedRouter()
+
   useEffect(() => { trackFeature('settings_help_opened') }, [])
+
   return (
     <>
-    <div
-      className="kaya-scrollbar"
-      style={{
-        flex:           '1 0 0',
-        minHeight:      0,
-        overflowY:      'auto',
-        overflowX:      'hidden',
-        display:        'flex',
-        flexDirection:  'column',
-        alignItems:     'center',
-        paddingTop:     48,
-        paddingBottom:  48,
-      }}
-    >
-      {/* Horizontal padding lives here, not on the scrolling element above —
-          keeps the scrollbar flush with the container's edge. margin: 'auto 0'
-          (not justifyContent/alignItems: center on the parent) centers this block
-          vertically — it collapses to 0 instead of clipping the top when the
-          content is taller than the viewport, so it stays fully scrollable. */}
-      <div style={{ width: '100%', maxWidth: 908, padding: '0 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 10, margin: 'auto 0' }}>
+      <div
+        className="kaya-scrollbar"
+        style={{ flex: '1 0 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '64px 24px 48px' }}
+      >
+        <div style={{ width: '100%', maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ paddingLeft: 4, marginBottom: 4 }}>
+            <h1 style={{ fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
+              Help &amp; Legal
+            </h1>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-600)', margin: 0 }}>
+              Get support, tell us what to build next, and read the documents that govern your use of Souvenir.
+            </p>
+          </div>
 
-        {/* ── Page header ── */}
-        <div style={{ paddingLeft: 4, marginBottom: 4 }}>
-          <h1 style={{
-            fontFamily:   'var(--font-title)',
-            fontWeight:   400,
-            fontSize:     24,
-            lineHeight:   '32px',
-            color:        'var(--neutral-900)',
-            margin:       0,
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace:   'nowrap',
-          }}>
-            Help &amp; Legal
-          </h1>
-          <p style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 400,
-            fontSize:   14,
-            lineHeight: '22px',
-            color:      'var(--neutral-500)',
-            margin:     0,
-          }}>
-            Get support, share feedback, and review the legal documents that govern your use of Souvenir.
-          </p>
+          <section className={styles.card} aria-labelledby="help-title">
+            <div className={styles.cardHead}>
+              <h2 id="help-title" className={styles.cardTitle}>Get help</h2>
+              <p className={styles.cardHint}>Ask the community, report a problem, or request a feature.</p>
+            </div>
+            <div className={styles.tiles} style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', paddingBottom: 12 }}>
+              <Tile
+                icon={<AssetIcon src="/icons/slack.svg" />}
+                title="Community Slack"
+                hint="Meet other Souvenir users, share workflows and get tips"
+                external
+                onClick={() => window.open(SLACK_INVITE, '_blank', 'noopener,noreferrer')}
+              />
+              <Tile
+                icon={<AssetIcon src="/icons/settings-sidebar/report-bug.svg" />}
+                title="Report a bug"
+                hint="Something not working? Tell us what happened"
+                onClick={() => push(SETTINGS_REPORT_BUG_ROUTE)}
+              />
+              <Tile
+                icon={<AssetIcon src="/icons/settings-sidebar/feature-request.svg" />}
+                title="Request a feature"
+                hint="Suggest something Souvenir should do next"
+                onClick={() => push(SETTINGS_FEATURE_REQUEST_ROUTE)}
+              />
+            </div>
+            <div className={styles.tiles} style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', paddingTop: 0 }}>
+              <Tile
+                icon={<BookmarkTwoIcon size={20} />}
+                title="Help Center"
+                hint="Guides, tutorials and answers to common questions"
+                comingSoon
+              />
+              <Tile
+                icon={<CustomerServiceOneIcon size={20} />}
+                title="Contact Support"
+                hint="Talk to the Souvenir team directly"
+                comingSoon
+              />
+            </div>
+          </section>
+
+          <section className={styles.card} aria-labelledby="legal-title">
+            <div className={styles.cardHead}>
+              <h2 id="legal-title" className={styles.cardTitle}>Legal</h2>
+              <p className={styles.cardHint}>The agreements and policies that cover your use of Souvenir.</p>
+            </div>
+            <ul className={styles.list}>
+              {LEGAL.map((doc) => (
+                <li key={doc.href}>
+                  <a className={styles.row} href={doc.href} target="_blank" rel="noopener noreferrer">
+                    <FileTwoIcon size={18} className={styles.rowIcon} />
+                    <span className={styles.rowText}>
+                      <span className={styles.rowTitle}>{doc.title}</span>
+                      <span className={styles.rowHint}>{doc.hint}</span>
+                    </span>
+                    <ArrowUpRightOneIcon size={16} className={styles.rowIcon} aria-label="Opens in a new tab" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <div className={styles.footer}>
+            <span>Souvenir v1.5</span>
+            <span>© 2026 Souvenir AI</span>
+          </div>
         </div>
-
-        {/* ── Help resources card — Community Slack first: it's the only live
-            link here now that Help Center/Contact Support are "Coming soon". ── */}
-        <InfoCard>
-          <CardHeader
-            title="Help resources"
-            subtitle="Guides, documentation, and direct support options."
-          />
-          <LinkRow title="Community Slack"   description="Connect with other Souvenir users, share workflows, get tips"   href="https://join.slack.com/t/souvenircommunity/shared_invite/zt-41rhgppbm-G7Z_dv1VJXdSL087irwKJg" divider />
-          <LinkRow title="Help Center"         description="Guides, documentation, and direct support options."                  divider disabled comingSoon />
-          <LinkRow title="Contact Support"     description="Guides, tutorials, and FAQs for getting the most out of Souvenir"    disabled comingSoon />
-          {/* <LinkRow title="What's new"          description="Changelog - see every feature release, fix, and update" /> */}
-        </InfoCard>
-
-        {/* ── Legal card ── */}
-        <InfoCard>
-          <CardHeader
-            title="Legal"
-            subtitle="Review the agreements and policies that govern your use of Souvenir."
-          />
-          <LinkRow title="Terms of Service"           description="Your agreement with Souvenir AI regarding use of the platform"     href="https://www.getsouvenir.com/legal/terms"   divider />
-          <LinkRow title="Privacy Policy"             description="How we collect, use, and protect your personal data"               href="https://www.getsouvenir.com/legal/privacy" divider />
-          {/* <LinkRow title="Data Processing Agreement"  description="DPA for teams and enterprise customers - GDPR, DPDPA compliant"    divider /> */}
-          <LinkRow title="Cookie Policy"              description="How we use cookies and similar tracking technologies"              href="https://www.getsouvenir.com/legal/cookies" />
-        </InfoCard>
-
-        {/* ── Footer ── */}
-        <div style={{
-          display:    'flex',
-          alignItems: 'center',
-          gap:        8,
-          padding:    '0 12px',
-        }}>
-          <p style={{
-            flex:         '1 0 0',
-            minWidth:     0,
-            fontFamily:   'var(--font-body)',
-            fontWeight:   500,
-            fontSize:     16,
-            lineHeight:   '22px',
-            color:        'var(--neutral-400)',
-            margin:       0,
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace:   'nowrap',
-          }}>
-            Souvenir v1.5 · © 2026 Souvenir AI
-          </p>
-          <p style={{
-            fontFamily:   'var(--font-body)',
-            fontWeight:   500,
-            fontSize:     16,
-            lineHeight:   '22px',
-            color:        'var(--neutral-200)',
-            margin:       0,
-            flexShrink:   0,
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace:   'nowrap',
-          }}>
-          </p>
-        </div>
-
       </div>
-    </div>
     </>
   )
 }

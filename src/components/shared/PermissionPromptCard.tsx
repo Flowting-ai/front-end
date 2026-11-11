@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useCallback, useState } from 'react'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { toConnector } from '@/lib/connector'
 import type { ConnectorPermissionPrompt, PermissionPromptOption } from '@/lib/api/prompts'
 
@@ -134,12 +134,14 @@ export function PermissionPromptCard({
         {options.map((opt) => {
           const isPrimary = opt.style === 'primary' || opt.value === 'allow' || opt.value === 'allow_once'
           const isDanger  = opt.style === 'danger'
-          const variant = isDanger ? 'danger' : isPrimary ? 'default' : 'secondary'
+          // shadcnspace 23 Permissions: allow = Approve, block = Reject; the main allow pulses (04) while it waits.
+          const variant = isDanger ? 'reject' : isPrimary ? 'approve' : 'secondary'
           return (
             <Button
               key={opt.value}
               size="sm"
               variant={variant}
+              attention={!disabled && opt.style === 'primary'}
               disabled={disabled}
               onClick={() => handleDecide(opt.value)}
             >

@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { ArrowDownOneIcon } from '@strange-huge/icons'
 import { PINS_ENABLED } from '@/lib/feature-flags'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/Dropdown'
 import { useAuth } from '@/context/auth-context'
 import { FilesSkeleton } from '../SettingsSkeleton'
@@ -75,7 +75,7 @@ function ProgressBar({ used, total }: { used: number; total: number }) {
           height:          '100%',
           width:           `${pct}%`,
           borderRadius:    'inherit',
-          backgroundColor: 'var(--blue-600)',
+          backgroundColor: 'var(--neutral-900)',
         }}
       />
     </div>

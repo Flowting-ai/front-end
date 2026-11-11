@@ -47,7 +47,8 @@ afterEach(async () => {
 const render = (value: string) => act(async () => { root.render(<EnhancePromptField value={value} onChange={onChange} />) })
 const button = (re: RegExp) => [...document.querySelectorAll('button')].find(b => re.test(b.getAttribute('aria-label') || b.textContent || ''))
 const click = async (el: Element | undefined) => { expect(el).toBeTruthy(); await act(async () => { (el as HTMLElement).click() }) }
-const flush = () => act(async () => { await Promise.resolve(); await Promise.resolve() })
+// The open panel is lazy-loaded, so a flush also waits for that import.
+const flush = () => act(async () => { await vi.dynamicImportSettled(); await Promise.resolve(); await Promise.resolve() })
 const text = () => document.body.textContent ?? ''
 
 describe('EnhancePromptField (backend flow)', () => {
@@ -56,7 +57,7 @@ describe('EnhancePromptField (backend flow)', () => {
     await render('You are a lawyer.')
     await click(button(/^Enhance$/))
     await flush()
-    expect(api.enhancePrompt).toHaveBeenCalledWith('You are a lawyer.', [])
+    expect(api.enhancePrompt).toHaveBeenCalledWith('You are a lawyer.', [], { signal: expect.any(AbortSignal) })
     expect(text()).toContain('Who is the audience?')
     expect(text()).toContain('Lawyers')
     expect(text()).toContain('Type your answer')
@@ -86,7 +87,7 @@ describe('EnhancePromptField (backend flow)', () => {
     await click([...document.querySelectorAll('[role=radio], [tabindex="0"]')].find(e => /Lawyers/.test(e.textContent ?? '')))
     await click(button(/Review/))
     await flush()
-    expect(api.enhancePrompt).toHaveBeenLastCalledWith('You are a lawyer.', [{ question: 'Who is the audience?', answer: 'Lawyers' }])
+    expect(api.enhancePrompt).toHaveBeenLastCalledWith('You are a lawyer.', [{ question: 'Who is the audience?', answer: 'Lawyers' }], { signal: expect.any(AbortSignal) })
     expect(text()).toContain('REFINED for lawyers')
   })
 
@@ -114,13 +115,42 @@ describe('EnhancePromptField (backend flow)', () => {
     expect(text()).not.toContain('LATE')
   })
 
+  it('aborts the in-flight request when the panel is closed', async () => {
+    api.enhancePrompt.mockReturnValueOnce(new Promise(() => {}))
+    await render('You are a lawyer.')
+    await click(button(/^Enhance$/))
+    const signal = (api.enhancePrompt.mock.calls[0]![2] as { signal: AbortSignal }).signal
+    expect(signal.aborted).toBe(false)
+    await click(button(/Close Enhance/))
+    expect(signal.aborted).toBe(true)
+  })
+
+  it('closes with the billing message instead of the local flow when credits are exhausted', async () => {
+    api.enhancePrompt.mockRejectedValueOnce(Object.assign(new Error('Payment required'), { status: 402 }))
+    await render('You are a lawyer.')
+    await click(button(/^Enhance$/))
+    await flush()
+    await act(async () => { await new Promise(r => setTimeout(r, 400)) })
+    expect(document.querySelector('[role=dialog]')).toBeNull()
+    expect(text()).not.toMatch(/Step 1 of|comprehensive/)
+  })
+
+  it('closes on Escape', async () => {
+    api.enhancePrompt.mockReturnValueOnce(new Promise(() => {}))
+    await render('You are a lawyer.')
+    await click(button(/^Enhance$/))
+    const dialog = document.querySelector('[role=dialog]')!
+    await act(async () => { dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
+    expect(document.querySelector('[role=dialog]')).toBeNull()
+  })
+
   it('uses the local flow when the backend call fails, and for an empty prompt', async () => {
     api.enhancePrompt.mockRejectedValueOnce(new Error('500'))
     await render('You are a lawyer.')
     await click(button(/^Enhance$/))
     await flush()
     // Local scan runs on a timer, then shows its own questions.
-    await act(async () => { await new Promise(r => setTimeout(r, 1900)) })
+    await act(async () => { await new Promise(r => setTimeout(r, 400)) })
     expect(document.querySelector('[role=dialog]')).toBeTruthy()
     expect(text()).toMatch(/Step 1 of|comprehensive/)
 

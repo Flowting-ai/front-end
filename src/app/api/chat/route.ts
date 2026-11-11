@@ -1,7 +1,9 @@
 import { type NextRequest } from "next/server"
-import { auth0 } from "@/lib/auth0"
+import { BACKEND_BASE, getSessionToken, newRequestId, routeError, upstreamFetch } from "@/lib/server/backend"
 import { logger } from "@/lib/logger"
 import { forwardGeoHeaders } from "@/lib/geo-headers"
+import { chatFormSchema, firstIssue, formFields } from "@/lib/server/chat-forms"
+import { CHAT_CREATE_FIELDS, CHAT_STREAM_FIELDS, keepAcceptedFields } from "@/lib/chat-form-fields"
 
 export const dynamic = "force-dynamic"
 // Allow up to Vercel's Fluid-compute ceiling for Claude extended-thinking +
@@ -9,7 +11,12 @@ export const dynamic = "force-dynamic"
 // request at 10 s (Hobby) / 60 s (Pro, no Fluid) / 300 s (Pro, default Fluid).
 export const maxDuration = 800
 
-const BACKEND_BASE = (process.env.SERVER_URL ?? "").replace(/\/+$/, "")
+
+/** The browser's key for this send, passed on so the backend can refuse a repeat. Only a plain token is forwarded. */
+function idempotencyKeyOf(request: NextRequest): Record<string, string> {
+  const key = request.headers.get("idempotency-key")
+  return key && /^[A-Za-z0-9-]{8,100}$/.test(key) ? { "Idempotency-Key": key } : {}
+}
 
 /**
  * POST /api/chat
@@ -25,50 +32,45 @@ const BACKEND_BASE = (process.env.SERVER_URL ?? "").replace(/\/+$/, "")
  *   referenceMessageId - optional reference message for context
  *   webSearch          - "true" to enable web search tool
  *   toneId             - optional style/tone ID (e.g. "professional", "teaching")
+ *   systemPrompt       - optional persona system instruction (explicit override)
+ *   temperature        - optional persona temperature override
  *   files              - zero or more File parts (uploaded attachments)
+ *   libraryFileIds     - optional JSON array of Library file ids attached to the message
+ *   saveToLibrary      - optional "true"/"false": the auto-save answer for those files
+ *   librarySourcesOff  - optional JSON array of Library file ids switched off for this chat
  */
 export async function POST(request: NextRequest) {
   // ── Auth ────────────────────────────────────────────────────────────────────
-  const audience = process.env.AUTH0_AUDIENCE?.trim() || undefined
-  let token: string
-  try {
-    const result = await auth0.getAccessToken({ audience })
-    token = result.token
-  } catch {
-    return new Response("Unauthorized", { status: 401 })
-  }
+  const token = await getSessionToken()
+  if (!token) return routeError(401, "unauthorized", "Sign in to continue")
 
   // ── Parse request (multipart/form-data) ─────────────────────────────────────
   let formData: FormData
   try {
     formData = await request.formData()
   } catch {
-    return new Response("Bad Request: invalid form data", { status: 400 })
+    return routeError(400, "bad_request", "Invalid form data")
   }
 
-  const chatId             = (formData.get("chatId") as string | null) || null
-  const input              = (formData.get("input") as string | null) ?? ""
-  const modelId            = formData.get("modelId") as string | null
-  const algorithm          = formData.get("algorithm") as string | null
-  const pinIds             = formData.get("pinIds") as string | null
-  const referenceMessageId = formData.get("referenceMessageId") as string | null
-  const replaceMessageId   = formData.get("replaceMessageId") as string | null
-  const webSearch          = formData.get("webSearch") === "true"
-  const thinking           = formData.get("enable_thinking") === "true"
-  const effort             = formData.get("effort") as string | null
-  const personaId          = formData.get("personaId") as string | null
-  const toneId             = formData.get("toneId") as string | null
-  const clientFiles        = formData.getAll("files").filter((f): f is File => f instanceof File)
+  // Every field is checked against lib/server/chat-forms.ts before anything is forwarded.
+  const parsed = chatFormSchema.safeParse(formFields(formData))
+  if (!parsed.success) return routeError(400, "bad_request", firstIssue(parsed.error))
+  const {
+    chatId, input, modelId, algorithm, pinIds, referenceMessageId, replaceMessageId,
+    webSearch, enable_thinking: thinking, effort, personaId, projectId, systemPrompt, temperature, toneId, libraryFileIds, saveToLibrary, librarySourcesOff,
+  } = parsed.data
+  const clientFiles = formData.getAll("files").filter((f): f is File => f instanceof File)
 
-  if (!input.trim() && clientFiles.length === 0) {
-    return new Response("Bad Request: input or files required", { status: 400 })
+  if (!input.trim() && !libraryFileIds && clientFiles.length === 0) {
+    return routeError(400, "bad_request", "A message or a file is required")
   }
 
   // ── Resolve endpoint ─────────────────────────────────────────────────────────
   // Persona is now applied as an overlay: we always route through the regular
   // /chats endpoints and pass persona_id as a body field. This lets style, web
   // search, pin folders, reasoning, etc. compose with a selected persona.
-  const isExistingChat = Boolean(chatId && !String(chatId).startsWith("temp-"))
+  // chatId is a safe single path segment (or a "temp-" placeholder) per the schema.
+  const isExistingChat = Boolean(chatId && !chatId.startsWith("temp-"))
   const endpoint = isExistingChat && chatId
     ? `${BACKEND_BASE}/chats/${chatId}/stream`
     : `${BACKEND_BASE}/chats/create`
@@ -84,33 +86,47 @@ export async function POST(request: NextRequest) {
   if (webSearch) fd.append("web_search", "true")
   fd.append("thinking", thinking ? "true" : "false")
   if (thinking && effort) fd.append("effort", effort)
-  // No system_prompt/temperature: the backend answers 400 "field that isn't accepted"
-  // to them and applies the agent's own settings from persona_id.
   if (personaId) fd.append("persona_id", personaId)
+  // Only on create: the backend links the new chat to the project before the first turn runs.
+  if (projectId && !isExistingChat) fd.append("project_id", projectId)
+  if (systemPrompt) fd.append("system_prompt", systemPrompt)
+  if (temperature !== undefined) fd.append("temperature", String(temperature))
   if (toneId) fd.append("tone_id", toneId)
   clientFiles.forEach((f) => fd.append("files", f))
+  if (libraryFileIds) fd.append("libraryFileIds", libraryFileIds)
+  if (saveToLibrary) fd.append("saveToLibrary", saveToLibrary)
+  if (librarySourcesOff) fd.append("librarySourcesOff", librarySourcesOff)
+  // The backend refuses fields it does not read yet (web_search, system_prompt, temperature,
+  // tone_id), so they stop here.
+  keepAcceptedFields(fd, isExistingChat ? CHAT_STREAM_FIELDS : CHAT_CREATE_FIELDS)
 
   // ── Proxy request ────────────────────────────────────────────────────────────
+  // One id per request, sent upstream and returned as X-Request-Id; failures are
+  // logged as structured lines with status and latency (upstreamFetch).
+  const requestId = newRequestId()
   let backendResponse: Response
   try {
-    backendResponse = await fetch(endpoint, {
+    backendResponse = await upstreamFetch("api/chat", endpoint, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "text/event-stream",
         ...forwardGeoHeaders(request),
+        ...idempotencyKeyOf(request),
       },
       body: fd,
-    })
-  } catch (err) {
-    logger.error("[api/chat] Network error reaching backend", err)
-    return new Response("Service unavailable", { status: 503 })
+    }, requestId)
+  } catch {
+    return routeError(503, "upstream_unreachable", "Service unavailable")
   }
 
   if (!backendResponse.ok || !backendResponse.body) {
     const text = await backendResponse.text().catch(() => "")
-    logger.error("[api/chat] Backend error", backendResponse.status, text)
-    return new Response(text || "Backend error", { status: backendResponse.status })
+    logger.error("[api/chat] Backend error", { request_id: requestId, status: backendResponse.status, body: text.slice(0, 500) })
+    // The backend's own error body is passed through: the client reads its
+    // detail (credit exhaustion, retired model) to pick the message.
+    if (text) return new Response(text, { status: backendResponse.status })
+    return routeError(backendResponse.status >= 400 ? backendResponse.status : 502, "upstream_error", "Backend error")
   }
 
   // ── Stream the response with a TransformStream to prevent buffering ────────
@@ -119,6 +135,7 @@ export async function POST(request: NextRequest) {
     "Cache-Control": "no-cache, no-transform",
     "Connection": "keep-alive",
     "X-Accel-Buffering": "no",
+    "X-Request-Id": requestId,
   }
 
   // Forward chat ID header for new chats so the client can update the URL

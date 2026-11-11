@@ -4,6 +4,7 @@ import React, { useMemo, useState, useEffect, useSyncExternalStore } from "react
 import { Copy, Check } from "lucide-react";
 import { MermaidDiagram } from "@/components/chat/MermaidDiagram";
 import { DiffBlock } from "@/components/chat/DiffBlock";
+import { BlockErrorBoundary } from "@/components/chat/BlockErrorBoundary";
 import { HIGHLIGHT_COLORS } from "@/components/HighlightCard";
 import { hasRawRange } from "@/lib/highlight-offsets";
 import type { HighlightSpec } from "@/lib/markdown-utils";
@@ -22,6 +23,8 @@ interface CodeBlockProps {
   elementKey: string;
   highlights?: HighlightSpec[];
   sourceOffset?: number;
+  /** Wrap long lines instead of scrolling sideways (file previews; chat keeps code unwrapped). */
+  wrap?: boolean;
 }
 
 // applyMarksToHtml is imported from @/lib/apply-marks
@@ -78,16 +81,16 @@ function renderPlainWithMarks(text: string, specs: HighlightSpec[], offsetBase: 
   return nodes
 }
 
-export function CodeBlock({ language, value, elementKey, highlights, sourceOffset = 0 }: CodeBlockProps) {
+export function CodeBlock({ language, value, elementKey, highlights, sourceOffset = 0, wrap = false }: CodeBlockProps) {
   // ```mermaid and ```diff fences are widgets, not code — every markdown path
   // (chat, line renderer) funnels through here, so this is the one hook point.
-  if (language === "mermaid") return <MermaidDiagram code={value} />;
-  if (language === "diff") return <DiffBlock code={value} />;
+  if (language === "mermaid") return <BlockErrorBoundary label="diagram"><MermaidDiagram code={value} /></BlockErrorBoundary>;
+  if (language === "diff") return <BlockErrorBoundary label="diff"><DiffBlock code={value} /></BlockErrorBoundary>;
 
-  return <HighlightedCodeBlock language={language} value={value} elementKey={elementKey} highlights={highlights} sourceOffset={sourceOffset} />;
+  return <HighlightedCodeBlock language={language} value={value} elementKey={elementKey} highlights={highlights} sourceOffset={sourceOffset} wrap={wrap} />;
 }
 
-function HighlightedCodeBlock({ language, value, elementKey, highlights, sourceOffset = 0 }: CodeBlockProps) {
+function HighlightedCodeBlock({ language, value, elementKey, highlights, sourceOffset = 0, wrap = false }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
   // Changes when hljs finishes loading or a lazy grammar registers; until then
   // the block renders plain. Once both are in place, highlighting happens
@@ -225,14 +228,17 @@ function HighlightedCodeBlock({ language, value, elementKey, highlights, sourceO
           fontFamily: "var(--font-code)",
           fontSize: "var(--prose-size-code)",
           lineHeight: "var(--prose-line-code)",
-          whiteSpace: "pre",
+          whiteSpace: wrap ? "pre-wrap" : "pre",
           wordBreak: "normal",
+          overflowWrap: wrap ? "anywhere" : "normal",
           background: "transparent",
         }}
       >
         {highlightedHtml != null ? (
           <code
             className={language ? `language-${language} hljs` : "hljs"}
+            // hljs HTML-escapes all source text (guarded by lib/highlight-escape.test.ts);
+            // applyMarksToHtml only adds <mark> elements via DOM APIs.
             dangerouslySetInnerHTML={{ __html: highlightedHtml }}
             style={{ background: "transparent", padding: 0 }}
           />

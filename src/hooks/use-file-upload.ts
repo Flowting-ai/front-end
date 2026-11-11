@@ -63,6 +63,8 @@ export interface PendingAttachment {
   uploading: boolean;
   /** 0–100 upload progress (simulated client-side). */
   uploadProgress?: number;
+  /** Uploaded; the server is still reading the file (Library uploads only). */
+  processing?: boolean;
   error?: string;
 }
 
@@ -98,7 +100,7 @@ export function getFileTypeLabel(file: File): string {
   if (mime === "application/epub+zip") return "EPUB";
   if (mime === "application/zip" || mime === "application/x-zip-compressed") return "ZIP";
   if (mime.startsWith("image/")) {
-    const sub = mime.split("/")[1]?.toUpperCase() ?? "Image";
+    const sub = mime.split("/")[1]?.split("+")[0].toUpperCase() ?? "Image";
     return sub === "JPEG" ? "JPG" : sub;
   }
   // Fallback: use file extension
@@ -132,18 +134,26 @@ export const FILE_ACCEPT = [
   ".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".csv",
   ".txt", ".md", ".json", ".xml", ".rtf", ".html", ".htm", ".epub",
   ".zip", ".svg", ".tiff", ".tif", ".avif",
+  // Audio: the backend takes and transcribes these (services/files/formats.yaml,
+  // and GET /library/limits lists them). Leaving them out hid files from the
+  // picker that upload and answer perfectly well once chosen.
+  "audio/*",
+  ".aac", ".flac", ".m4a", ".mp3", ".mpga", ".oga", ".ogg", ".opus", ".wav",
 ].join(",");
 
 /** File extensions that are accepted as a MIME-type fallback. */
 const ALLOWED_EXTENSIONS = new Set([
   "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "csv",
-  "txt", "md", "json", "xml", "rtf", "html", "svg", "tiff", 
+  "txt", "md", "json", "xml", "rtf", "html", "svg", "tiff",
   "tif", "avif", "png", "jpg", "jpeg", "webp",
+  // Audio, as the backend's own list has it.
+  "aac", "flac", "m4a", "mp3", "mpga", "oga", "ogg", "opus", "wav",
 ]);
 
 export function isAllowedType(file: File): boolean {
   const mime = file.type.toLowerCase();
   if (mime.startsWith("image/")) return true;
+  if (mime.startsWith("audio/")) return true;
   if ((FILE_CONSTRAINTS.allowedMimeTypes as readonly string[]).some((t) => mime === t)) return true;
   // Fallback: check extension for browsers that don't report a MIME type (e.g. .md → "")
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
@@ -203,6 +213,14 @@ export function startUploadSimulation(
   return () => clearInterval(interval);
 }
 
+// Toasts for rejected files. processFiles is called inside React state updaters, which
+// Strict Mode runs twice and which must not have side effects, so the toast is deferred
+// until after the update and given an id from its title: a second call for the same
+// rejection updates the toast already on screen instead of showing another one.
+function notify(title: string, options: { description?: string } = {}) {
+  queueMicrotask(() => toast.error(title, { ...options, id: `file-upload:${title}` }));
+}
+
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 /**
@@ -217,7 +235,12 @@ export function startUploadSimulation(
  * setAttachments(next);
  * ```
  */
-export function useFileUpload() {
+/**
+ * `libraryValidates`: the composer uploads into Library, whose own check refuses a file with one short
+ * message above the composer that never names it (UploadNotices). The size and type toasts here are
+ * skipped so the file reaches that check.
+ */
+export function useFileUpload({ libraryValidates = false }: { libraryValidates?: boolean } = {}) {
   const { maxSizeBytes, maxFiles } = FILE_CONSTRAINTS;
 
   const processFiles = useCallback(
@@ -226,7 +249,7 @@ export function useFileUpload() {
       const slotsLeft = maxFiles - current.length;
 
       if (slotsLeft <= 0) {
-        toast.error("File limit reached", {
+        notify("File limit reached", {
           description: `You can attach a maximum of ${maxFiles} files per message.`,
         });
         return current;
@@ -252,13 +275,13 @@ export function useFileUpload() {
         }
 
         // Size
-        if (file.size > maxSizeBytes) {
+        if (!libraryValidates && file.size > maxSizeBytes) {
           oversized.push(file.name);
           continue;
         }
 
         // Type
-        if (!isAllowedType(file)) {
+        if (!libraryValidates && !isAllowedType(file)) {
           unsupported.push(file.name);
           continue;
         }
@@ -269,7 +292,7 @@ export function useFileUpload() {
       // ── Toasts ────────────────────────────────────────────────────────────
 
       if (duplicates.length > 0) {
-        toast.error(
+        notify(
           duplicates.length === 1
             ? `"${duplicates[0]}" already attached`
             : `${duplicates.length} duplicate files skipped`,
@@ -279,7 +302,7 @@ export function useFileUpload() {
 
       if (oversized.length > 0) {
         const limit = `${maxSizeBytes / (1024 * 1024)} MB`;
-        toast.error(
+        notify(
           oversized.length === 1
             ? `"${oversized[0]}" exceeds ${limit}`
             : `${oversized.length} files exceed ${limit}`,
@@ -289,7 +312,7 @@ export function useFileUpload() {
 
       if (unsupported.length > 0) {
         const names = unsupported.join(", ");
-        toast.error(
+        notify(
           unsupported.length === 1
             ? `"${unsupported[0]}" isn't supported`
             : `${unsupported.length} files aren't supported`,
@@ -302,14 +325,14 @@ export function useFileUpload() {
       }
 
       if (skipped > 0) {
-        toast.error("File limit reached", {
+        notify("File limit reached", {
           description: `${skipped} file${skipped > 1 ? "s were" : " was"} skipped - max ${maxFiles} attachments per message.`,
         });
       }
 
       return toAdd.length > 0 ? [...current, ...toAdd] : current;
     },
-    [maxSizeBytes, maxFiles],
+    [maxSizeBytes, maxFiles, libraryValidates],
   );
 
   /**

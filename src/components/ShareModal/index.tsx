@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useCallback } from 'react'
+import { deriveInitials } from '@/components/Avatar'
 import Image from 'next/image'
 import { Slot } from '@radix-ui/react-slot'
 import {
@@ -12,11 +13,12 @@ import {
   ArrowDownOneIcon,
 } from '@strange-huge/icons'
 import { ViewIcon } from '@/components/ViewIcon'
-import { Button }          from '@/components/Button'
+import { Button }          from '@/components/ui/button'
 import { Badge }           from '@/components/Badge'
 import { Dropdown }        from '@/components/Dropdown'
 import { Divider }         from '@/components/Divider'
 import { cn }              from '@/lib/utils'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
 
@@ -26,12 +28,8 @@ const SHADOW_INPUT    = '0px 1px 1.5px 0px rgba(82,75,71,0.12), 0px 0px 0px 1px 
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-}
+// Same initials rule as every avatar in the app.
+const getInitials = deriveInitials
 
 // ── Permission config ─────────────────────────────────────────────────────────
 
@@ -345,35 +343,6 @@ export function ShareModal({
     const [emailDraft, setEmailDraft] = useState('')
     const resolvedAlt = personaAvatarAlt ?? (personaName ? `${personaName} agent` : 'Agent')
 
-    // Auto-focus email input on mount
-    useEffect(() => { inputRef.current?.focus() }, [])
-
-    // Focus trap: cycle Tab within the modal; Escape closes
-    const handleModalKeyDown = useCallback(
-      (e: React.KeyboardEvent<HTMLDivElement>) => {
-        if (e.key === 'Escape') { onClose?.(); return }
-        if (e.key !== 'Tab') return
-
-        const modal = e.currentTarget
-        const els   = Array.from(
-          modal.querySelectorAll<HTMLElement>(
-            'button:not([disabled]), input:not([disabled]), [tabindex="0"]:not([tabindex="-1"])',
-          ),
-        )
-        if (els.length < 2) return
-
-        const first = els[0]
-        const last  = els[els.length - 1]
-
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault(); last.focus()
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault(); first.focus()
-        }
-      },
-      [onClose],
-    )
-
     const handleInvite = useCallback(() => {
       const trimmed = emailDraft.trim()
       if (!trimmed) return
@@ -390,13 +359,20 @@ export function ShareModal({
     )
 
     return (
+      // Mounted means open. Radix traps Tab, closes on Esc/outside click via onClose, and returns focus.
+      <Dialog open onOpenChange={open => { if (!open && !disabled) onClose?.() }}>
+      <DialogContent
+        hideClose
+        aria-describedby={undefined}
+        // Start in the email field; portaled permission menus don't count as an outside click.
+        onOpenAutoFocus={e => { e.preventDefault(); inputRef.current?.focus() }}
+        onInteractOutside={e => { if (e.target instanceof Element && e.target.closest('[data-kds-dropdown-panel]')) e.preventDefault() }}
+        style={{ width: 572, background: 'transparent', boxShadow: 'none', borderRadius: 18, overflow: 'visible' }}
+      >
+      <DialogTitle className="sr-only">{personaName ? `Share ${personaName}` : 'Share agent'}</DialogTitle>
       <Comp
         ref={ref}
-        role="dialog"
-        aria-modal="true"
-        aria-label={personaName ? `Share ${personaName}` : 'Share agent'}
         className={cn(className)}
-        onKeyDown={handleModalKeyDown}
         style={{
           display:         'flex',
           flexDirection:   'column',
@@ -572,13 +548,13 @@ export function ShareModal({
             gap:            8,
           }}
         >
-          <Button variant="outline" size="sm" onClick={onClose}>
+          <Button variant="cancel" size="sm" onClick={onClose}>
             Cancel
           </Button>
           <Button
             variant="default"
             size="sm"
-            loading={loading}
+            sendState={loading ? 'loading' : 'idle'}
             onClick={handleInvite}
             disabled={!emailDraft.trim()}
           >
@@ -587,6 +563,8 @@ export function ShareModal({
         </div>
 
       </Comp>
+      </DialogContent>
+      </Dialog>
     )
 }
 

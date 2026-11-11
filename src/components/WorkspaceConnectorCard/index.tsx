@@ -3,7 +3,7 @@
 import React from 'react'
 import type { WorkspaceConnector } from '@/types/teams'
 import { Badge } from '@/components/Badge'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 
 export interface WorkspaceConnectorCardProps {
   connector: WorkspaceConnector

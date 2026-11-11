@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { UserAvatar, userAvatarRadius } from '@/components/Avatar'
 import {
   LogoIcon,
   BubbleChatAddIcon,
@@ -178,9 +179,12 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
 
     // When this item is deselected (another item was clicked), clear any stale
     // isFocused state so it doesn't remain visually active.
-    useEffect(() => {
+    // Adjusted during render when `selected` changes, not in an effect.
+    const [prevSelected, setPrevSelected] = useState(selected)
+    if (selected !== prevSelected) {
+      setPrevSelected(selected)
       if (!selected) setIsFocused(false)
-    }, [selected])
+    }
 
     // ── chat-item-edit state ───────────────────────────────────────────────────
     const [editValue, setEditValue] = useState(label)
@@ -664,41 +668,8 @@ export const SidebarMenuItem = React.forwardRef<HTMLDivElement, SidebarMenuItemP
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
               {/* Avatar */}
-              <div
-                style={{
-                  position:     'relative',
-                  flexShrink:   0,
-                  width:        '32px',
-                  height:       '32px',
-                  borderRadius: '9999px',
-                  boxShadow:    SHADOW_AVATAR,
-                  overflow:     'hidden',
-                }}
-              >
-                {avatarSrc ? (
-                  <img
-                    alt=""
-                    src={avatarSrc}
-                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: '9999px' }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      position:       'absolute',
-                      inset:          0,
-                      display:        'flex',
-                      alignItems:     'center',
-                      justifyContent: 'center',
-                      backgroundColor:'var(--neutral-white)',
-                      color:          'var(--sidebar-menu-item-text)',
-                      fontFamily:     'var(--font-body)',
-                      fontWeight:     'var(--font-weight-medium)',
-                      fontSize:       'var(--font-size-caption)',
-                    }}
-                  >
-                    {label.charAt(0).toUpperCase()}
-                  </div>
-                )}
+              <div style={{ position: 'relative', flexShrink: 0, width: 32, height: 32, borderRadius: userAvatarRadius(32), boxShadow: SHADOW_AVATAR, overflow: 'hidden' }}>
+                <UserAvatar name={label} src={avatarSrc} size={32} />
               </div>
 
               {/* Name + sublabel — hidden when collapsed */}

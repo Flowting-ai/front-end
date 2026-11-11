@@ -1,18 +1,22 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { ArrowDownOneIcon, TickTwoIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { Dropdown } from '@/components/Dropdown'
 import { Spinner } from '@/components/Spinner'
 import { toast } from 'sonner'
-import { fetchProjectMembers, leaveProjectApi, type ApiProjectMember } from '@/lib/api/projects'
+import { useQueryClient } from '@tanstack/react-query'
+import { leaveProjectApi, type ApiProjectMember } from '@/lib/api/projects'
+import { projectMembersQuery } from '@/lib/projects/project-queries'
 
-// Same hand-rolled overlay shape as ConfirmModal/LeaveWorkspaceModal. Needs
+// Same Radix dialog shell as ConfirmModal/LeaveWorkspaceModal. Needs
 // its own component: the owner's exit branches into a successor picker OR an
 // archive/convert-to-personal choice depending on whether anyone else is
 // still on the project — neither existing modal has a slot for that.
-const SHADOW_MODAL = '0px 19px 32px 0px rgba(18,12,8,0.15), 0px 2px 2.8px 0px rgba(130,122,116,0.1)'
+// The successor picker's menu portals to document.body — a click in it isn't a click outside the dialog.
+const isInDropdown = (t: EventTarget | null) => t instanceof Element && !!t.closest('[data-kds-dropdown-panel]')
 
 type AloneAction = 'archive' | 'convertPersonal'
 
@@ -26,6 +30,7 @@ export interface LeaveProjectModalProps {
 }
 
 export function LeaveProjectModal({ projectId, isOwner, currentUserId, onClose, onLeft }: LeaveProjectModalProps) {
+  const queryClient = useQueryClient()
   const [loadingMembers, setLoadingMembers] = useState(isOwner)
   const [others,         setOthers]         = useState<ApiProjectMember[]>([])
   // Distinct from "loaded, zero others" — a failed fetch must never be read
@@ -44,7 +49,7 @@ export function LeaveProjectModal({ projectId, isOwner, currentUserId, onClose, 
     let cancelled = false
     setLoadingMembers(true)
     setMembersLoadFailed(false)
-    fetchProjectMembers(projectId)
+    queryClient.fetchQuery({ ...projectMembersQuery(projectId), staleTime: 0 })
       .then(members => {
         if (cancelled) return
         setOthers(members.filter(m => m.userId !== currentUserId))
@@ -56,7 +61,7 @@ export function LeaveProjectModal({ projectId, isOwner, currentUserId, onClose, 
       })
       .finally(() => { if (!cancelled) setLoadingMembers(false) })
     return () => { cancelled = true }
-  }, [isOwner, projectId, currentUserId, loadAttempt])
+  }, [isOwner, projectId, currentUserId, loadAttempt, queryClient])
 
   const hasOthers = others.length > 0
   const selectedSuccessor = others.find(m => m.userId === successorId) ?? null
@@ -92,30 +97,22 @@ export function LeaveProjectModal({ projectId, isOwner, currentUserId, onClose, 
           ? 'Pick who takes over as owner before you leave.'
           : "You're the only one on this project — archive it or convert it to a personal project first."
 
+
   return (
-    // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
-    <div
-      onClick={() => { if (!submitting) onClose() }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 9998, background: 'var(--overlay-bg)',
-        backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-      }}
-    >
-      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          background: 'var(--neutral-white)', borderRadius: 16, padding: 24, width: 420, maxWidth: 'calc(100vw - 32px)',
-          boxShadow: SHADOW_MODAL, display: 'flex', flexDirection: 'column', gap: 20,
-        }}
+    <Dialog open onOpenChange={(next) => { if (!next && !submitting) onClose() }}>
+      <DialogContent
+        hideClose
+        role="alertdialog"
+        aria-modal="true"
+        onEscapeKeyDown={(e) => { if (submitting || successorMenuOpen) e.preventDefault() }}
+        onInteractOutside={(e) => { if (submitting || isInDropdown(e.target)) e.preventDefault() }}
+        style={{ width: 420, padding: 24, gap: 20 }}
       >
         <div>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 16, lineHeight: '24px', color: 'var(--neutral-900)', margin: 0 }}>
-            Leave project?
-          </p>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '8px 0 0' }}>
+          <DialogTitle>Leave project?</DialogTitle>
+          <DialogDescription style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14, lineHeight: '22px', color: 'var(--neutral-500)', margin: '8px 0 0' }}>
             {description}
-          </p>
+          </DialogDescription>
         </div>
 
         {isOwner && loadingMembers && (
@@ -212,8 +209,8 @@ export function LeaveProjectModal({ projectId, isOwner, currentUserId, onClose, 
             Leave project
           </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

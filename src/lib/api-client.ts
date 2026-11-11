@@ -41,6 +41,12 @@ export const apiCircuitBreaker = new CircuitBreaker(5, 30_000);
 
 const requestQueue = new RequestQueue(5);
 
+/** Retry count when the caller does not set one: only idempotent reads retry. */
+export function defaultRetries(method?: string): number {
+  const m = (method ?? "GET").toUpperCase();
+  return m === "GET" || m === "HEAD" ? 3 : 0;
+}
+
 // ---------------------------------------------------------------------------
 // Core fetch
 // ---------------------------------------------------------------------------
@@ -50,11 +56,13 @@ const requestQueue = new RequestQueue(5);
  *
  * - Selects the appropriate rate limiter based on URL / method.
  * - Wraps execution in the circuit breaker.
- * - Retries with exponential backoff (3 attempts, 1 s base delay).
+ * - Retries with exponential backoff (3 attempts, 1 s base delay) for GET/HEAD
+ *   only; other methods are sent once unless the caller passes `retries`, so a
+ *   timed-out POST is never silently duplicated.
  * - Adds a request timeout (default 30 s).
  */
 export async function secureFetch<T = unknown>(url: string, options: FetchOptions = {}): Promise<T> {
-  const { timeout = 30_000, retries = 3, retryDelay = 1_000, ...fetchOptions } = options;
+  const { timeout = 30_000, retries = defaultRetries(options.method), retryDelay = 1_000, ...fetchOptions } = options;
 
   if (!url || typeof url !== "string") {
     throw new Error("Invalid URL provided");

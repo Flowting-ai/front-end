@@ -14,8 +14,7 @@ import { exportSinglePin, exportPins } from "@/lib/export-pins"
 import { CHAT_ROUTE } from "@/lib/routes"
 import { PINS_ENABLED } from "@/lib/feature-flags"
 import { createPinFolder, validateFolderName, movePinToFolder, renamePinFolder, deletePinFolder } from "@/lib/api/pins"
-import { Button } from "@/components/Button"
-import { IconButton } from "@/components/IconButton"
+import { Button, IconButton } from "@/components/ui/button"
 import { InputField } from "@/components/InputField"
 import { ConfirmModal } from "@/components/ConfirmModal"
 import { toast } from "sonner"
@@ -651,7 +650,7 @@ function RightSidebarImpl() {
                   aria-label="Folder name"
                 />
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                  <Button variant="ghost" size="sm" onClick={() => { setShowRenameModal(false); setRenameFolderTarget(null); setRenameModalName("") }}>
+                  <Button variant="cancel" size="sm" onClick={() => { setShowRenameModal(false); setRenameFolderTarget(null); setRenameModalName("") }}>
                     Cancel
                   </Button>
                   <Button variant="default" size="sm" disabled={!renameModalName.trim()} onClick={handleConfirmRename}>
@@ -734,7 +733,7 @@ function RightSidebarImpl() {
                   aria-label="Folder name"
                 />
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                  <Button variant="ghost" size="sm" onClick={() => { setShowFolderModal(false); setFolderModalName("") }}>
+                  <Button variant="cancel" size="sm" onClick={() => { setShowFolderModal(false); setFolderModalName("") }}>
                     Cancel
                   </Button>
                   <Button variant="default" size="sm" disabled={!folderModalName.trim()} onClick={handleCreateFolder}>

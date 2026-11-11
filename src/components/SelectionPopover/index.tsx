@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useId, useLayoutEffect, useRef, useState } from 'react'
-import { useMounted } from '@/hooks/use-mounted'
+import { useIsClient } from '@/hooks/use-is-client'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, m } from 'framer-motion'
 import { computePosition, flip, offset, shift } from '@floating-ui/dom'
@@ -190,7 +190,7 @@ export function SelectionPopover({
   onHighlight,
   onCopy,
 }: SelectionPopoverProps) {
-  const mounted = useMounted()
+  const mounted = useIsClient()
   const [copied,    setCopied]    = useState(false)
   const [pos,       setPos]       = useState({ x: 0, y: 0 })
   const [placement, setPlacement] = useState<'top' | 'bottom'>('top')

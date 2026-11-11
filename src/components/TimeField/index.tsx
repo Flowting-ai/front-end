@@ -16,7 +16,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowDownOneIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { Dropdown, type DropdownPlacement } from '@/components/Dropdown'
 import { cn } from '@/lib/utils'
 

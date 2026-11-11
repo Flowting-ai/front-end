@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { m, useReducedMotion } from 'framer-motion'
 import { SettingsOneIcon } from '@strange-huge/icons'
+import { UserAvatar, userAvatarRadius } from '@/components/Avatar'
 
 // ── "Sidebar / Profile Row" (Figma 109:4650) ─────────────────────────────────
 // "50px, avatar centred by counter-axis alignment rather than vertical
@@ -40,17 +41,12 @@ export function FlatSidebarProfileRow({ name, sublabel, avatarSrc, planLabel, on
         role="button"
         tabIndex={0}
         onClick={onOpenSettingsClick}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenSettingsClick() } }}
+        // Enter / Space bubble to the AccountMenu's Radix trigger, which toggles the menu.
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onOpenSettingsClick() }}
         style={{ display: 'flex', justifyContent: 'center', width: '100%', cursor: 'pointer' }}
       >
-        <div style={{ width: 32, height: 32, borderRadius: '9999px', overflow: 'hidden', flexShrink: 0, position: 'relative', boxShadow: 'var(--shadow-sidebar-item-avatar)' }}>
-          {avatarSrc ? (
-            <img alt="" src={avatarSrc} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--neutral-white)', color: 'var(--sidebar-menu-item-text)', fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-caption)' }}>
-              {name.charAt(0).toUpperCase()}
-            </div>
-          )}
+        <div style={{ width: 32, height: 32, borderRadius: userAvatarRadius(32), overflow: 'hidden', flexShrink: 0, position: 'relative', boxShadow: 'var(--shadow-sidebar-item-avatar)' }}>
+          <UserAvatar name={name} src={avatarSrc} size={32} />
         </div>
       </div>
       </div>
@@ -62,7 +58,8 @@ export function FlatSidebarProfileRow({ name, sublabel, avatarSrc, planLabel, on
       role="button"
       tabIndex={0}
       onClick={onOpenSettingsClick}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenSettingsClick() } }}
+      // Enter / Space bubble to the AccountMenu's Radix trigger, which toggles the menu.
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onOpenSettingsClick() }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       data-sidebar-active={isActive ? '' : undefined}
@@ -77,14 +74,8 @@ export function FlatSidebarProfileRow({ name, sublabel, avatarSrc, planLabel, on
         transition: 'background-color 150ms, box-shadow 150ms',
       }}
     >
-      <div style={{ width: 32, height: 32, borderRadius: '9999px', overflow: 'hidden', flexShrink: 0, position: 'relative', boxShadow: 'var(--shadow-sidebar-item-avatar)' }}>
-        {avatarSrc ? (
-          <img alt="" src={avatarSrc} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-        ) : (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--neutral-white)', color: 'var(--sidebar-menu-item-text)', fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 'var(--font-size-caption)' }}>
-            {name.charAt(0).toUpperCase()}
-          </div>
-        )}
+      <div style={{ width: 32, height: 32, borderRadius: userAvatarRadius(32), overflow: 'hidden', flexShrink: 0, position: 'relative', boxShadow: 'var(--shadow-sidebar-item-avatar)' }}>
+        <UserAvatar name={name} src={avatarSrc} size={32} />
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', flex: '1 0 0', minWidth: 0, overflow: 'hidden' }}>

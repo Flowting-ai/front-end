@@ -1,20 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
-import { AnimatePresence, m } from "framer-motion";
 import { DeleteChatDialog } from "./DeleteChatDialog";
-// CompareModels (a large component) only renders once the compare dialog is
-// opened (see the `isOpen &&` guard below) — a static import here would make every
-// page pay for it, since AppDialogs mounts globally via AppLayout. Deferred
-// so the chunk only loads on the first actual open.
-const CompareModels = dynamic(() => import("@/components/compare/CompareModels"), {
-  ssr: false,
-  loading: () => null,
-});
-import { useCompare } from "@/context/compare-context";
-import { useModelSelectorContext } from "@/context/model-selector-context";
-import type { AIModel } from "@/types/ai-model";
+import { DeleteChatWithFilesDialog } from "@/components/Library/chat/DeleteChatFiles";
+import { useChatSavedFiles } from "@/components/Library/chat/useChatSavedFiles";
+import { useQueryClient } from "@tanstack/react-query";
+import { chatDeletedToast } from "@/components/Library/chat/chat-deleted-toast";
+import { useLibraryViewer } from "@/lib/library/viewer";
+import { CHAT_MESSAGES } from "@/lib/library/messages";
+import { ApiError } from "@/lib/api/client";
+import { getChatMessages } from "@/lib/api/chat";
 
 // ── Event types ───────────────────────────────────────────────────────────────
 
@@ -39,61 +34,48 @@ export function openDeleteChatDialog(payload: DeleteChatPayload) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-function CompareDialog() {
-  const { isOpen, close } = useCompare();
-  const { selectModel } = useModelSelectorContext();
+// The chat is gone when its messages answer 404. The callers' own delete reports failure by toasting, not
+// by throwing, so this is how "Also delete these files" knows not to touch files of a chat that is still there.
+async function chatStillExists(chatId: string): Promise<boolean> {
+  try {
+    await getChatMessages(chatId);
+    return true;
+  } catch (error) {
+    return !(error instanceof ApiError && error.status === 404);
+  }
+}
 
-  const handleModelSelect = (model: AIModel) => {
-    selectModel(model);
-    close();
-  };
-
+/** Delete chat: asks about the files the chat saved to Library, or the plain confirm when they can't be told. */
+function DeleteChatHost({ state, onClose }: { state: DeleteChatPayload; onClose: () => void }) {
+  const saved = useChatSavedFiles(state.chatId);
+  const queryClient = useQueryClient();
+  const { orgKey } = useLibraryViewer();
+  if (saved.status === "unknown") {
+    return (
+      <DeleteChatDialog
+        open
+        chatTitle={state.chatTitle}
+        onConfirm={async () => {
+          await state.onConfirm();
+          onClose();
+          if (!(await chatStillExists(state.chatId))) chatDeletedToast(CHAT_MESSAGES.chatDeleted, state.chatId, queryClient, orgKey);
+        }}
+        onCancel={onClose}
+      />
+    );
+  }
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          {/* Backdrop */}
-          <m.div
-            key="compare-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            onClick={close}
-            style={{
-              position:        "fixed",
-              inset:           0,
-              zIndex:          20,
-              backgroundColor: "color-mix(in srgb, var(--static-black) 50%, transparent)",
-            }}
-          />
-          {/* Dialog */}
-          <m.div
-            key="compare-dialog"
-            initial={{ opacity: 0, scale: 0.96, y: 12 }}
-            animate={{ opacity: 1, scale: 1,    y: 0  }}
-            exit={{    opacity: 0, scale: 0.96, y: 12 }}
-            transition={{ type: "spring", stiffness: 400, damping: 32 }}
-            style={{
-              position:        "fixed",
-              inset:           0,
-              zIndex:          21,
-              display:         "flex",
-              alignItems:      "center",
-              justifyContent:  "center",
-              pointerEvents:   "none",
-            }}
-          >
-            <div style={{ pointerEvents: "auto", position: "relative" }}>
-              <CompareModels
-                onClose={close}
-                onModelSelect={handleModelSelect}
-              />
-            </div>
-          </m.div>
-        </>
-      )}
-    </AnimatePresence>
+    <DeleteChatWithFilesDialog
+      chatId={state.chatId}
+      chatTitle={state.chatTitle}
+      files={saved.status === "ready" ? saved.files : []}
+      loading={saved.status === "loading"}
+      onDeleteChat={async () => {
+        await state.onConfirm();
+        if (await chatStillExists(state.chatId)) throw new Error("chat not deleted");
+      }}
+      onClose={onClose}
+    />
   );
 }
 
@@ -115,17 +97,8 @@ export function AppDialogs() {
   return (
     <>
       {deleteChatState && (
-        <DeleteChatDialog
-          open
-          chatTitle={deleteChatState.chatTitle}
-          onConfirm={async () => {
-            await deleteChatState.onConfirm();
-            setDeleteChatState(null);
-          }}
-          onCancel={() => setDeleteChatState(null)}
-        />
+        <DeleteChatHost state={deleteChatState} onClose={() => setDeleteChatState(null)} />
       )}
-      <CompareDialog />
     </>
   );
 }

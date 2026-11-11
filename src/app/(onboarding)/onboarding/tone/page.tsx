@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "@/context/onboarding-context";
 import { useAuth } from "@/context/auth-context";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import { updateOnboarding, updateUser } from "@/lib/api/user";
 import { toast } from "sonner";
 import type { OnboardingTone } from "@/context/onboarding-context";

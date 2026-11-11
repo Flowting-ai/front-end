@@ -4,7 +4,7 @@ import React, { useRef, useState } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
 import { toast } from 'sonner'
 import { PlusSignIcon, FolderOneIcon } from '@strange-huge/icons'
-import { IconButton } from '@/components/IconButton'
+import { Button } from '@/components/ui/button'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { ProjectDocumentCard } from '@/components/ProjectDocumentCard'
 import { FILE_ACCEPT, FILE_CONSTRAINTS, isAllowedType } from '@/hooks/use-file-upload'
@@ -21,6 +21,10 @@ export interface ProjectFilesPanelProps {
   onUpload?:     (files: FileList) => void | Promise<void>
   onRemove?:     (fileId: string) => void
 }
+
+// Up to this many rows the list simply grows with the card (nothing to clip); past it, it scrolls.
+const MAX_VISIBLE_ROWS = 6
+const ROW_PITCH = 68 // 62px file card (40px glyph + padding + border) + 6px gap
 
 function formatBytes(bytes: number): string {
   if (bytes <= 0)          return ''
@@ -129,59 +133,43 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
         style={{
           display:       'flex',
           flexDirection: 'column',
-          gap:           '12px',
-          padding:       '12px 12px 16px',
-          borderRadius:  '16px',
+          gap:           12,
+          padding:       12,
+          flexShrink:    0,
+          borderRadius:  16,
           background:    dragging ? 'var(--neutral-100)' : 'var(--card-bg)',
-          border:        dragging
-            ? '1.5px dashed var(--neutral-400)'
-            : '1px solid var(--neutral-100)',
+          // Same card chrome as Instructions; a dashed edge only while a file is dragged over.
+          // --focus-ring is the signature accent: blue in light mode, pink in dark.
+          border:        dragging ? '1px dashed var(--focus-ring)' : '1px solid var(--text-field-ring)',
           boxShadow:     '0px 2px 2.8px 0px rgba(82,75,71,0.12)',
           width:         '100%',
-          minHeight:     isEmpty ? '400px' : 'unset',
           boxSizing:     'border-box',
-          overflow:      'hidden',
           transition:    'background 180ms, border-color 180ms',
         }}
       >
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <p
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 'var(--font-weight-regular)',
-                fontSize:   '16px',
-                lineHeight: '22px',
-                color:      'var(--color-text-primary)',
-                margin:     0,
-                flexShrink: 0,
-              }}
-            >
+        {/* Header: title + count, then the primary Add action (same size as Instructions' Edit). */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-regular)', fontSize: 16, lineHeight: '22px', color: 'var(--color-text-primary)', margin: 0 }}>
               Files
             </p>
             {!isEmpty && (
-              <span
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 'var(--font-weight-regular)',
-                  fontSize: '12px',
-                  lineHeight: '16px',
-                  color:      'var(--neutral-700)',
-                }}
-              >
-                {totalCount} {totalCount === 1 ? 'file' : 'files'}
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--neutral-600)' }}>
+                {totalCount}
               </span>
             )}
           </div>
-          {onUpload && <IconButton
-            variant="ghost"
-            size="xs"
-            icon={<PlusSignIcon />}
-            aria-label="Upload file"
-            onClick={() => inputRef.current?.click()}
-            disabled={isUploading}
-          />}
+          {onUpload && (
+            <Button
+              variant="default"
+              size="xs"
+              leftIcon={<PlusSignIcon size={12} />}
+              onClick={() => inputRef.current?.click()}
+              disabled={isUploading}
+            >
+              Add
+            </Button>
+          )}
         </div>
 
         <input
@@ -194,58 +182,32 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
           aria-hidden
         />
 
-        {/* Capacity bar – always visible */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0 }}>
-          <p
-            style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 'var(--font-weight-regular)',
-              fontSize: '12px',
-              lineHeight: '16px',
-              color:      'var(--color-text-muted)',
-              margin:     0,
-            }}
-          >
-            {usedLabel} of {totalMB} MB used
-          </p>
+        {/* Storage: one line, bar then "x of y MB". */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div
             role="progressbar"
             aria-valuemin={0}
             aria-valuemax={totalMB}
             aria-valuenow={usedMB}
             aria-label={`${usedLabel} of ${totalMB} MB used`}
-            style={{
-              height:       '4px',
-              borderRadius: '2px',
-              background:   'var(--neutral-100)',
-              overflow:     'hidden',
-            }}
+            style={{ flex: '1 1 0', height: 4, borderRadius: 2, background: 'var(--neutral-200)', overflow: 'hidden' }}
           >
             <m.div
               animate={{ width: `${usedPct}%` }}
               transition={{ type: 'spring', stiffness: 200, damping: 28 }}
-              style={{
-                height:       '100%',
-                background:   usedPct > 90 ? 'var(--red-500, #ef4444)' : 'var(--blue-500)',
-                borderRadius: 'inherit',
-              }}
+              style={{ height: '100%', background: usedPct > 90 ? 'var(--red-500, #ef4444)' : 'var(--blue-500)', borderRadius: 'inherit' }}
             />
           </div>
+          <span style={{ flexShrink: 0, fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--neutral-600)' }}>
+            {usedLabel} of {totalMB} MB
+          </span>
         </div>
 
-        {/* File list – real files + optimistic pending cards */}
+        {/* File list: grows one row per file; only a long list scrolls. */}
         {!isEmpty && (
           <div
             className="kaya-scrollbar"
-            style={{
-              display:             'flex',
-              flexDirection:       'column',
-              gap:                 '6px',
-              overflowY:           'auto',
-              maxHeight:           '240px',
-              overscrollBehaviorY: 'contain',
-              padding:             '3px',
-            }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, ...(totalCount > MAX_VISIBLE_ROWS ? { overflowY: 'auto', maxHeight: MAX_VISIBLE_ROWS * ROW_PITCH, overscrollBehaviorY: 'contain' } : null) }}
           >
             <AnimatePresence initial={false}>
               {files.map((file) => (
@@ -270,59 +232,38 @@ export function ProjectFilesPanel({ files, usedBytes, totalBytes, pendingFiles, 
           </div>
         )}
 
-        {/* Empty drop zone */}
+        {/* Empty: a compact drop zone instead of a tall blank card. */}
         {isEmpty && onUpload && (
           <button
+            type="button"
             onClick={() => inputRef.current?.click()}
             style={{
               display:        'flex',
-              flexDirection:  'column',
               alignItems:     'center',
-              justifyContent: 'center',
-              gap:            '6px',
-              flex:           '1 1 0',
-              borderRadius:   '10px',
-              border:         'none',
+              gap:            10,
+              borderRadius:   10,
+              border:         '1px dashed var(--neutral-300)',
               background:     'transparent',
-              boxShadow:      '0px 0px 0px 1px rgba(59,54,50,0.3)',
               cursor:         'pointer',
-              padding:        '24px 12px',
+              padding:        '12px',
+              textAlign:      'left',
             }}
           >
-            <FolderOneIcon variant="static" style={{ width: 16, height: 16, color: 'var(--neutral-700)', flexShrink: 0 }} />
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-              <span
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 'var(--font-weight-medium)',
-                  fontSize:   '14px',
-                  lineHeight: '22px',
-                  color:      'var(--neutral-700)',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                Upload Files
+            <FolderOneIcon variant="static" style={{ width: 18, height: 18, color: 'var(--neutral-600)', flexShrink: 0 }} />
+            <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <span style={{ fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 13, lineHeight: '18px', color: 'var(--neutral-800)' }}>
+                Drop files or click to upload
               </span>
-              <span
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 'var(--font-weight-regular)',
-                  fontSize: '12px',
-                  lineHeight: '16px',
-                  color:      'var(--neutral-700)',
-                  textAlign:  'center',
-                  maxWidth:   '226px',
-                }}
-              >
-                Add files as shared knowledge for every chat in this project.
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '16px', color: 'var(--neutral-600)' }}>
+                Shared knowledge for every chat in this project.
               </span>
-            </div>
+            </span>
           </button>
         )}
         {isEmpty && !onUpload && (
-          <div style={{ display: 'flex', flex: '1 1 0', alignItems: 'center', justifyContent: 'center', color: 'var(--neutral-500)', fontFamily: 'var(--font-body)', fontSize: 12 }}>
+          <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '18px', color: 'var(--neutral-600)' }}>
             No files yet.
-          </div>
+          </p>
         )}
 
         {removeTarget && (

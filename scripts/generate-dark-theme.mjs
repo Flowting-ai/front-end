@@ -66,7 +66,12 @@ const PRIMARY_TO = '#222222'
 const PRIMARY_DISABLED_TO = '#383838'
 const PRIMARY_BORDER = '#5C5C5C'
 const TOOLTIP_TO = '#2A2A2A'
-// Dark-mode brand pink for the default Button + Tooltip (light mode stays black).
+// Dark-mode primary button: a light (off-white) fill with dark text. The PINK_* names are kept for the
+// tooltip/widget, which still use the brand pink.
+const LIGHT_BTN_FROM = '#EDEDED' // hover shade
+const LIGHT_BTN_TO = '#FFFFFF' // resting fill: white
+const LIGHT_BTN_BORDER = '#FFFFFF'
+const LIGHT_BTN_TEXT = '#1C1C1C'
 const PINK_FROM = '#F92064'
 const PINK_TO = '#C4124C'
 const PINK_BORDER = '#FF6B97'
@@ -273,21 +278,29 @@ lines.push('  /* ── Role overrides ─────────────�
 const overrides = [
   // Primary button / icon button / tooltip / toast action: a dark ELEVATED brown with
   // white text and a visible border — never a light fill.
-  ['--color-interactive-primary-surface-from', PINK_FROM],
-  ['--color-interactive-primary-surface-to', PINK_TO],
+  ['--color-interactive-primary-surface-from', LIGHT_BTN_FROM],
+  ['--color-interactive-primary-surface-to', LIGHT_BTN_TO],
   ['--color-interactive-primary-surface-disabled-from', PRIMARY_FROM],
   ['--color-interactive-primary-surface-disabled-to', PRIMARY_DISABLED_TO],
-  ['--color-interactive-primary-border', PINK_BORDER],
+  ['--color-interactive-primary-border', LIGHT_BTN_BORDER],
   ['--color-interactive-primary-border-disabled', '#5C5C5C'],
-  ['--color-interactive-primary-text', WHITE],
+  ['--color-interactive-primary-text', LIGHT_BTN_TEXT],
+  // Focus ring and "on" controls: the signature pink in dark mode (light mode uses --blue-600).
+  ['--color-focus-ring', '#F92064'],
+  ['--switch-track-bg-on', '#F92064'],
+  ['--checkbox-bg-on', '#F92064'],
+  ['--effort-range-bg', '#F92064'],
+  ['--shadow-switch-track-on', '0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px rgba(249, 32, 100, 0.7), inset 0px 1px 0px 0px rgba(255, 255, 255, 0.25), inset 0px -1px 0px 0px rgba(0, 0, 0, 0.15)'],
+  ['--shadow-switch-thumb-on', '0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px rgba(249, 32, 100, 0.4), inset 0px -1px 0px 0px rgba(0, 0, 0, 0.15)'],
+  ['--shadow-checkbox-on', '0px 1px 1.5px 0px rgba(0, 0, 0, 0.24), 0px 0px 0px 1px rgba(249, 32, 100, 0.7), inset 0px 1px 0px 0px rgba(255, 255, 255, 0.25), inset 0px -1px 0px 0px rgba(0, 0, 0, 0.15)'],
   ['--color-interactive-primary-text-disabled', '#BDBDBD'],
   // Disabled ghost / outline / icon-button content + outline borders: readable, still clearly dimmer than enabled (#C4C4C4).
   ['--color-interactive-subtle-text-disabled', '#A3A3A3'],
   ['--button-outline-border-disabled', 'rgba(255, 255, 255, 0.32)'],
   ['--icon-button-outline-border-disabled', 'rgba(255, 255, 255, 0.32)'],
-  ['--button-default-hover-glow', 'linear-gradient(180deg, rgb(255,240,246) 0%, rgb(255,140,178) 12%, rgb(249,32,100) 24%, rgb(150,10,70) 36%, rgb(40,4,20) 48%, rgb(10,0,6) 56%, rgb(110,8,52) 68%, rgb(215,25,92) 80%, rgb(255,92,140) 90%, rgb(255,158,191) 100%)'],
+  ['--button-default-hover-glow', 'linear-gradient(180deg, rgb(255,255,255) 0%, rgb(235,235,235) 50%, rgb(255,255,255) 100%)'],
   // Default-button 3D edge: light pink instead of the (dark-mirrored) white neutral-950.
-  ['--shadow-button-default-inner', 'inset 0px 1px 0.364px 0px rgba(255, 179, 204, 0.4), inset 0px -2.182px 0.364px 0px #FFB3CC, inset 0px -2.545px 4px -2.182px rgba(255, 179, 204, 0.5)'],
+  ['--shadow-button-default-inner', 'inset 0px 1px 0.364px 0px rgba(255, 255, 255, 0.4), inset 0px -2.182px 0.364px 0px #FFFFFF'],
   // Dropdown / popover / floating-menu 1px ring: light silver, with a deep drop shadow.
   ['--shadow-popover', '0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 1px 2px 0px rgba(192, 192, 192, 0.12), 0px 0px 0px 1px var(--neutral-200)'],
   ['--shadow-floating-menu-outer', '0px 4px 10px -3px rgba(192, 192, 192, 0.22), 0px 2px 4px -1px rgba(192, 192, 192, 0.16), 0px 1px 2px 0px rgba(192, 192, 192, 0.12), 0px 0px 0px 1px var(--neutral-200)'],
@@ -335,17 +348,31 @@ const overrides = [
   ['--icon-button-secondary-bg-hover', '#3A3A3A'],
   ['--tab-item-bg-selected', '#404040'],
   ['--tab-item-text-selected', '#FFFFFF'],
-  ['--shadow-button-secondary-outer', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.10)'],
-  ['--shadow-button-secondary-outer-hover', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.18)'],
+  ['--shadow-button-secondary-outer', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), inset 0px 0px 0px 1px rgba(255, 255, 255, 0.10)'],
+  ['--shadow-button-secondary-outer-hover', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), inset 0px 0px 0px 1px rgba(255, 255, 255, 0.18)'],
   ['--shadow-button-secondary-inner', 'inset 0px 1px 0px 0px rgba(255, 255, 255, 0.08)'],
   ['--shadow-button-secondary-inner-hover', 'inset 0px 1px 0px 0px rgba(255, 255, 255, 0.12)'],
   ['--shadow-tab-item-selected', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.14)'],
   ['--shadow-tab-item-selected-inner', 'inset 0px 1px 0px 0px rgba(255, 255, 255, 0.10)'],
+  // The primary button (light in dark): a dark wash on hover, and the secondary's ring + lift.
+  ['--button-primary-bg-hover', 'rgba(0, 0, 0, 0.06)'],
+  ['--shadow-button-primary-outer', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), inset 0px 0px 0px 1px rgba(255, 255, 255, 0.10)'],
+  ['--shadow-button-primary-outer-hover', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), inset 0px 0px 0px 1px rgba(255, 255, 255, 0.18)'],
+  // Approve (shadcnspace Permissions button): a light green tint and text that hold contrast on dark.
+  ['--button-approve-bg', 'rgba(74, 222, 128, 0.12)'],
+  ['--button-approve-bg-hover', 'rgba(74, 222, 128, 0.2)'],
+  ['--button-approve-text', '#4ADE80'],
+  // The active tab pill (Tabs 08 look): the selected-tab ring + shadow.
+  ['--shadow-tab-pill', '0px 1px 2px 0px rgba(0, 0, 0, 0.45), 0px 0px 0px 1px rgba(255, 255, 255, 0.14)'],
   // Text fields: a brighter fill than cards plus a clearly visible ring, so inputs stand out.
   ['--field-surface', FIELD_BG],
   ['--text-field-bg', FIELD_BG],
   ['--text-field-ring', 'rgba(255, 255, 255, 0.22)'],
   ['--text-field-ring-hover', 'rgba(255, 255, 255, 0.34)'],
+  // Floating menu item that is selected (its panel is open): solid white with a dark icon, so the
+  // open panel's button stands out on the dark menu (the other items take the menu's own colour).
+  ['--floating-menu-item-active-bg', '#FFFFFF'],
+  ['--floating-menu-item-active-fg', '#1C1C1C'],
   // The user's message bubble is a raised dark-grey card (light mode keeps white with dark text).
   ['--message-bubble-user-bg', '#2A2A2A'],
   ['--message-bubble-user-text', 'var(--neutral-900)'],
@@ -472,27 +499,34 @@ lines.push('')
 lines.push('  /* ── Project overrides (set in scripts/generate-dark-theme.mjs) ───────────────── */')
 const PROJECT_OVERRIDES = [
   // Chips (web search, agent chips, ...): light pink chips on the dark UI.
-  ['--chip-bg', '#FFD9E5'],
-  ['--chip-text', '#4A0B20'],
-  ['--chip-shadow', '0px 1px 1.5px 0px rgba(0, 0, 0, 0.4), 0px 0px 0px 1px rgba(249, 32, 100, 0.45)'],
-  ['--chip-inner-shadow', 'inset 0px 1px 0px 0px rgba(255, 255, 255, 0.8), inset 0px -1px 0px 0px rgba(196, 18, 76, 0.18)'],
-  ['--chip-button-bg-hover', 'rgba(249, 32, 100, 0.14)'],
-  ['--chip-button-inner-shadow', 'inset 0px -1px 0px 0px rgba(255, 255, 255, 0.7), inset 0px 1px 0px 0px rgba(196, 18, 76, 0.22)'],
+  ['--chip-bg', '#F5F2EF'],
+  ['--chip-text', '#1C1C1C'],
+  ['--chip-shadow', '0px 1px 1.5px 0px rgba(0, 0, 0, 0.4), 0px 0px 0px 1px rgba(255, 255, 255, 0.45)'],
+  ['--chip-inner-shadow', 'inset 0px 1px 0px 0px rgba(255, 255, 255, 0.8), inset 0px -1px 0px 0px rgba(0, 0, 0, 0.12)'],
+  ['--chip-button-bg-hover', 'rgba(0, 0, 0, 0.08)'],
+  ['--chip-button-inner-shadow', 'inset 0px -1px 0px 0px rgba(255, 255, 255, 0.7), inset 0px 1px 0px 0px rgba(0, 0, 0, 0.14)'],
   // Floating surfaces keep the dark surface.
   ['--popover-bg', 'var(--color-surface-default)'],
   ['--modal-bg', 'var(--color-surface-default)'],
   ['--card-bg', 'var(--color-surface-default)'],
+  // Layout / card hairline border (AppLayout content card, agent cards): the original dark-grey value.
+  ['--border-default', 'var(--neutral-200)'],
   ['--toast-bg', DARK_SURFACE_HEX],
   ['--surface-cream', DARK_SURFACE_HEX],
   // Chat widgets: black to signature pink, white accents.
   ['--widget-bg-from', '#0A0A0A'],
-  ['--widget-bg-to', PINK_FROM],
+  ['--widget-bg-to', '#4A4A4A'],
   ['--widget-accent', WHITE],
   ['--widget-on-accent', DARK_SURFACE_HEX],
   // Light-tinted shadows on dark.
   ['--shadow-avatar-ring', '0px 2px 6px 0px rgba(255, 255, 255, 0.16)'],
   ['--shadow-card-deep', '0px 4px 12px -2px rgba(255, 255, 255, 0.14), 0px 1px 3px 0px rgba(255, 255, 255, 0.12)'],
   ['--shadow-agent-card', '0px 4px 12px -2px rgba(255, 255, 255, 0.14), 0px 1px 3px 0px rgba(255, 255, 255, 0.12), 0px 0px 0px 1px var(--neutral-100)'],
+  // Danger buttons: shadcn dark destructive (red at 60%, 85% on hover), white text.
+  ['--button-danger-bg', 'rgb(220 38 38 / 0.6)'],
+  ['--button-danger-bg-hover', 'rgb(220 38 38 / 0.85)'],
+  ['--button-danger-text', '#FFFFFF'],
+  ['--button-danger-text-disabled', '#FFFFFF'],
   ['--shadow-agent-card-hover', '0px 6px 16px -3px rgba(255, 255, 255, 0.2), 0px 1px 3px 0px rgba(255, 255, 255, 0.14), 0px 0px 0px 1px var(--neutral-400)'],
 ]
 for (const [name, value] of PROJECT_OVERRIDES) lines.push(`  ${name}: ${value};`)

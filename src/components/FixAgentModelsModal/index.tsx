@@ -6,8 +6,7 @@ import { toast } from 'sonner'
 import { AlertTwoIcon, ArrowDownOneIcon, ArrowLeftOneIcon, CancelOneIcon, StarIcon } from '@strange-huge/icons'
 import { stableKey } from '@/hooks/use-model-selection'
 import { Badge } from '@/components/Badge'
-import { Button } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { Button, IconButton } from '@/components/ui/button'
 import {
   ModalHeader,
   ModalShell,
@@ -293,7 +292,7 @@ export function FixAgentModelsModal({ open, onClose, agents, onSaved }: FixAgent
             : 'No replacements picked yet'}
         </span>
         <div style={{ display: 'flex', gap: 8 }}>
-          <Button variant="ghost" onClick={handleClose} disabled={saving}>
+          <Button variant="cancel" onClick={handleClose} disabled={saving}>
             Cancel
           </Button>
           <Button

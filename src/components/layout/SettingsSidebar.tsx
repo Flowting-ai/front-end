@@ -3,16 +3,16 @@
 import React, { useEffect, useState } from 'react'
 import { m } from 'framer-motion'
 import { usePathname } from 'next/navigation'
-import { ArrowLeftOneIcon, BrainTwoIcon } from '@strange-huge/icons'
+import { ArrowLeftOneIcon, BrainTwoIcon, SidebarLeftIcon } from '@strange-huge/icons'
+import { useMobile } from '@/hooks/use-mobile'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Logout01Icon from '@hugeicons/core-free-icons/Logout01Icon'
 import { SidebarMenuItem } from '@/components/SidebarMenuItem'
 import { SidebarMenuSkeleton } from '@/components/SidebarMenuSkeleton'
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/ui/button'
 import { AccountMenu } from '@/components/AccountMenu'
-import { ReportBugModal } from '@/components/ReportBugModal'
-import { RequestFeatureModal } from '@/components/RequestFeatureModal'
 import { Divider } from '@/components/Divider'
+import { Badge } from '@/components/Badge'
 import { RoleBadge } from '@/components/RoleBadge'
 import type { WorkspaceRole } from '@/components/RoleBadge'
 import { Tooltip } from '@/components/Tooltip'
@@ -22,7 +22,9 @@ import { useOrg } from '@/context/org-context'
 import type { CreditsDisplay } from '@/lib/api/plan'
 import { formatCredits } from '@/lib/format-credits'
 import { useGuardedRouter, useNavGuard } from '@/context/nav-guard-context'
-import { AUTH_LOGIN_ROUTE, SETTINGS_ACCOUNT_ROUTE, SETTINGS_USAGE_ROUTE, SETTINGS_MEMORY_ROUTE, SETTINGS_HELP_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE } from '@/lib/routes'
+import { AUTH_LOGIN_ROUTE, SETTINGS_ACCOUNT_ROUTE, SETTINGS_USAGE_ROUTE, SETTINGS_MEMORY_ROUTE, SETTINGS_HELP_ROUTE, SETTINGS_REPORT_BUG_ROUTE, SETTINGS_FEATURE_REQUEST_ROUTE, CHAT_ROUTE, ORG_GENERAL_ROUTE, ORG_MEMBERS_ROUTE, ORG_PLANS_ROUTE, ORG_ANALYTICS_ROUTE, SETTINGS_LIBRARY_ROUTE, ORG_LIBRARY_ROUTE } from '@/lib/routes'
+import { LIBRARY_SETTINGS_ENABLED } from '@/lib/feature-flags'
+import { Sheet, SheetContent } from '@/components/ui/sheet'
 
 // ── Nav icons — Settings v1.5 sidebar ────────────────────────────────────────
 // Figma: https://www.figma.com/design/EirgiIxJWDEeUNZnKwr3f8/Settings-v1.5?node-id=18-27780
@@ -104,6 +106,8 @@ const PERSONAL_ITEMS = [
   // Same glyph as WORKSPACE's Usage item below — one "Usage" icon, not two.
   { id: 'usage',   label: 'Usage',   href: SETTINGS_USAGE_ROUTE,   icon: <SidebarAssetIcon src="/icons/settings-sidebar/usage-workspace.svg" /> },
   { id: 'memory',  label: 'Memory',  href: SETTINGS_MEMORY_ROUTE,  icon: <BrainTwoIcon size={20} /> },
+  // Library: auto-save, AI use of files, storage. Off until NEXT_PUBLIC_ENABLE_LIBRARY_SETTINGS=true.
+  ...(LIBRARY_SETTINGS_ENABLED ? [{ id: 'library', label: 'Library', href: SETTINGS_LIBRARY_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/library.svg" /> }] : []),
 ]
 
 // WORKSPACE: node 18:27793 (labelled "Organization" pre-v1.5). Admin only.
@@ -115,6 +119,10 @@ const WORKSPACE_ITEMS = [
   // closest existing route to a workspace-level usage view. The old group's
   // separate "Activity Log" (ORG_ACTIVITY_ROUTE) has no slot in the new design.
   { id: 'usage',   label: 'Usage',           href: ORG_ANALYTICS_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/usage-workspace.svg" /> },
+  // Workspace Library settings (Admin): auto-save default, AI use, file limits.
+  ...(LIBRARY_SETTINGS_ENABLED ? [{ id: 'library', label: 'Library', href: ORG_LIBRARY_ROUTE, icon: <SidebarAssetIcon src="/icons/settings-sidebar/library.svg" /> }] : []),
+  // Audit log and Inventory (phase 2 placeholders) are hidden for now; their pages still exist at
+  // ORG_AUDIT_LOG_ROUTE / ORG_INVENTORY_ROUTE.
 ]
 
 // HELP & SUPPORT: node 18:27804. New group — Help & Legal moves out of
@@ -125,6 +133,25 @@ const HELP_ITEMS = [
 ]
 
 
+// Narrow screens: the settings nav opens as a left-side Sheet (Radix Dialog) with a scrim —
+// Escape / scrim click close it, focus is trapped inside and returns to the menu button.
+// Wide screens: the nav renders inline.
+function NarrowDrawer({ narrow, open, onOpenChange, children }: {
+  narrow: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  children: React.ReactNode
+}) {
+  if (!narrow) return <>{children}</>
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="left" title="Settings menu" data-testid="settings-sidebar-drawer" style={{ display: 'flex' }}>
+        {children}
+      </SheetContent>
+    </Sheet>
+  )
+}
+
 export function SettingsSidebar() {
   // Guarded push — same app-wide "unsaved changes" system LeftSidebar uses
   // (nav-guard-context), so leaving a dirty Settings page shows the shared
@@ -132,11 +159,15 @@ export function SettingsSidebar() {
   // whether the user clicks a Settings nav item or the main app sidebar.
   const { push } = useGuardedRouter()
   const pathname = usePathname()
+  const isNarrow = useMobile()
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  // Choosing a page closes the narrow-screen drawer.
+  const [drawerPath, setDrawerPath] = useState(pathname)
+  if (drawerPath !== pathname) { setDrawerPath(pathname); setDrawerOpen(false) }
+  // Escape, scrim click, focus trap and focus return are handled by the Radix Sheet below.
   const { user, logout, isAuthenticated } = useAuth()
   const { guardedNavigate } = useNavGuard()
   const { orgId, org, plan, orgRole, currentUserRole, orgReady } = useOrg()
-  const [reportBugOpen,  setReportBugOpen]  = useState(false)
-  const [requestFeatureOpen, setRequestFeatureOpen] = useState(false)
 
   // No-op for a click on the already-active nav item — avoids re-triggering
   // the guard (or a pointless re-navigation) for a same-page click.
@@ -243,15 +274,26 @@ export function SettingsSidebar() {
 
   return (
     <>
+    {/* Narrow screens: a 48px rail with a menu button; the full nav opens as an
+        overlay drawer (same pattern as the app LeftSidebar). */}
+    {isNarrow && (
+      <div style={{ width: 48, flexShrink: 0, height: '100%', backgroundColor: 'var(--neutral-50)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, paddingTop: 24 }}>
+        <IconButton variant="ghost" size="sm" aria-label="Go back" icon={<ArrowLeftOneIcon size={20} />} onClick={() => safeNavigate(CHAT_ROUTE)} />
+        <IconButton variant="ghost" size="sm" aria-label="Open settings menu" aria-haspopup="dialog" aria-expanded={drawerOpen} icon={<SidebarLeftIcon size={20} variant="open" />} onClick={() => setDrawerOpen(true)} />
+      </div>
+    )}
+    <NarrowDrawer narrow={isNarrow} open={drawerOpen} onOpenChange={setDrawerOpen}>
     <div
       style={{
         display:         'flex',
         flexDirection:   'column',
         width:           294,
+        maxWidth:        isNarrow ? 'calc(100vw - 48px)' : undefined,
         height:          '100%',
         backgroundColor: 'var(--neutral-50)',
         flexShrink:      0,
         overflow:        'hidden',
+        ...(isNarrow ? { boxShadow: '4px 0 24px rgba(0, 0, 0, 0.16)' } : null),
       }}
     >
       {/* ── Title row — fixed ── */}
@@ -375,6 +417,7 @@ export function SettingsSidebar() {
                     variant="default"
                     icon={item.icon}
                     label={item.label}
+                    trailing={'phase2' in item && item.phase2 ? <Badge label="Phase 2" color="Neutral" /> : undefined}
                     selected={pathname === item.href || pathname.startsWith(`${item.href}/`)}
                     onClick={() => safeNavigate(item.href)}
                   />
@@ -426,8 +469,8 @@ export function SettingsSidebar() {
                 variant="default"
                 icon={<SidebarAssetIcon src="/icons/settings-sidebar/report-bug.svg" />}
                 label="Report a bug"
-                selected={false}
-                onClick={() => setReportBugOpen(true)}
+                selected={pathname === SETTINGS_REPORT_BUG_ROUTE}
+                onClick={() => safeNavigate(SETTINGS_REPORT_BUG_ROUTE)}
               />
             </m.div>
             <m.div variants={sectionItemVariants}>
@@ -436,8 +479,8 @@ export function SettingsSidebar() {
                 variant="default"
                 icon={<SidebarAssetIcon src="/icons/settings-sidebar/feature-request.svg" />}
                 label="Feature request"
-                selected={false}
-                onClick={() => setRequestFeatureOpen(true)}
+                selected={pathname === SETTINGS_FEATURE_REQUEST_ROUTE}
+                onClick={() => safeNavigate(SETTINGS_FEATURE_REQUEST_ROUTE)}
               />
             </m.div>
             <Divider decorative style={{ margin: '4px 0' }} />
@@ -498,12 +541,11 @@ export function SettingsSidebar() {
         )}
       </div>
     </div>
+    </NarrowDrawer>
 
     {/* Unsaved-changes confirmation is now the shared NavGuardModal (mounted
         once app-wide in (app)/layout.tsx) — see useGuardedRouter() above. */}
 
-    {reportBugOpen && <ReportBugModal onClose={() => setReportBugOpen(false)} />}
-    {requestFeatureOpen && <RequestFeatureModal onClose={() => setRequestFeatureOpen(false)} />}
     </>
   )
 }

@@ -1,4 +1,5 @@
 import React from 'react'
+import { matchRanges } from '@/lib/search/text-match'
 
 export type HighlightVariant = 'bold' | 'background'
 
@@ -7,6 +8,24 @@ export type HighlightVariant = 'bold' | 'background'
 // neutral-900 ('bold'), or given a yellow background ('background', the
 // classic <mark> search-hit look). Returns plain text when query is empty
 // or has no match.
+/**
+ * Bold every occurrence of every query term, case- and diacritic-insensitive
+ * ("cafe paris" marks both words in "Café in Paris"). Global search uses this.
+ */
+export function highlightTerms(text: string, query: string): React.ReactNode {
+  const ranges = matchRanges(text, query)
+  if (ranges.length === 0) return text
+  const parts: React.ReactNode[] = []
+  let at = 0
+  ranges.forEach(([start, end], i) => {
+    if (start > at) parts.push(text.slice(at, start))
+    parts.push(<strong key={i} style={{ fontWeight: 600, color: 'var(--neutral-900)' }}>{text.slice(start, end)}</strong>)
+    at = end
+  })
+  if (at < text.length) parts.push(text.slice(at))
+  return <>{parts}</>
+}
+
 export function highlightMatch(text: string, query: string, variant: HighlightVariant = 'bold'): React.ReactNode {
   if (!query.trim()) return text
   const lower      = text.toLowerCase()

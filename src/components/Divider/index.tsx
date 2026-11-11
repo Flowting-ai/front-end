@@ -37,10 +37,12 @@ export function Divider({
           border:           'none',
           margin:           0,
           flexShrink:       0,
-          backgroundColor:  'var(--divider-color)',
+          // A 1px border, not a 1px-tall background: browsers snap borders to whole device pixels, so
+          // every divider renders equally crisp at fractional display scales (125%, 150%). A background
+          // line at a half-pixel position blurs across two rows and looks thicker and lighter.
           ...(isHorizontal
-            ? { height: '1px', width: '100%', alignSelf: 'stretch' }
-            : { width: '1px',  height: '100%', alignSelf: 'stretch' }),
+            ? { height: 0, borderTop: '1px solid var(--divider-color)', width: '100%', alignSelf: 'stretch' }
+            : { width: 0,  borderLeft: '1px solid var(--divider-color)', height: '100%', alignSelf: 'stretch' }),
           ...style,
         }}
         {...props}

@@ -4,7 +4,7 @@ import { Tooltip } from '@/components/Tooltip'
 import { useEffect, useState } from 'react'
 import { PlusSignIcon } from '@strange-huge/icons'
 import { toast } from 'sonner'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { ConnectorGlyph } from '@/components/ConnectorGlyph'
 import { PermissionsTab } from '@/components/connectors/AccountDetailView'
 import {
@@ -189,7 +189,7 @@ export function SlackConnectorsPanel({ orgId, channelId }: { orgId: string; chan
                 </div>
               ))}
           </div>
-          <div className={styles.actions}><Button variant="ghost" size="sm" onClick={() => setMode('closed')}>Cancel</Button></div>
+          <div className={styles.actions}><Button variant="cancel" size="sm" onClick={() => setMode('closed')}>Cancel</Button></div>
         </div>
       )}
 
@@ -208,7 +208,7 @@ export function SlackConnectorsPanel({ orgId, channelId }: { orgId: string; chan
               </div>
             ))}
           </div>
-          <div className={styles.actions}><Button variant="ghost" size="sm" onClick={() => setMode('closed')}>Cancel</Button></div>
+          <div className={styles.actions}><Button variant="cancel" size="sm" onClick={() => setMode('closed')}>Cancel</Button></div>
         </div>
       )}
 

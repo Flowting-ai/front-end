@@ -1,13 +1,11 @@
 'use client'
 
 import React, { useState, useRef } from 'react'
-import { useMounted } from '@/hooks/use-mounted'
-import { createPortal } from 'react-dom'
-import { m, AnimatePresence } from 'framer-motion'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { FolderOneIcon, CancelOneIcon, InformationCircleIcon } from '@strange-huge/icons'
 import { cn } from '@/lib/utils'
-import { Button }     from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { Button, IconButton } from '@/components/ui/button'
 
 // ── Shadows ───────────────────────────────────────────────────────────────────
 
@@ -177,7 +175,6 @@ export function MoveToProjectModal({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [atTop,      setAtTop]      = useState(true)
   const [atBottom,   setAtBottom]   = useState(false)
-  const mounted = useMounted()
 
   const handleConfirm = () => {
     if (!selectedId || loading) return
@@ -199,256 +196,213 @@ export function MoveToProjectModal({
   const chatLabel = chatCount === 1 ? '1 chat' : `${chatCount} chats`
   const noun      = chatCount === 1 ? 'this chat' : 'these chats'
 
-  if (!mounted) return null
+  return (
+    <Dialog open={open} onOpenChange={(next) => { if (!next) handleClose() }}>
+      <DialogContent
+        hideClose
+        aria-label={`Move ${chatLabel} to project`}
+        className={cn(className)}
+        onEscapeKeyDown={(e) => { if (loading) e.preventDefault() }}
+        onInteractOutside={(e) => { if (loading) e.preventDefault() }}
+        style={{
+          width:      560,
+          maxHeight:  'calc(100dvh - 64px)',
+          background: 'var(--modal-bg)',
+          boxShadow:  SHADOW_MODAL,
+        }}
+      >
 
-  return createPortal(
-    <AnimatePresence>
-      {open && (
-        <>
-          {/* Backdrop — rendered in root stacking context via portal */}
-          <m.div
-            key="backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            onClick={handleClose}
-            style={{
-              position:        'fixed',
-              inset:           0,
-              backgroundColor: 'color-mix(in srgb, var(--static-black) 28%, transparent)',
-              zIndex:          20,
-            }}
-          />
+        {/* ── Header ─────────────────────────────────────────────────── */}
+        <div style={{
+          flexShrink:   0,
+          padding:      '20px 20px 16px',
+          borderBottom: '1px solid var(--neutral-100)',
+          position:     'relative',
+        }}>
+          <DialogPrimitive.Title asChild>
+          <p style={{
+            margin:     0,
+            fontFamily: 'var(--font-title)',
+            fontSize:   '1.5rem',
+            fontWeight: 400,
+            lineHeight: '2rem',
+            color:      'var(--neutral-900)',
+          }}>
+            Move to project
+          </p>
+          </DialogPrimitive.Title>
+          <DialogPrimitive.Description asChild>
+          <p style={{
+            margin:     '3px 0 0',
+            fontFamily: 'var(--font-body)',
+            fontSize:   'var(--font-size-caption)',
+            fontWeight: 400,
+            lineHeight: 'var(--line-height-caption)',
+            color:      'var(--neutral-400)',
+          }}>
+            Moving {chatLabel}
+          </p>
+          </DialogPrimitive.Description>
+          <div style={{ position: 'absolute', top: 14, right: 14 }}>
+            <IconButton
+              variant="ghost"
+              size="sm"
+              aria-label="Close"
+              icon={<CancelOneIcon size={16} />}
+              onClick={handleClose}
+              disabled={loading}
+            />
+          </div>
+        </div>
 
-          {/* Centering wrapper — flexbox avoids transform conflict with framer-motion */}
-          <div
-            style={{
-              position:       'fixed',
-              inset:          0,
-              display:        'flex',
-              alignItems:     'center',
-              justifyContent: 'center',
-              zIndex:         21,
-              pointerEvents:  'none',
-            }}
-          >
-          {/* Card — framer-motion owns transform; wrapper handles centering */}
-          <m.div
-            key="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Move ${chatLabel} to project`}
-            initial={{ opacity: 0, scale: 0.96, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 8 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className={cn(className)}
-            style={{
-              pointerEvents:   'auto',
-              width:           560,
-              maxWidth:        'calc(100vw - 32px)',
-              maxHeight:       'calc(100dvh - 64px)',
-              display:         'flex',
-              flexDirection:   'column',
-              borderRadius:    16,
-              backgroundColor: 'var(--modal-bg)',
-              boxShadow:       SHADOW_MODAL,
-              overflow:        'hidden',
-            }}
-          >
+        {/* ── Context card — ModelFeaturedCard default (unselected) style ── */}
+        <div style={{
+          flexShrink:      0,
+          margin:          '16px 16px 0',
+          borderRadius:    12,
+          position:        'relative',
+          overflow:        'hidden',
+          backgroundColor: 'var(--neutral-white)',
+          boxShadow:       'var(--shadow-model-featured-default-outer)',
+        }}>
+          {/* Inner depth shadow */}
+          <div aria-hidden style={{
+            position:      'absolute',
+            inset:         0,
+            borderRadius:  'inherit',
+            boxShadow:     'var(--shadow-model-featured-default-inner)',
+            pointerEvents: 'none',
+          }} />
 
-            {/* ── Header ─────────────────────────────────────────────────── */}
-            <div style={{
-              flexShrink:   0,
-              padding:      '20px 20px 16px',
-              borderBottom: '1px solid var(--neutral-100)',
-              position:     'relative',
-            }}>
+          {/* Content */}
+          <div style={{
+            position:      'relative',
+            padding:       '12px 14px',
+            display:       'flex',
+            flexDirection: 'column',
+            gap:           4,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <InformationCircleIcon animated size={16} color="var(--neutral-500)" />
               <p style={{
                 margin:     0,
-                fontFamily: 'var(--font-title)',
-                fontSize:   '1.5rem',
-                fontWeight: 400,
-                lineHeight: '2rem',
-                color:      'var(--neutral-900)',
-              }}>
-                Move to project
-              </p>
-              <p style={{
-                margin:     '3px 0 0',
                 fontFamily: 'var(--font-body)',
-                fontSize:   'var(--font-size-caption)',
-                fontWeight: 400,
-                lineHeight: 'var(--line-height-caption)',
+                fontWeight: 500,
+                fontSize:   '15px',
+                lineHeight: '20px',
+                color:      'var(--neutral-700)',
+              }}>
+                {noun.charAt(0).toUpperCase() + noun.slice(1)} will know everything the project knows
+              </p>
+            </div>
+            <p style={{
+              margin:     0,
+              fontFamily: 'var(--font-body)',
+              fontWeight: 400,
+              fontSize:   'var(--font-size-caption)',
+              lineHeight: 'var(--line-height-caption)',
+              color:      'var(--neutral-600)',
+            }}>
+              All of the project&apos;s instructions, uploaded files, and context will be
+              automatically available inside {noun} once moved. The AI will use that
+              knowledge in every reply.
+            </p>
+          </div>
+        </div>
+
+        {/* ── Project list — the one section that grows/shrinks with the
+            modal's own maxHeight; header/context-card/footer stay fixed
+            size (flexShrink: 0 above/below) ── */}
+        <div style={{ flex: '1 1 auto', minHeight: 0, position: 'relative', padding: '12px 16px 0', display: 'flex', flexDirection: 'column' }}>
+          <div
+            role="radiogroup"
+            aria-label="Select a project"
+            className="kaya-scrollbar"
+            onScroll={handleScroll}
+            style={{
+              display:             'flex',
+              flexDirection:       'column',
+              gap:                 4,
+              flex:                '1 1 auto',
+              minHeight:           0,
+              maxHeight:           420,
+              overflowY:           'auto',
+              overscrollBehaviorY: 'contain',
+              padding:             3,
+              paddingBottom:       12,
+              opacity:             loading ? 0.5 : 1,
+              pointerEvents:       loading ? 'none' : undefined,
+              transition:          'opacity 150ms',
+            }}
+          >
+            {projects.length === 0 ? (
+              <p style={{
+                margin:     '20px 0',
+                textAlign:  'center',
+                fontFamily: 'var(--font-body)',
+                fontSize:   'var(--font-size-body)',
                 color:      'var(--neutral-400)',
               }}>
-                Moving {chatLabel}
+                No projects yet
               </p>
-              <div style={{ position: 'absolute', top: 14, right: 14 }}>
-                <IconButton
-                  variant="ghost"
-                  size="sm"
-                  aria-label="Close"
-                  icon={<CancelOneIcon size={16} />}
-                  onClick={handleClose}
-                  disabled={loading}
+            ) : (
+              projects.map((project) => (
+                <ProjectRow
+                  key={project.id}
+                  project={project}
+                  selected={selectedId === project.id}
+                  onSelect={() => setSelectedId(project.id)}
                 />
-              </div>
-            </div>
-
-            {/* ── Context card — ModelFeaturedCard default (unselected) style ── */}
-            <div style={{
-              flexShrink:      0,
-              margin:          '16px 16px 0',
-              borderRadius:    12,
-              position:        'relative',
-              overflow:        'hidden',
-              backgroundColor: 'var(--neutral-white)',
-              boxShadow:       'var(--shadow-model-featured-default-outer)',
-            }}>
-              {/* Inner depth shadow */}
-              <div aria-hidden style={{
-                position:      'absolute',
-                inset:         0,
-                borderRadius:  'inherit',
-                boxShadow:     'var(--shadow-model-featured-default-inner)',
-                pointerEvents: 'none',
-              }} />
-
-              {/* Content */}
-              <div style={{
-                position:      'relative',
-                padding:       '12px 14px',
-                display:       'flex',
-                flexDirection: 'column',
-                gap:           4,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <InformationCircleIcon animated size={16} color="var(--neutral-500)" />
-                  <p style={{
-                    margin:     0,
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 500,
-                    fontSize:   '15px',
-                    lineHeight: '20px',
-                    color:      'var(--neutral-700)',
-                  }}>
-                    {noun.charAt(0).toUpperCase() + noun.slice(1)} will know everything the project knows
-                  </p>
-                </div>
-                <p style={{
-                  margin:     0,
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 400,
-                  fontSize:   'var(--font-size-caption)',
-                  lineHeight: 'var(--line-height-caption)',
-                  color:      'var(--neutral-600)',
-                }}>
-                  All of the project's instructions, uploaded files, and context will be
-                  automatically available inside {noun} once moved. The AI will use that
-                  knowledge in every reply.
-                </p>
-              </div>
-            </div>
-
-            {/* ── Project list — the one section that grows/shrinks with the
-                modal's own maxHeight; header/context-card/footer stay fixed
-                size (flexShrink: 0 above/below) ── */}
-            <div style={{ flex: '1 1 auto', minHeight: 0, position: 'relative', padding: '12px 16px 0', display: 'flex', flexDirection: 'column' }}>
-              <div
-                role="radiogroup"
-                aria-label="Select a project"
-                className="kaya-scrollbar"
-                onScroll={handleScroll}
-                style={{
-                  display:             'flex',
-                  flexDirection:       'column',
-                  gap:                 4,
-                  flex:                '1 1 auto',
-                  minHeight:           0,
-                  maxHeight:           420,
-                  overflowY:           'auto',
-                  overscrollBehaviorY: 'contain',
-                  padding:             3,
-                  paddingBottom:       12,
-                  opacity:             loading ? 0.5 : 1,
-                  pointerEvents:       loading ? 'none' : undefined,
-                  transition:          'opacity 150ms',
-                }}
-              >
-                {projects.length === 0 ? (
-                  <p style={{
-                    margin:     '20px 0',
-                    textAlign:  'center',
-                    fontFamily: 'var(--font-body)',
-                    fontSize:   'var(--font-size-body)',
-                    color:      'var(--neutral-400)',
-                  }}>
-                    No projects yet
-                  </p>
-                ) : (
-                  projects.map((project) => (
-                    <ProjectRow
-                      key={project.id}
-                      project={project}
-                      selected={selectedId === project.id}
-                      onSelect={() => setSelectedId(project.id)}
-                    />
-                  ))
-                )}
-              </div>
-
-              {/* Top/bottom scroll-edge fade — plain gradient, no backdrop
-                  blur (the blurred layers made the rows right underneath
-                  the edge unreadable while scrolling). */}
-              <div aria-hidden style={{
-                position:      'absolute',
-                top: 12, left: 16, right: 16,
-                height:        '32px',
-                background:    'linear-gradient(to bottom, var(--neutral-white) 0%, transparent 100%)',
-                pointerEvents: 'none',
-                zIndex:        11,
-                opacity:       atTop ? 0 : 1,
-                transition:    'opacity 150ms ease',
-              }} />
-
-              <div aria-hidden style={{
-                position:      'absolute',
-                bottom: 0, left: 16, right: 16,
-                height:        '32px',
-                background:    'linear-gradient(to top, var(--neutral-white) 0%, transparent 100%)',
-                pointerEvents: 'none',
-                zIndex:        11,
-                opacity:       atBottom ? 0 : 1,
-                transition:    'opacity 150ms ease',
-              }} />
-            </div>
-
-            {/* ── Footer ─────────────────────────────────────────────────── */}
-            <div style={{
-              flexShrink:     0,
-              display:        'flex',
-              justifyContent: 'flex-end',
-              alignItems:     'center',
-              gap:            8,
-              padding:        '12px 16px 16px',
-              borderTop:      '1px solid var(--neutral-100)',
-            }}>
-              <Button variant="ghost" onClick={handleClose} disabled={loading}>
-                Cancel
-              </Button>
-              <Button variant="default" disabled={!selectedId || loading} loading={loading} onClick={handleConfirm}>
-                Move to project
-              </Button>
-            </div>
-
-          </m.div>
+              ))
+            )}
           </div>
-        </>
-      )}
-    </AnimatePresence>,
-    document.body,
+
+          {/* Top/bottom scroll-edge fade — plain gradient, no backdrop
+              blur (the blurred layers made the rows right underneath
+              the edge unreadable while scrolling). */}
+          <div aria-hidden style={{
+            position:      'absolute',
+            top: 12, left: 16, right: 16,
+            height:        '32px',
+            background:    'linear-gradient(to bottom, var(--neutral-white) 0%, transparent 100%)',
+            pointerEvents: 'none',
+            zIndex:        11,
+            opacity:       atTop ? 0 : 1,
+            transition:    'opacity 150ms ease',
+          }} />
+
+          <div aria-hidden style={{
+            position:      'absolute',
+            bottom: 0, left: 16, right: 16,
+            height:        '32px',
+            background:    'linear-gradient(to top, var(--neutral-white) 0%, transparent 100%)',
+            pointerEvents: 'none',
+            zIndex:        11,
+            opacity:       atBottom ? 0 : 1,
+            transition:    'opacity 150ms ease',
+          }} />
+        </div>
+
+        {/* ── Footer ─────────────────────────────────────────────────── */}
+        <div style={{
+          flexShrink:     0,
+          display:        'flex',
+          justifyContent: 'flex-end',
+          alignItems:     'center',
+          gap:            8,
+          padding:        '12px 16px 16px',
+          borderTop:      '1px solid var(--neutral-100)',
+        }}>
+          <Button variant="cancel" onClick={handleClose} disabled={loading}>
+            Cancel
+          </Button>
+          <Button variant="default" disabled={!selectedId || loading} loading={loading} onClick={handleConfirm}>
+            Move to project
+          </Button>
+        </div>
+
+      </DialogContent>
+    </Dialog>
   )
 }
 

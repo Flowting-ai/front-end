@@ -5,7 +5,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import * as VisuallyHidden from '@radix-ui/react-visually-hidden'
 import { toast } from 'sonner'
 import { LinkSixIcon, MessagePreviewOneIcon, UserIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { SouvenirLogo } from '@/components/SouvenirLogo'
 import { getOrgSlackStatus, getSlackInstallUrl, getSlackStatus } from '@/lib/api/slack'
 
@@ -215,7 +215,7 @@ export function SlackConnectModal({ isOpen, onClose, orgId, onConnected }: Slack
 
             {/* ── Footer ── */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '16px 28px' }}>
-              <Button variant="ghost" size="sm" onClick={onClose} disabled={connecting}>
+              <Button variant="cancel" size="sm" onClick={onClose} disabled={connecting}>
                 Cancel
               </Button>
               <Button variant="default" size="sm" loading={connecting} onClick={handleConnect}>

@@ -1,0 +1,44 @@
+// The Suggested tab's display rules (owner decisions from the prototype): Recent is one row of up to
+// five cards; Frequently used and Generated are compact tiles, at most three each; empty rows are
+// hidden; Frequently used skips files already shown in Recent.
+
+import { formatShortDate } from "./format";
+import { MESSAGES } from "./messages";
+import type { Suggested } from "./schemas";
+import type { LibraryFile } from "./file";
+
+export const RECENT_LIMIT = 5;
+export const TILE_LIMIT = 3;
+
+export type SuggestedView = {
+  recent: LibraryFile[];
+  frequent: LibraryFile[];
+  generated: LibraryFile[];
+};
+
+export function selectSuggested(data: Suggested): SuggestedView {
+  const recent = data.recent.slice(0, RECENT_LIMIT);
+  const inRecent = new Set(recent.map((file) => file.id));
+  return {
+    recent,
+    frequent: data.frequent.filter((file) => !inRecent.has(file.id)).slice(0, TILE_LIMIT),
+    generated: data.generated.slice(0, TILE_LIMIT),
+  };
+}
+
+/**
+ * The tile's second line, as in the prototype: "Opened 4 times" under Frequently used, "Run of Weekly
+ * sales report" under Generated. The server's Generated row only holds routine outputs, so when it does
+ * not name the routine (it reports every origin as a chat for now) the tile reads "Run of Oct 18" from
+ * when the file was made. Falls back to `fallback` when the server did not send the open count.
+ */
+export function tileLine(row: "frequent" | "generated", file: LibraryFile, fallback: string, timeZone?: string): string {
+  if (row === "frequent") return file.openCount !== undefined ? MESSAGES.openedTimes(file.openCount) : fallback;
+  if (file.generatedFrom?.kind === "routine" && file.generatedFrom.label) return MESSAGES.runOf(file.generatedFrom.label);
+  const date = formatShortDate(file.createdAt, timeZone);
+  return date ? MESSAGES.runOf(date) : "";
+}
+
+export function isSuggestedEmpty(view: SuggestedView): boolean {
+  return view.recent.length === 0 && view.frequent.length === 0 && view.generated.length === 0;
+}

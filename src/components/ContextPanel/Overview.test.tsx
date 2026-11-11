@@ -79,24 +79,34 @@ describe('deriveOverview', () => {
     expect(data.sources[1].domain).toBe('irgc.iowa.gov')
   })
 
+  it('takes the answer’s own "Sources:" block when the backend sent no citations', () => {
+    const content = 'Ames has 68,220 people [1].\n\nSources:\n[1] [QuickFacts](https://www.census.gov/quickfacts/ames)\n'
+    expect(deriveOverview([reply('a1', { content })]).sources.map(s => [s.title, s.domain])).toEqual([['QuickFacts', 'census.gov']])
+  })
+
   it('falls back to the domain when a source has no title', () => {
     const data = deriveOverview([reply('a', { webCitations: [{ title: '  ', url: 'https://www.example.com/x' }] })])
     expect(data.sources[0].title).toBe('example.com')
   })
 
-  it('lists created files, generated images and finished uploads — newest first', () => {
+  it('lists created files and images as outputs, newest first; finished non-Library uploads as uploads', () => {
     const data = deriveOverview([
       user('u1', { attachments: [
         { id: 'up', file_name: 'Notes.pdf', file_type: 'application/pdf', file_size: 1, url: 'https://f/notes' },
         { id: 'busy', file_name: 'Busy.pdf', file_type: 'application/pdf', file_size: 1, url: 'https://f/busy', uploading: true },
         { id: 'nourl', file_name: 'Local.pdf', file_type: 'application/pdf', file_size: 1 },
+        { id: 'lib', file_name: 'Policy.pdf', file_type: 'application/pdf', file_size: 1, url: 'https://f/policy', libraryFileId: 'L1' },
       ] }),
       reply('a1', { generatedFiles: [{ url: 'https://f/model', filename: 'Model.xlsx' }], images: [{ url: 'https://f/img' }] }),
     ])
-    expect(data.documents.map(d => [d.name, d.kind, d.image])).toEqual([
-      ['Model.xlsx', 'created', false],
-      ['Image 1.png', 'created', true],
-      ['Notes.pdf', 'uploaded', false],
+    expect(data.outputs.map(d => [d.name, d.image])).toEqual([
+      ['Model.xlsx', false],
+      ['Image 1.png', true],
+    ])
+    // Inputs, not outputs. A Library attachment is listed by its Library row instead; one still uploading waits.
+    expect(data.uploads.map(d => [d.name, d.url])).toEqual([
+      ['Notes.pdf', 'https://f/notes'],
+      ['Local.pdf', undefined],
     ])
   })
 
@@ -137,18 +147,18 @@ describe('OverviewView', () => {
 
   it('renders all six sections, in order', () => {
     const html = render([user('u'), reply('a')])
-    const order = ['To-dos', 'Agents', 'Connectors', 'Sources', 'Documents', 'Skills'].map(title => html.indexOf(`>${title}</h3>`))
+    const order = ['To-dos', 'Agents', 'Connectors', 'Sources', 'Outputs', 'Skills'].map(title => html.indexOf(`>${title}</h3>`))
     expect(order.every(index => index >= 0)).toBe(true)
     expect([...order].sort((a, b) => a - b)).toEqual(order)
   })
 
-  it('opens to-dos and populated sections; keeps empty ones closed', () => {
+  it('opens populated sections; keeps empty ones (to-dos without a plan too) closed', () => {
     const html = render([user('u'), reply('a', { activities: [step('g', 'agent', 'Analyst')], webCitations: [{ title: 'T', url: 'https://x.example.com' }] })])
-    expect(expanded(html, 'To-dos')).toBe('true')
+    expect(expanded(html, 'To-dos')).toBe('false')
     expect(expanded(html, 'Agents')).toBe('true')
     expect(expanded(html, 'Sources')).toBe('true')
     expect(expanded(html, 'Connectors')).toBe('false')
-    expect(expanded(html, 'Documents')).toBe('false')
+    expect(expanded(html, 'Outputs')).toBe('false')
     expect(expanded(html, 'Skills')).toBe('false')
   })
 
@@ -229,7 +239,7 @@ describe('OverviewView', () => {
     const one = render([user('u'), reply('a', { generatedFiles: [{ url: 'https://f/1', filename: 'One.pdf' }] })])
     const two = render([user('u'), reply('a', { generatedFiles: [{ url: 'https://f/1', filename: 'One.pdf' }, { url: 'https://f/2', filename: 'Two.pdf' }] })])
     expect(one).not.toContain('Download all')
-    expect(two).toContain('Download all 2 documents')
+    expect(two).toContain('Download all 2 outputs')
   })
 
   it('links sources out in a new tab', () => {

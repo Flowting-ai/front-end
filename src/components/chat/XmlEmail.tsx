@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react"
 import { Check, Copy, FileText, Inbox, Paperclip, PencilLine, Send } from "lucide-react"
-import { Button } from "@/components/Button"
+import { Button } from "@/components/ui/button"
 import { Badge, type BadgeColor } from "@/components/Badge"
 import { MarkdownRenderer } from "@/lib/markdown-utils"
 import { parseEmailXml, splitSender } from "./XmlEmail.parse"

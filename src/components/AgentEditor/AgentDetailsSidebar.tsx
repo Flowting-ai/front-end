@@ -2,9 +2,9 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { SettingsOneIcon, TickTwoIcon } from '@strange-huge/icons'
+import { SettingsOneIcon } from '@strange-huge/icons'
 import { Badge } from '@/components/Badge'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
 import { AnimatePresence, m } from 'framer-motion'
 import { ModelIcon } from '@/components/ModelIcon'
 import { Spinner } from '@/components/Spinner'
@@ -12,7 +12,8 @@ import { useProjectPanel } from '@/context/project-panel-context'
 import { useAgentDraftSync } from '@/hooks/use-agent-draft-sync'
 import { usePersonaRepoById } from '@/hooks/use-persona-repos'
 import { useSaveAgent } from '@/hooks/use-save-agent'
-import { fetchModelsWithCache, modelIconSource } from '@/lib/ai-models'
+import { modelsQuery, modelIconSource } from '@/lib/ai-models'
+import { useQuery } from '@tanstack/react-query'
 import { stableKey } from '@/hooks/use-model-selection'
 import type { AIModel } from '@/types/ai-model'
 import {
@@ -64,7 +65,7 @@ function ReadOnlyRow({ label, children }: { label: string; children: React.React
  * says how many changes it will save. Always white and black (not themed), so it reads the
  * same on the light and dark panel.
  */
-function SaveChanges({ count, onClick, loading }: { count: number; onClick: () => void; loading?: boolean }) {
+export function SaveChanges({ count, onClick, loading }: { count: number; onClick: () => void; loading?: boolean }) {
   return (
     <AnimatePresence initial={false}>
       {count > 0 && (
@@ -76,28 +77,16 @@ function SaveChanges({ count, onClick, loading }: { count: number; onClick: () =
           transition={{ type: 'spring', stiffness: 520, damping: 34 }}
           style={{ display: 'flex', justifyContent: 'flex-end', overflow: 'visible' }}
         >
-          <button
-            type="button"
-            disabled={loading}
-            aria-busy={loading || undefined}
-            onClick={onClick}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              height: 32, padding: '0 14px 0 10px', border: 'none', borderRadius: 999,
-              backgroundColor: 'var(--static-white)', color: 'var(--static-black)',
-              fontFamily: 'var(--font-body)', fontWeight: 'var(--font-weight-medium)', fontSize: 14, lineHeight: '20px',
-              boxShadow: '0px 1px 3px color-mix(in srgb, var(--static-black) 25%, transparent), 0px 0px 0px 1px color-mix(in srgb, var(--static-black) 8%, transparent)',
-              cursor: loading ? 'progress' : 'pointer', opacity: loading ? 0.85 : 1,
-            }}
-          >
-            {loading ? <Spinner size={16} /> : <TickTwoIcon size={16} color="var(--static-black)" />}
+          <Button variant="save" size="sm" loading={loading} onClick={onClick}>
             {loading ? 'Saving…' : `Save ${count} ${count === 1 ? 'change' : 'changes'}`}
-          </button>
+          </Button>
         </m.div>
       )}
     </AnimatePresence>
   )
 }
+
+const EMPTY_MODELS: AIModel[] = []
 
 /** The details content itself (model saves as you pick; name and description have their own save tick; Fine-tune) — no header or frame. */
 export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string; canEdit: boolean; onClose: () => void }) {
@@ -106,19 +95,12 @@ export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string;
   const { draft, baseline, notice, edit, markSaved, accept, dismissNotice } = useAgentDraftSync(record)
   const { save, saving } = useSaveAgent({ record, baseline, markSaved })
 
-  const [models, setModels] = useState<AIModel[]>([])
-  const [modelsLoading, setModelsLoading] = useState(true)
+  // The shared model catalogue (React Query); a failed load shows an empty list.
+  const modelsQ = useQuery(modelsQuery())
+  const models: AIModel[] = modelsQ.data ?? EMPTY_MODELS
+  const modelsLoading = modelsQ.isPending && modelsQ.fetchStatus !== 'idle'
   const router = useRouter()
   const [problem, setProblem] = useState<string | null>(null)
-  useEffect(() => {
-    let cancelled = false
-    fetchModelsWithCache()
-      .then(list => { if (!cancelled) setModels(list) })
-      .catch(() => { if (!cancelled) setModels([]) })
-      .finally(() => { if (!cancelled) setModelsLoading(false) })
-    return () => { cancelled = true }
-  }, [])
-
   // Escape closes the panel — but not while a dialog is open on top of it, and not
   // from inside a field, where Escape must never throw away what was just typed.
   useEffect(() => {
@@ -126,11 +108,13 @@ export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string;
       if (event.key !== 'Escape') return
       const target = event.target
       if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return
-      if (document.querySelector('[aria-modal="true"]')) return
+      // Radix dialogs (the model picker, Fine-tune) carry role="dialog" but no aria-modal, and close
+      // themselves on this same Escape: listening on window in the capture phase runs before they do.
+      if (document.querySelector('[aria-modal="true"], [role="dialog"], [role="alertdialog"]')) return
       onClose()
     }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [onClose])
 
   /**
@@ -192,8 +176,8 @@ export function AgentDetailsBody({ repoId, canEdit, onClose }: { repoId: string;
   // which supplies the header, close button, background and scrolling.
   return (
     <>
-      {/* 6px of padding all round: the pink focus ring extends ~5px and the panel's scroll area clips overflow. */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: 6 }}>
+      {/* 6px of padding all round: the blue focus ring extends ~5px and the panel's scroll area clips overflow. The -6px margin hands the space back, so fields line up with the other panels' 8px edge. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: 6, margin: -6 }}>
         {isLoading || (repo && record && !draft) ? (
           <div role="status" aria-live="polite" style={{ display: 'flex', justifyContent: 'center', paddingTop: 40 }}><Spinner size={22} /></div>
         ) : !repo || !record || !draft || !baseline ? (
@@ -313,7 +297,6 @@ export function AgentDetailsSidebar({ repoId, canEdit, onClose }: AgentDetailsSi
     if (!repoId) { setPanel(null); return }
     setPanel({
       title: 'Agent details',
-      sidePadding: 20,
       onClose: () => onCloseRef.current(),
       content: <AgentDetailsBody key={repoId} repoId={repoId} canEdit={canEdit} onClose={() => onCloseRef.current()} />,
     })

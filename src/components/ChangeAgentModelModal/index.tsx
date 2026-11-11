@@ -4,8 +4,7 @@ import React, { useCallback, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { CancelOneIcon } from '@strange-huge/icons'
 import { stableKey } from '@/hooks/use-model-selection'
-import { Button } from '@/components/Button'
-import { IconButton } from '@/components/IconButton'
+import { Button, IconButton } from '@/components/ui/button'
 import { pickReplacementModel } from '@/lib/ai-models'
 import { bustPersonasCache, updateVersion } from '@/lib/api/personas'
 import {
@@ -126,10 +125,10 @@ export function ChangeAgentModelModal({
       />
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, padding: '16px' }}>
-        <Button variant="ghost" onClick={handleClose} disabled={saving}>
+        <Button variant="cancel" onClick={handleClose} disabled={saving}>
           Cancel
         </Button>
-        <Button variant="default" disabled={!selectedId || saving} loading={saving} onClick={() => void handleSave()}>
+        <Button variant="save" disabled={!selectedId || saving} loading={saving} onClick={() => void handleSave()}>
           Save
         </Button>
       </div>

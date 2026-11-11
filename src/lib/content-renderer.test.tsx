@@ -53,6 +53,19 @@ describe("ContentRenderer markdown formatting", () => {
     expect(html).not.toContain("data-missing-citation")
   })
 
+  it("leaves [N] and {N} inside code as written", () => {
+    const html = renderToStaticMarkup(
+      <ContentRenderer
+        content={"Use `xs[1]` here [1].\n\n```js\nconst a = [1]\nf({1})\n```"}
+        webCitations={[{ title: "Primary source", url: "https://example.com/primary" }]}
+      />,
+    )
+
+    expect(html).toContain("xs[1]")
+    expect(html).not.toContain("citation://")
+    expect(html.match(/aria-label="Source 1: Primary source"/g)).toHaveLength(1)
+  })
+
   it("keeps unsafe model-authored link protocols blocked", () => {
     const html = renderToStaticMarkup(
       <ContentRenderer content="[Do not run this](javascript:alert('xss'))" />,

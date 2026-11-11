@@ -63,3 +63,40 @@ export function deriveActivityDetail(toolName: string, args: unknown): string | 
   }
   return undefined
 }
+
+// Sandbox code builds an image as `generation(type="image", …)` (any argument
+// order, either quote); the stream sends the code JSON-encoded, so the quote
+// may arrive escaped.
+const IMAGE_GENERATION_RE = /generation\([^)]*?\\?["']image\\?["']/
+
+/** True when a tool call's arguments generate an image — the only signal the
+ *  stream gives, since image generation runs inside the `execute` tool. */
+export function argsGenerateImage(args: unknown): boolean {
+  if (args == null) return false
+  const raw = typeof args === 'string' ? args : JSON.stringify(args)
+  return IMAGE_GENERATION_RE.test(raw)
+}
+
+const IMAGE_PROMPT_RE = /\.prompt\(\s*\\?(["'])([\s\S]*?)\\?\1/
+const ASPECT_RATIO_RE = /aspect_ratio\s*=\s*\\?["'](\d+):(\d+)\\?["']/
+
+export interface ImageHints {
+  /** What the picture is of, as far as it has streamed. */
+  prompt?: string
+  /** Width / height, from `aspect_ratio="16:9"`. */
+  aspect?: number
+}
+
+/** What an image call's code says about the picture, for the preview to
+ *  shape and tint itself before the real image exists. */
+export function argsImageHints(args: unknown): ImageHints {
+  if (args == null) return {}
+  const raw = typeof args === 'string' ? args : JSON.stringify(args)
+  const prompt = IMAGE_PROMPT_RE.exec(raw)?.[2]
+  const ratio = ASPECT_RATIO_RE.exec(raw)
+  const aspect = ratio ? Number(ratio[1]) / Number(ratio[2]) : undefined
+  return {
+    ...(prompt ? { prompt } : {}),
+    ...(aspect && Number.isFinite(aspect) && aspect > 0 ? { aspect } : {}),
+  }
+}

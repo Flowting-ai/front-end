@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react'
 import { useForm, ValidationError } from '@formspree/react'
 import { toast } from 'sonner'
 import { CancelOneIcon, ArrowDownOneIcon } from '@strange-huge/icons'
-import { Button } from '@/components/Button'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Dropdown } from '@/components/Dropdown'
 
 const TEAM_SIZE_OPTIONS = [
@@ -88,45 +89,31 @@ export function ContactSalesModal({ onClose }: { onClose: () => void }) {
   }, [state.errors, state.submitting, state.succeeded])
 
   return (
-    <div
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 1000,
-        background: 'var(--overlay-bg)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 24,
-      }}
-    >
-      <div
-        className="kaya-scrollbar"
-        style={{
-          background: 'var(--neutral-50)',
-          borderRadius: 20,
-          padding: 8,
-          boxShadow: SHADOW_MODAL,
-          width: '100%',
-          maxWidth: 738,
-          maxHeight: 'calc(100dvh - 48px)',
-          overflow: 'auto',
+    <Dialog open onOpenChange={open => { if (!open) onClose() }}>
+      <DialogContent
+        hideClose
+        aria-describedby={undefined}
+        // Mid-submit, Esc and outside clicks wait; portaled dropdown menus don't count as "outside".
+        onEscapeKeyDown={e => { if (state.submitting) e.preventDefault() }}
+        onInteractOutside={e => {
+          if (state.submitting || (e.target instanceof Element && e.target.closest('[data-kds-dropdown-panel]'))) e.preventDefault()
         }}
+        className="kaya-scrollbar p-2"
+        style={{ width: 738, maxHeight: 'calc(100dvh - 48px)', overflow: 'auto', background: 'var(--neutral-50)', borderRadius: 20, boxShadow: SHADOW_MODAL }}
       >
         <form onSubmit={handleSubmit}>
           <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
 
             {/* Header */}
             <div style={{ borderBottom: '1px solid var(--neutral-100)', padding: '0 12px 24px', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-              <p style={{ flex: '1 0 0', fontFamily: 'var(--font-title)', fontWeight: 400, fontSize: 24, lineHeight: '32px', color: 'var(--neutral-900)', margin: 0 }}>
+              <DialogTitle style={undefined} className="m-0 flex-[1_0_0] font-[family-name:var(--font-title)] text-2xl font-normal leading-8 text-[var(--neutral-900)]">
                 Contact sales
-              </p>
+              </DialogTitle>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="Close"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8, display: 'flex', color: 'var(--neutral-700)' }}
+                className="flex shrink-0 cursor-pointer rounded-lg border-none bg-transparent p-1.5 text-[var(--neutral-700)]"
               >
                 <CancelOneIcon size={20} />
               </button>
@@ -285,7 +272,7 @@ export function ContactSalesModal({ onClose }: { onClose: () => void }) {
             </div>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

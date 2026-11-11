@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { m, AnimatePresence } from 'framer-motion'
 import { SearchOneIcon, CancelOneIcon, CancelCircleIcon } from '@strange-huge/icons'
-import { IconButton } from '@/components/IconButton'
+import { IconButton } from '@/components/ui/button'
 import { InputField } from '@/components/InputField'
 import { Tooltip } from '@/components/Tooltip'
 

@@ -15,6 +15,7 @@ import type {
   TeamInviteOnboarding,
   OrgMember,
 } from '@/types/teams'
+import { trackBrowserEvent } from '@/lib/analytics/events'
 
 // ── Backend shapes ──────────────────────────────────────────────────────────
 // InviteResponse (services/organizations/schemas.py) declares a
@@ -65,6 +66,7 @@ export async function inviteMembers(
       ...(projectId ? { projectId } : {}),
     }),
   })
+  trackBrowserEvent('team_member_invited', { role: orgRole, count: emails.length, from_project: Boolean(projectId) })
   return normalizeInvite(data)
 }
 

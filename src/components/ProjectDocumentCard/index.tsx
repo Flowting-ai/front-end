@@ -1,103 +1,72 @@
 ﻿'use client'
 
 /**
- * ProjectDocumentCard â€“ full-width list-item card for project file panels.
- *
- * Design language mirrors ChatThumbnail (same CARD_SHADOW, framer-motion
- * entry/exit, hover-revealed remove button) but laid out as a horizontal
- * two-row card that fills the panel width.
- *
- *   â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
- *   â”‚  filename.pdf truncatedâ€¦          [Ã—] â”‚
- *   â”‚  [PDF â€¢ 1.2 MB]                        â”‚
- *   â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
- *
- * Figma: KDS 4174-23401 (Document cards, project variant)
+ * ProjectDocumentCard: one project file, styled like a chat output card (ChatOutputCard): format
+ * glyph, name, "Format · .ext · size", then remove. The Files card grows by one card per file.
  */
 
 import { Tooltip } from '@/components/Tooltip'
 import * as React from 'react'
 import { m } from 'framer-motion'
 import { CancelOneIcon } from '@strange-huge/icons'
-import { Badge, type BadgeColor } from '@/components/Badge'
+import { FormatGlyph } from '@/components/Library/FormatGlyph'
+import { formatLabel } from '@/lib/library/format'
+import { extensionOf } from '@/lib/library/upload/validate'
+import type { Format } from '@/lib/library/schemas'
 
-// â”€â”€ File-extension â†’ badge colour (mirrors ChatThumbnail) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//
 
-const FILE_EXT_COLOR: Record<string, BadgeColor> = {
-  pdf:  'Red',
-  docx: 'Blue',
-  doc:  'Blue',
-  fig:  'Blue',
-  txt:  'Neutral',
-  xls:  'Green',
-  xlsx: 'Green',
-  csv:  'Green',
-  ppt:  'Brown',
-  pptx: 'Brown',
-  html: 'Neutral',
-  htm:  'Neutral',
-  md:   'Neutral',
-  json: 'Neutral',
-  png:  'Neutral',
-  jpg:  'Neutral',
-  jpeg: 'Neutral',
-  gif:  'Neutral',
-  svg:  'Blue',
-  zip:  'Brown',
+// The Library format for a project file, so it gets the same glyph and label as a chat output card.
+const FORMAT_BY_EXT: Record<string, Format> = {
+  pdf: 'pdf',
+  doc: 'document', docx: 'document', odt: 'document', rtf: 'document',
+  xls: 'sheet', xlsx: 'sheet', csv: 'sheet', ods: 'sheet',
+  ppt: 'slides', pptx: 'slides', key: 'slides', odp: 'slides',
+  html: 'web', htm: 'web',
+  eml: 'email', msg: 'email',
+  png: 'image', jpg: 'image', jpeg: 'image', gif: 'image', webp: 'image', svg: 'image',
+  mp3: 'audio', wav: 'audio', m4a: 'audio', ogg: 'audio',
 }
 
-function extractExt(name: string): { ext: string; color: BadgeColor } {
-  const ext = name.split('.').pop()?.toLowerCase() ?? ''
-  return { ext: ext.toUpperCase() || 'FILE', color: FILE_EXT_COLOR[ext] ?? 'Neutral' }
+/** Trusts an already-known type (`ProjectFile.type`) and falls back to the name for optimistic uploads. */
+function fileFormat(name: string, fileType?: string): { format: Format; ext: string } {
+  const ext = (fileType || extensionOf(name)).toLowerCase()
+  return { format: FORMAT_BY_EXT[ext] ?? 'text', ext }
 }
 
-/** Badge ext/color for a file whose type is already known (e.g. `ProjectFile.type`,
- *  set once at fetch time) — trusts that value instead of re-parsing the filename,
- *  so the card can't disagree with the model it was handed. Falls back to
- *  filename-derived extraction only when no type is known yet (optimistic
- *  upload rows, still a raw browser `File` with no computed type). */
-function badgeFor(name: string, fileType?: string): { ext: string; color: BadgeColor } {
-  if (!fileType) return extractExt(name)
-  const key = fileType.toLowerCase()
-  return { ext: fileType.toUpperCase() || 'FILE', color: FILE_EXT_COLOR[key] ?? 'Neutral' }
-}
+const NAME_STYLE: React.CSSProperties = { display: 'block', fontSize: 14, color: 'var(--neutral-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 
-const CARD_SHADOW =
-  '0px 4px 4px 0px var(--neutral-700-12), 0px 0px 0px 1px var(--neutral-100)'
-
-// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//
 
 export interface ProjectDocumentCardProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, 'title'> {
   name:       string
   sizeLabel?: string
-  /** Already-known file type (e.g. `ProjectFile.type`) â€“ drives the badge
+  /** Already-known file type (e.g. `ProjectFile.type`) - drives the badge
    *  label/color directly instead of re-parsing `name`. Omit for optimistic
    *  upload rows, which don't have one yet. */
   fileType?:  string
   /** Download/view URL for the uploaded file. When present, the filename opens
-   *  it in a new tab â€“ absent for optimistic upload rows, which have no server
+   *  it in a new tab - absent for optimistic upload rows, which have no server
    *  URL yet. */
   url?:       string
-  /** Shows a spinner instead of remove button â€“ for optimistic upload rows. */
+  /** Shows a spinner instead of remove button - for optimistic upload rows. */
   uploading?: boolean
   onRemove?:  React.MouseEventHandler<HTMLButtonElement>
 }
 
-// â”€â”€ Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//
 
 export function ProjectDocumentCard(
   { name, sizeLabel, fileType, url, uploading, onRemove, style, onMouseEnter, onMouseLeave, ref, ...props }: ProjectDocumentCardProps & { ref?: React.Ref<HTMLDivElement> },
 ) {
     const [removeButtonFocused, setRemoveButtonFocused] = React.useState(false)
 
-    const { ext, color } = badgeFor(name, fileType)
-    const badgeLabel = ext
+    const { format, ext } = fileFormat(name, fileType)
 
     return (
       <m.div
         ref={ref}
-        layout
         initial={{ opacity: 0, scale: 0.97, filter: 'blur(2px)' }}
         animate={{
           opacity: 1, scale: 1, filter: 'blur(0px)',
@@ -112,69 +81,38 @@ export function ProjectDocumentCard(
         style={{ position: 'relative', width: '100%', ...style }}
         {...(props as Record<string, unknown>)}
       >
+        {/* Same card as a file Souvenir made in chat (ChatOutputCard): format glyph, name, then
+            "Format · .ext · size", with remove (or the upload spinner) at the end. */}
         <div
           style={{
-            display:         'flex',
-            flexDirection:   'column',
-            gap:             '6px',
-            padding:         '10px 12px',
-            borderRadius:    '14px',
-            background:      uploading ? 'var(--neutral-50)' : 'var(--card-bg)',
-            boxShadow:       CARD_SHADOW,
-            boxSizing:       'border-box',
-            width:           '100%',
-            transition:      'background 200ms',
+            display:      'flex',
+            alignItems:   'center',
+            gap:          12,
+            padding:      '10px 8px 10px 12px',
+            border:       '1px solid var(--border-default)',
+            borderRadius: 14,
+            background:   uploading ? 'var(--neutral-100)' : 'var(--field-surface)',
+            fontFamily:   'var(--font-body)',
+            boxSizing:    'border-box',
+            width:        '100%',
+            transition:   'background 200ms',
           }}
         >
-          {/* Filename + action row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <FormatGlyph format={format} size="md" />
+          <span style={{ flex: 1, minWidth: 0, lineHeight: 1.3 }}>
             {url ? (
-              <Tooltip content={`Open ${name}`} maxWidth={280}><a
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  flex:         '1 0 0',
-                  minWidth:     0,
-                  margin:       0,
-                  fontFamily:   'var(--font-body)',
-                  fontWeight:   'var(--font-weight-medium)',
-                  fontSize:     '13px',
-                  lineHeight:   '18px',
-                  color:        'var(--neutral-900)',
-                  overflow:     'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace:   'nowrap',
-                  transition:   'color 200ms',
-                  textDecoration: 'none',
-                  cursor:       'pointer',
-                }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'underline' }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'none' }}
-              >
-                {name}
-              </a></Tooltip>
+              <Tooltip content={`Open ${name}`} maxWidth={280}>
+                <a href={url} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ ...NAME_STYLE, textDecoration: 'none' }}>
+                  {name}
+                </a>
+              </Tooltip>
             ) : (
-              <p
-                style={{
-                  flex:         '1 0 0',
-                  minWidth:     0,
-                  margin:       0,
-                  fontFamily:   'var(--font-body)',
-                  fontWeight:   'var(--font-weight-medium)',
-                  fontSize:     '13px',
-                  lineHeight:   '18px',
-                  color:        uploading ? 'var(--neutral-600)' : 'var(--neutral-900)',
-                  overflow:     'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace:   'nowrap',
-                  transition:   'color 200ms',
-                }}
-              >
-                {name}
-              </p>
+              <span style={{ ...NAME_STYLE, color: uploading ? 'var(--neutral-600)' : NAME_STYLE.color }}>{name}</span>
             )}
-
+            <small style={{ fontSize: 12, color: 'var(--neutral-600)' }}>
+              {[formatLabel(format), ext ? `.${ext}` : null, sizeLabel].filter(Boolean).join(' · ')}
+            </small>
+          </span>
             {/* Uploading spinner */}
             {uploading && (
               <svg
@@ -233,23 +171,6 @@ export function ProjectDocumentCard(
                 <CancelOneIcon size={16} color="currentColor" />
               </button>
             )}
-          </div>
-
-          {/* Badge row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Badge label={badgeLabel} color={uploading ? 'Neutral' : color} />
-            <span
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 'var(--font-weight-regular)',
-                fontSize:   '12px',
-                lineHeight: '16px',
-                color:      'var(--neutral-600)',
-              }}
-            >
-              {sizeLabel || '—'}
-            </span>
-          </div>
         </div>
       </m.div>
     )
