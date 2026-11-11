@@ -92,10 +92,12 @@ export function UserMessageBody({
           {message.attachments.map((att) => {
             const ext = att.file_name.split(".").pop()?.toUpperCase() ?? "FILE";
             const isImage = att.file_type.startsWith("image/");
-            // The picture itself, once it has a link and has finished uploading.
-            // Still uploading (no link yet) falls back to the chip with progress.
-            const chip = isImage && att.url && !att.uploading ? (
-              <SentImageAttachment key={att.id} att={att} url={att.url} />
+            // The picture itself as soon as there is something to show it from —
+            // the local file while it uploads, the backend's link afterwards — so
+            // the sent message doesn't start as a document chip and turn into a
+            // picture later. An image with no link at all still falls back below.
+            const chip = isImage && att.url ? (
+              <SentImageAttachment key={att.id} att={att} url={att.url} uploading={att.uploading} />
             ) : (
               <div
                 key={att.id}

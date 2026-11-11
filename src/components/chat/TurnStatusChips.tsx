@@ -56,8 +56,12 @@ export function TurnStatusChips({ messages, active }: { messages: UIMessage[]; a
   }, [turnId]);
   const showTimer = !!turn && elapsed >= SHOW_AFTER_MS;
 
-  const { open: openChatPanel } = useOpenChatPanel();
+  const { open: openChatPanel, close: closeChatPanel, isOpen: panelOpen } = useOpenChatPanel();
   const openBrowserPanel = () => openChatPanel("browser");
+  // The chip is the turn's progress, and the panel's Context tab is that progress in
+  // full, so clicking it opens there — and closes again, since the chip stays put
+  // while the turn runs and would otherwise be a one-way door.
+  const toggleContextPanel = () => (panelOpen ? closeChatPanel() : openChatPanel("context"));
 
   if (!browserLabel && !showTimer) return null;
 
@@ -95,11 +99,14 @@ export function TurnStatusChips({ messages, active }: { messages: UIMessage[]; a
 
       <AnimatePresence initial={false}>
         {showTimer && (
-          <m.div
+          <m.button
             key="timer"
+            type="button"
             className={styles.chip}
-            role="timer"
-            aria-label={`Working for ${formatElapsed(elapsed)}${steps ? `, ${done} of ${steps} steps done` : ""}`}
+            onClick={toggleContextPanel}
+            title={panelOpen ? "Hide the details" : "Show what this turn is doing"}
+            aria-expanded={panelOpen}
+            aria-label={`Working for ${formatElapsed(elapsed)}${steps ? `, ${done} of ${steps} steps done` : ""}. ${panelOpen ? "Hide the details" : "Show the details"}`}
             initial={{ opacity: 0, y: 6, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.96 }}
@@ -108,7 +115,7 @@ export function TurnStatusChips({ messages, active }: { messages: UIMessage[]; a
             <ProgressRing value={steps ? done / steps : null} />
             {steps > 0 && <span className={styles.detail}>{done}/{steps} steps</span>}
             <span className={styles.time}>{formatElapsed(elapsed)}</span>
-          </m.div>
+          </m.button>
         )}
       </AnimatePresence>
     </div>

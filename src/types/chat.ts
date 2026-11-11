@@ -36,6 +36,9 @@ export interface Attachment {
   uploading?: boolean;
   /** 0–100 upload progress as reported by XHR. Only meaningful when uploading is true. */
   uploadProgress?: number;
+  /** `url` is a local object URL for the file being sent, not a backend link: it shows
+   *  the picture immediately, and is replaced when the saved message arrives. */
+  localPreview?: boolean;
   /** The Library file this attachment is, when the history names it (`document_id`). Its state (deleted, locked) then drives the chip. */
   libraryFileId?: string;
   /** What the history says about that Library file: deleted and locked chips need no lookup. */

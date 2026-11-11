@@ -374,6 +374,16 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
 
   // ── Optimistic helpers ─────────────────────────────────────────────────────
 
+  // Object URLs minted for the previews above. They stay valid for as long as the
+  // optimistic message is on screen — the saved message that replaces it carries the
+  // backend's own link — and are released when the chat goes away, so a long session
+  // of sending images doesn't hold every one of them in memory.
+  const localPreviewUrls = useRef<string[]>([])
+  useEffect(() => () => {
+    for (const url of localPreviewUrls.current) URL.revokeObjectURL(url)
+    localPreviewUrls.current = []
+  }, [])
+
   const addOptimisticUserMessage = useCallback((content: string, files?: File[], mentionedPins?: Array<{ id: string; label: string }>): string => {
     const id = `optimistic-user-${Date.now()}`
     const msg: UIMessage = {
@@ -384,14 +394,24 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
       created_at: new Date().toISOString(),
       chat_id: chatId ?? "",
       attachments: files && files.length > 0
-        ? files.map((f, i) => ({
-            id:              `opt-att-${i}-${Date.now()}`,
-            file_name:       f.name,
-            file_type:       f.type || "application/octet-stream",
-            file_size:       f.size,
-            uploading:       true,
-            uploadProgress:  0,
-          }))
+        ? files.map((f, i) => {
+            const isImage = (f.type || "").startsWith("image/")
+            // An image is shown from the local file straight away, so the sent
+            // message looks the same the moment it appears as it does after a
+            // reload. Without this it spent the whole upload as a generic
+            // document chip and only became a picture once history re-read it.
+            const localUrl = isImage ? URL.createObjectURL(f) : undefined
+            if (localUrl) localPreviewUrls.current.push(localUrl)
+            return {
+              id:              `opt-att-${i}-${Date.now()}`,
+              file_name:       f.name,
+              file_type:       f.type || "application/octet-stream",
+              file_size:       f.size,
+              uploading:       true,
+              uploadProgress:  0,
+              ...(localUrl ? { url: localUrl, localPreview: true as const } : {}),
+            }
+          })
         : undefined,
       mentionedPins: mentionedPins && mentionedPins.length > 0 ? mentionedPins : undefined,
     }
