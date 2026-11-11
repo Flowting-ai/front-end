@@ -127,7 +127,9 @@ export function SubmitControls({
                       ) : (
                         <AudioWaveDisplay analyser={analyser} size={16} />
                       )
-                    ) : value ? (
+                    ) : value || hasAttachments ? (
+                      // Attachments alone are sendable, so the arrow has to follow
+                      // `iconKey` and the aria-label above — both already count them.
                       <ArrowUpTwoIcon
                         size={16}
                         animated

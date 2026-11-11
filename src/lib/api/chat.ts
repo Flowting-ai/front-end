@@ -310,20 +310,23 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
     const sources = parseSources(raw);
     const allFileAtts = normalizeFileAttachments(raw);
 
-    // Route by origin: uploaded files belong to the user turn;
-    // generated + unknown-origin files belong to the assistant turn.
-    const uploadedAtts = allFileAtts.filter(
-      (a) => a.origin === "uploaded" || a.origin === "user",
-    );
-    const assistantAtts = allFileAtts.filter(
-      (a) => a.origin !== "uploaded" && a.origin !== "user",
-    );
+    // Route by origin. Only an explicitly generated file belongs to the assistant
+    // turn; everything else — including a row that omits `origin` — is the user's
+    // upload. Routing unknown origins to the assistant instead made them vanish:
+    // the assistant bubble renders `generatedFiles`, never `file_attachments`.
+    const isGenerated = (a: import("@/types/chat").BackendFileAttachment) =>
+      a.origin === "generated" || a.origin === "assistant";
+    const uploadedAtts = allFileAtts.filter((a) => !isGenerated(a));
+    const assistantAtts = allFileAtts.filter(isGenerated);
 
-    if (userText) {
+    // An attachment-only message saves with `input: ""`, so text alone cannot
+    // decide whether the user turn existed — without the attachment check the
+    // whole turn (and its files) disappears on reload.
+    if (userText || uploadedAtts.length > 0) {
       messages.push({
         id: `${baseId}-prompt`,
         role: "user",
-        content: userText,
+        content: userText ?? "",
         created_at: createdAt,
         chat_id: chatId,
         file_attachments: uploadedAtts.length > 0 ? uploadedAtts : undefined,
@@ -356,7 +359,7 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
         file_attachments: assistantAtts.length > 0 ? assistantAtts : undefined,
         image_links: imageLinks && imageLinks.length > 0 ? imageLinks : undefined,
       });
-    } else if (userText) {
+    } else if (userText || uploadedAtts.length > 0) {
       // The turn finished with no answer saved (e.g. reasoning or tools only):
       // keep a placeholder so it does not vanish and can still be regenerated.
       messages.push({

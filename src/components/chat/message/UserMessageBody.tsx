@@ -2,6 +2,7 @@
 
 import React from "react";
 import { PINS_ENABLED } from "@/lib/feature-flags";
+import { SentImageAttachment } from "./SentImageAttachment";
 import { SentLibraryAttachment } from "@/components/Library/chat/SentLibraryAttachment";
 import { MessageBubble } from "@/components/MessageBubble";
 import { formatDate } from "@/lib/utils/format-utils";
@@ -91,7 +92,11 @@ export function UserMessageBody({
           {message.attachments.map((att) => {
             const ext = att.file_name.split(".").pop()?.toUpperCase() ?? "FILE";
             const isImage = att.file_type.startsWith("image/");
-            const chip = (
+            // The picture itself, once it has a link and has finished uploading.
+            // Still uploading (no link yet) falls back to the chip with progress.
+            const chip = isImage && att.url && !att.uploading ? (
+              <SentImageAttachment key={att.id} att={att} url={att.url} />
+            ) : (
               <div
                 key={att.id}
                 style={chipStyle}
@@ -131,7 +136,9 @@ export function UserMessageBody({
                 )}
               </div>
             );
-            const node = att.url && !att.uploading ? (
+            // An image opens its lightbox in place, so it must not also be a link
+            // that navigates away; everything else still opens in a new tab.
+            const node = att.url && !att.uploading && !isImage ? (
               <a
                 key={att.id}
                 href={att.url}
@@ -152,6 +159,9 @@ export function UserMessageBody({
         </div>
       )}
 
+      {/* A file sent with no text has nothing to put in a bubble: the chips above
+          are the message, so an empty bubble would just be a stray blank slab. */}
+      {(message.content.trim() || !message.attachments?.length) && (
       <MessageBubble
         role="user"
         content={message.content}
@@ -161,6 +171,7 @@ export function UserMessageBody({
         maxWidth={566}
         hideActions={archived}
       />
+      )}
     </div>
   );
 }

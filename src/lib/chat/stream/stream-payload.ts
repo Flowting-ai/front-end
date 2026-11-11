@@ -91,7 +91,10 @@ export function doneGeneratedFiles(atts: Attachment[]): GeneratedFile[] {
 /** Files the user sent that the backend has now stored, with their real links. */
 export function uploadedAttachments(atts: Attachment[]): UploadedAttachment[] {
   return atts.flatMap((a) => {
-    if (a.origin !== "uploaded" && a.origin !== "user") return []
+    // The complement of generatedOutputs above: anything the backend did not mark
+    // as generated is the user's upload, including a row that omits `origin`.
+    // Requiring the exact word left those chips without their link.
+    if (a.origin === "generated" || a.origin === "assistant") return []
     const url = attachmentUrl(a)
     if (!url) return []
     const mimeType = typeof a.mime_type === "string" ? a.mime_type : "application/octet-stream"

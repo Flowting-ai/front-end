@@ -2,30 +2,18 @@
 
 import React, { useRef, useState } from "react";
 import Image from "next/image";
-import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { AnimatePresence, m } from "framer-motion";
-import { Dialog, useFocusReturn } from "@/components/ui/dialog";
 import { IconButton } from "@/components/ui/button";
 import { Tooltip } from "@/components/Tooltip";
-import { ImageDownloadTwoIcon, ArrowExpandOneIcon, CancelOneIcon } from "@strange-huge/icons";
+import { ImageDownloadTwoIcon, ArrowExpandOneIcon } from "@strange-huge/icons";
+import { ImageLightbox, downloadImage, overlayButtonStyle } from "./ImageLightbox";
 
 // ── Generated Image Card with download button ──────────────────────────────────
+// The expanded view it opens is shared with the images a person attaches to
+// their own message — see ImageLightbox.
 
 // Static styles live at module level so a streaming re-render doesn't
 // allocate them again.
-const overlayButtonStyle: React.CSSProperties = {
-  background: "color-mix(in srgb, var(--static-black) 55%, transparent)",
-  backdropFilter: "blur(4px)",
-  borderRadius: "8px",
-  color: "var(--static-white)",
-  border: "none",
-  padding: "6px",
-  cursor: "pointer",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
-
 const cardStyle: React.CSSProperties = {
   position: "relative",
   borderRadius: "10px",
@@ -53,11 +41,6 @@ const imageStyle: React.CSSProperties = {
   cursor: "zoom-in",
 };
 
-const srOnlyStyle: React.CSSProperties = {
-  position: "absolute", width: 1, height: 1, padding: 0, margin: -1,
-  overflow: "hidden", clip: "rect(0, 0, 0, 0)", whiteSpace: "nowrap", border: 0,
-};
-
 const hoverOverlayStyle: React.CSSProperties = {
   position: "absolute",
   top: "8px",
@@ -65,23 +48,6 @@ const hoverOverlayStyle: React.CSSProperties = {
 };
 
 const hoverButtonsStyle: React.CSSProperties = { display: "flex", gap: "6px" };
-
-const lightboxStyle: React.CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 1000,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: "32px",
-  background: "color-mix(in srgb, var(--static-black) 80%, transparent)",
-  cursor: "zoom-out",
-  outline: "none",
-};
-
-const lightboxButtonsStyle: React.CSSProperties = { position: "absolute", top: "16px", right: "16px", display: "flex", gap: "8px" };
-
-const lightboxImageStyle: React.CSSProperties = { maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: "8px", cursor: "default" };
 
 function isFocusVisible(el: Element) {
   try { return el.matches(":focus-visible"); } catch { return true; }
@@ -96,9 +62,6 @@ export function GeneratedImageCard({ img, index }: { img: { url: string; s3Key?:
   // keyboard focus even where the browser still reports :focus-visible.
   const pointerDownAt = useRef(-Infinity);
   const [expanded, setExpanded] = useState(false);
-  // The lightbox is a Radix Dialog: focus moves in and is trapped, Escape closes, and focus goes back
-  // to what opened it (the thumbnail or the Expand button).
-  const { capture, handleCloseAutoFocus } = useFocusReturn();
 
   // The lightbox is portalled but still inside this card for React's mouse events, so no
   // mouseleave comes when it closes under the pointer: hover is cleared on open instead.
@@ -111,18 +74,7 @@ export function GeneratedImageCard({ img, index }: { img: { url: string; s3Key?:
     const filename = img.s3Key
       ? img.s3Key.split("/").pop() ?? "image.png"
       : `image-${index + 1}.png`;
-    // Route through the /api/download proxy: it streams the image server-side
-    // with Content-Disposition: attachment, so the browser always saves it.
-    // A direct client fetch would fail CORS on presigned S3 URLs and fall back
-    // to opening a blank tab.
-    const a = document.createElement("a");
-    a.href = `/api/download?url=${encodeURIComponent(img.url)}&filename=${encodeURIComponent(filename)}`;
-    a.download = filename;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    downloadImage(img.url, filename);
   }
 
   return (
@@ -189,31 +141,13 @@ export function GeneratedImageCard({ img, index }: { img: { url: string; s3Key?:
           </m.div>
         )}
       </AnimatePresence>
-      <Dialog open={expanded} onOpenChange={setExpanded}>
-        <DialogPrimitive.Portal>
-          <DialogPrimitive.Content
-            aria-describedby={undefined}
-            // A click on the backdrop closes; the image and buttons stop it.
-            onClick={() => setExpanded(false)}
-            onCloseAutoFocus={handleCloseAutoFocus}
-            style={lightboxStyle}
-          >
-            {capture}
-            <DialogPrimitive.Title style={srOnlyStyle}>Expanded image</DialogPrimitive.Title>
-            <div style={lightboxButtonsStyle} onClick={(e) => e.stopPropagation()}>
-              <IconButton onClick={handleDownload} aria-label="Download image" icon={<ImageDownloadTwoIcon size={18} />} style={overlayButtonStyle} />
-              <IconButton onClick={() => setExpanded(false)} aria-label="Close" icon={<CancelOneIcon size={18} />} style={overlayButtonStyle} />
-            </div>
-            {/* eslint-disable-next-line @next/next/no-img-element -- presigned URL, same as the card */}
-            <img
-              src={img.url}
-              alt="Generated image"
-              onClick={(e) => e.stopPropagation()}
-              style={lightboxImageStyle}
-            />
-          </DialogPrimitive.Content>
-        </DialogPrimitive.Portal>
-      </Dialog>
+      <ImageLightbox
+        open={expanded}
+        onOpenChange={setExpanded}
+        url={img.url}
+        alt="Generated image"
+        onDownload={handleDownload}
+      />
     </m.div>
   );
 }

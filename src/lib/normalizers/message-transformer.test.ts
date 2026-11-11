@@ -76,4 +76,20 @@ describe("toUIMessage", () => {
       { url: "https://s3/c.csv", filename: "c.csv", mimeType: undefined },
     ])
   })
+
+  it("keeps a file the backend did not label as the user's own, rather than dropping it", () => {
+    // A row without `origin` (or with one nobody anticipated) used to match
+    // neither branch and vanish from the bubble entirely.
+    const ui = toUIMessage({
+      ...base,
+      role: "user",
+      content: "see this",
+      file_attachments: [
+        { file_link: "https://s3/no-origin.png", file_name: "no-origin.png", mime_type: "image/png" },
+        { file_link: "https://s3/odd.png", file_name: "odd.png", mime_type: "image/png", origin: "file" },
+      ],
+    } as Message)
+    expect(ui.attachments?.map((a) => a.file_name)).toEqual(["no-origin.png", "odd.png"])
+    expect(ui.generatedFiles).toBeUndefined()
+  })
 })

@@ -81,6 +81,23 @@ export const orgAuditQuery = (orgId: string | null) =>
     enabled: !!orgId,
   })
 
+/**
+ * Publish a renamed/re-logoed workspace to everything showing it — the sidebar's
+ * account row, the org badge, the "Manage <org>" items. The new values are written
+ * into the cache first so the change lands in the same frame as the toast, then the
+ * query is invalidated to reconcile with whatever the server actually stored.
+ */
+export function updateCachedOrgInfo(
+  qc: QueryClient,
+  orgId: string | null,
+  patch: { name?: string; logoUrl?: string | null },
+): void {
+  if (!orgId) return
+  const key = queryKeys.orgs.info(orgId)
+  qc.setQueryData(key, (prev: OrgInfo | undefined) => prev ? { ...prev, ...patch } : prev)
+  void qc.invalidateQueries({ queryKey: key })
+}
+
 /** Refetch the plan and members after a change (invite, removal, cap, plan change). */
 export function refreshOrgMembers(qc: QueryClient, orgId: string | null): void {
   if (!orgId) return
