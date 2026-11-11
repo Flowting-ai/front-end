@@ -100,18 +100,18 @@ export default function OrgUsageAnalyticsPage() {
           )}
         </div>
 
-        {/* The date range for the feature chart. Disabled until the backend reports usage per day —
-            enable the triggers (and feed the chart) once it does. */}
+        {/* The window the feature chart covers — GET /organizations/{id}/plan/usage takes
+            the same four, and picks days or weeks per range. */}
         <div style={{ paddingLeft: 4, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <Tabs value={dateRange} onValueChange={value => setDateRange(value as DateRange)}>
             <TabsList size="small" aria-label="Usage date range">
               {DATE_RANGES.map(range => (
-                <TabsTrigger key={range.id} value={range.id} disabled>{range.label}</TabsTrigger>
+                <TabsTrigger key={range.id} value={range.id}>{range.label}</TabsTrigger>
               ))}
             </TabsList>
           </Tabs>
           <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: '18px', color: 'var(--neutral-500)' }}>
-            Date ranges turn on once daily usage is available.
+            Applies to the workspace chart below.
           </span>
         </div>
 

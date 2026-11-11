@@ -14,7 +14,7 @@ import {
   ORG_INVITE_ENDPOINT,
   ORG_LEAVE_ENDPOINT,
 } from '@/lib/config'
-import type { OrgRole, OrgSettings, OrgMember, OrgPlanUsage, AuditLogEntry } from '@/types/teams'
+import type { OrgRole, OrgSettings, OrgMember, OrgPlanUsage, OrgUsageByCategory, OrgUsageRange, AuditLogEntry } from '@/types/teams'
 import { dollarsToCredits, normalizeMember, planMemberSchema } from './plan'
 import { trackBrowserEvent, trackFeature } from '@/lib/analytics/events'
 
@@ -62,8 +62,20 @@ interface MemberBurnResponse {
   credits_used: number
 }
 
+interface CategoryUsageResponse {
+  chat: number
+  slack: number
+  automation: number
+  subtask: number
+}
+
 interface PlanUsageResponse {
   organization_id: string
+  range: OrgUsageRange
+  bucket: 'day' | 'week'
+  since: string
+  series: Array<CategoryUsageResponse & { start: string }>
+  by_category: CategoryUsageResponse
   by_member: MemberBurnResponse[]
 }
 
@@ -92,9 +104,24 @@ function normalizeSettings(s: OrganizationSettingsResponse): OrgSettings {
   }
 }
 
+/** Every category comes back in dollars, like `credits_used` — one conversion for all of them. */
+function normalizeCategories(c: CategoryUsageResponse | undefined): OrgUsageByCategory {
+  return {
+    chat:       dollarsToCredits(c?.chat ?? 0),
+    slack:      dollarsToCredits(c?.slack ?? 0),
+    automation: dollarsToCredits(c?.automation ?? 0),
+    subtask:    dollarsToCredits(c?.subtask ?? 0),
+  }
+}
+
 function normalizePlanUsage(u: PlanUsageResponse): OrgPlanUsage {
   return {
     organizationId: u.organization_id,
+    range:      u.range,
+    bucket:     u.bucket,
+    since:      u.since,
+    series:     (u.series ?? []).map(s => ({ start: s.start, ...normalizeCategories(s) })),
+    byCategory: normalizeCategories(u.by_category),
     byMember: u.by_member.map(m => ({
       userId:      m.user_id,
       name:        m.name,
@@ -269,8 +296,13 @@ export async function listMembers(orgId: string): Promise<OrgMember[]> {
   return data.map(normalizeMember)
 }
 
-export async function getOrgPlanUsage(orgId: string): Promise<OrgPlanUsage> {
-  const data = await apiFetchJson<PlanUsageResponse>(ORG_PLAN_USAGE_ENDPOINT(orgId))
+/**
+ * GET /organizations/{id}/plan/usage — credits this window, split by day (or week,
+ * for the longer ranges the backend chooses it for), by area, and by member.
+ * Admin-only: a member gets 403, which the Usage page treats as "no breakdown".
+ */
+export async function getOrgPlanUsage(orgId: string, range: OrgUsageRange = '1m'): Promise<OrgPlanUsage> {
+  const data = await apiFetchJson<PlanUsageResponse>(`${ORG_PLAN_USAGE_ENDPOINT(orgId)}?range=${range}`)
   return normalizePlanUsage(data)
 }
 

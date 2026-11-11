@@ -1,9 +1,9 @@
 import { queryOptions, type QueryClient } from '@tanstack/react-query'
-import { getOrg, listAudit, listMembers, listOrganizations } from '@/lib/api/organization'
+import { getOrg, getOrgPlanUsage, listAudit, listMembers, listOrganizations } from '@/lib/api/organization'
 import { Plan } from '@/lib/api/plan'
 import { queryKeys } from '@/lib/query-keys'
 import { orgIdCacheKey } from '@/lib/storage-keys'
-import type { WorkspaceOrg } from '@/types/teams'
+import type { OrgUsageRange, WorkspaceOrg } from '@/types/teams'
 
 /**
  * React Query for the workspace: which org the viewer is in, the org record
@@ -71,6 +71,19 @@ export const orgMembersQuery = (qc: QueryClient, orgId: string | null) =>
       }
     },
     enabled: !!orgId,
+  })
+
+/**
+ * The usage breakdown for one range: the per-day (or per-week) series, the split by
+ * area, and per-member credits. Admin-only at the backend, so a member's 403 is kept
+ * as "no breakdown" rather than retried — the page falls back to what it can derive.
+ */
+export const orgUsageQuery = (orgId: string | null, range: OrgUsageRange, enabled = true) =>
+  queryOptions({
+    queryKey: queryKeys.orgs.usage(orgId ?? '', range),
+    queryFn: () => getOrgPlanUsage(orgId!, range),
+    enabled: !!orgId && enabled,
+    retry: false,
   })
 
 /** The latest 100 audit entries (paging needs backend cursors — see the audit's gaps). */

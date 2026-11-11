@@ -111,7 +111,8 @@ export const queryKeys = {
     plan: (org: string) => [...queryKeys.orgs.all(org), "plan"] as const,
     members: (org: string) => [...queryKeys.orgs.all(org), "members"] as const,
     audit: (org: string) => [...queryKeys.orgs.all(org), "audit"] as const,
-    usage: (org: string) => [...queryKeys.orgs.all(org), "usage"] as const,
+    /** The usage breakdown is fetched per range, so each range caches separately. */
+    usage: (org: string, range = "1m") => [...queryKeys.orgs.all(org), "usage", range] as const,
     /** GET /organizations/{id}/slack/installation (the sidebar's Slack row). */
     slackStatus: (org: string) => [...queryKeys.orgs.all(org), "slack-status"] as const,
   },
