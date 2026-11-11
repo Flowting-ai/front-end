@@ -140,7 +140,9 @@ export interface UIMessage extends Message {
   /** How long the turn reasoned before its answer started (live turns only;
    *  not persisted, so undefined after a reload). */
   reasoningDurationMs?: number
-  /** True when the user clicked Stop during generation. */
+  /** True when the user clicked Stop during generation — only ever that. A turn
+   *  cut short by a reload is not stopped: the backend keeps running it and the
+   *  chat picks it back up from the turn's stream. */
   stoppedByUser?: boolean
   /** True when `content` is a friendly error message rather than an actual
    *  model response — renders with a distinct error treatment instead of a

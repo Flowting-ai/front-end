@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import { getChatMessages } from "@/lib/api/chat"
 import { toUIMessages } from "@/lib/normalizers/message-transformer"
 import { logger } from "@/lib/logger"
-import { getStreamCompletion, consumeInterruptedStreamMarker, waitForChatStreams, subscribeStreams } from "@/lib/stream-registry"
+import { getStreamCompletion, waitForChatStreams, subscribeStreams } from "@/lib/stream-registry"
 import { stopActiveActivities } from "@/lib/activity"
 import {
   readChatHistory,
@@ -49,47 +49,6 @@ export interface UseChatStateResult {
    *  off this rather than an `isLoadingMessages` transition, which a cache hit
    *  does not produce. */
   historyLoadId: number
-}
-
-// ── Reload-interrupted stream recovery ───────────────────────────────────────
-
-/**
- * If a stream for `chatId` was still running when this tab last saw it (see
- * stream-registry.ts — this is only true right after a reload/crash mid-
- * generation), reinterpret the freshly-loaded history so the interrupted turn
- * reads as "Generation stopped" (the line under the bubble) instead of silently looking finished or, if
- * the backend hadn't persisted anything yet, disappearing outright.
- */
-function markInterruptedIfNeeded(chatId: string, msgs: UIMessage[]): UIMessage[] {
-  if (!consumeInterruptedStreamMarker(chatId)) return msgs
-
-  const last = msgs[msgs.length - 1]
-  if (last && last.role === "assistant") {
-    return msgs.map((m, i) =>
-      i === msgs.length - 1
-        ? {
-            ...m,
-            isLoading: false,
-            stoppedByUser: true,
-            content: m.content,
-            // An empty saved turn reads as stopped here, not also as "no response".
-            errorNotice: m.content ? m.errorNotice : undefined,
-            activities: stopActiveActivities(m.activities),
-          }
-        : m,
-    )
-  }
-
-  const placeholder: UIMessage = {
-    id: `interrupted-${Date.now()}`,
-    role: "assistant",
-    content: "",
-    created_at: new Date().toISOString(),
-    chat_id: chatId,
-    isLoading: false,
-    stoppedByUser: true,
-  }
-  return [...msgs, placeholder]
 }
 
 // ── Local-work detection ─────────────────────────────────────────────────────
@@ -224,11 +183,11 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
   const fetchHistory = useCallback(async (id: string): Promise<{ list: UIMessage[]; hasMore: boolean; cursor: string | undefined }> => {
     if (options?.loadMessages) {
       const msgs = await options.loadMessages(id)
-      return { list: markInterruptedIfNeeded(id, msgs), hasMore: false, cursor: undefined }
+      return { list: msgs, hasMore: false, cursor: undefined }
     }
     const res = await getChatMessages(id)
     return {
-      list: markInterruptedIfNeeded(id, toUIMessages(res.messages)),
+      list: toUIMessages(res.messages),
       hasMore: res.has_more,
       cursor: res.next_cursor ?? undefined,
     }

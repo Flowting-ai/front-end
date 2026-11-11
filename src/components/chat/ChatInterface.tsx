@@ -244,8 +244,6 @@ export function ChatInterface({
     let cancelled = false
     void getChatStreamId(chatId).then((streamId) => {
       if (cancelled || !streamId || isStreamActive(chatId)) return
-      // The reload marker's "Generation stopped." stand-in gives way to the live reply.
-      setMessages((prev) => prev.filter((msg) => !msg.id.startsWith("interrupted-")))
       void followStream(chatId, addLoadingAssistantMessage())
     }).catch(() => {})
     return () => { cancelled = true }

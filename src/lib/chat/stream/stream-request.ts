@@ -83,8 +83,12 @@ export function resolveStreamTarget(
   const resume = options?.resume
   // A follow reads the chat's running turn from GET /chats/{id}/stream; it sends nothing.
   const follow = options?.follow === true
+  // A follow's endpoint below is always the backend's own URL — there is no proxy
+  // route for GET /chats/{id}/stream — so it must always carry the bearer token.
+  // Gating this on shouldUseDirectBackend() (false on localhost) sent the request
+  // without one, and every re-attach came back 401.
   const useDirectBackend = follow
-    ? shouldUseDirectBackend()
+    ? true
     : resume
     ? /^https?:\/\//.test(API_BASE_URL)
     : direct !== null &&
