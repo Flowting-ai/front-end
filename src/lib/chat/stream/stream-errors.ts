@@ -64,3 +64,11 @@ export function dispatchSessionExpired() {
     window.dispatchEvent(new Event("auth:session-expired"))
   }
 }
+
+/** The connection went away while the turn was still running. The backend keeps
+ *  running it, so the reply can be picked up again from GET /chats/{id}/stream. */
+export class ConnectionDroppedError extends FriendlyStreamError {
+  constructor() {
+    super(friendlyModelError("", 503))
+  }
+}

@@ -21,7 +21,7 @@ import {
   pollConnectorUntilActive,
   ConnectorCatalog,
 } from '@/lib/api/connectors'
-import { isApiProviderConnector, isMcpProviderConnector, isZapierProviderConnector, waitForZapierAuthId, zapierConnectHref } from '@/lib/connectorProvider'
+import { isApiProviderConnector, opensInCurrentTab, isZapierProviderConnector, waitForZapierAuthId, zapierConnectHref } from '@/lib/connectorProvider'
 
 export type SetupState = 'idle' | 'opening' | 'polling' | 'submitting' | 'error'
 
@@ -75,7 +75,7 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
   ) => {
     const known = knownAccountIds ?? []
     const target = reconnecting ? { healthy: reconnecting } : { known }
-    const isMcp = isMcpProviderConnector(connectorSlug, connectorProvider)
+    const currentTab = opensInCurrentTab(connectorSlug, connectorProvider)
     const isApi = isApiProviderConnector(connectorProvider)
     // Opened without the noopener FEATURE deliberately — passing noopener to
     // window.open() makes it return null in most browsers, and this code
@@ -86,13 +86,13 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
     // that reference: set .opener directly on the child after opening it.
     // This is settable cross-origin and doesn't invalidate `popup` itself —
     // popup.location/.closed/.close() below all keep working.
-    const popup = isMcp || isApi ? null : window.open('', '_blank', 'width=900,height=700')
+    const popup = currentTab || isApi ? null : window.open('', '_blank', 'width=900,height=700')
     if (popup) { try { popup.opener = null } catch { /* best-effort */ } }
     popupRef.current = popup
     // The flow wanted a pop-up and the browser refused it. The fallback
     // window.open below may be blocked too, so a later timeout is reported
     // as a blocked pop-up with "allow pop-ups" as the fix.
-    const popupBlocked = !isMcp && !isApi && popup === null
+    const popupBlocked = !currentTab && !isApi && popup === null
     setState('opening')
     setError(null)
 
@@ -117,8 +117,8 @@ export function useConnectorSetupFlow({ connectorSlug, connectorName, connectorP
           popup?.close()
           throw new MissingAuthUrlError(connectorName)
         }
-        if (url && isMcp) {
-          // Native MCP connectors' OAuth callback redirects back to our own
+        if (url && currentTab) {
+          // Native MCP and Shopify connectors' OAuth callback redirects back to our own
           // app domain, so this must navigate the current tab — a popup would
           // just land the app inside the small popup window.
           //

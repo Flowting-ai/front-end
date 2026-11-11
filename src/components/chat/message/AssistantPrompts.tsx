@@ -4,7 +4,7 @@ import React from "react";
 import { ConnectPromptCard } from "../ConnectorPrompts";
 import { PermissionPromptCard } from "@/components/shared/PermissionPromptCard";
 import { ChatPromptCard } from "../ChatPromptCard";
-import { isResumeUrl, respondToChatPrompt } from "@/lib/api/chat";
+import { respondToChatPrompt } from "@/lib/api/chat";
 import type { UIMessage } from "@/types/chat";
 
 // ── Inline prompt cards: connector connect / permission, and chat questions ───
@@ -14,11 +14,11 @@ const stackStyle: React.CSSProperties = { display: 'flex', flexDirection: 'colum
 export function AssistantPrompts({
   message,
   onPromptDecided,
-  onPromptResume,
+  onPromptFollowUp,
 }: {
   message: UIMessage;
   onPromptDecided?: (messageId: string, requestId: string, decision: string) => void;
-  onPromptResume?: (respondUrl: string, promptId: string, response: unknown) => void;
+  onPromptFollowUp?: (message: string) => void;
 }) {
   return (
     <>
@@ -39,8 +39,11 @@ export function AssistantPrompts({
               key={prompt.request_id}
               prompt={prompt}
               onDecided={(policy) => {
-                if (isResumeUrl(prompt.respond_url) && onPromptResume) onPromptResume(prompt.respond_url, prompt.request_id, policy)
-                else respondToChatPrompt(prompt.request_id, policy, prompt.respond_url).catch(() => {})
+                // A prompt answered after its turn moved on comes back with the
+                // message that starts the next turn (see PromptAnswer).
+                respondToChatPrompt(prompt.request_id, policy, prompt.respond_url)
+                  .then((answered) => { if (answered?.message) onPromptFollowUp?.(answered.message) })
+                  .catch(() => {})
                 onPromptDecided?.(message.id, prompt.request_id, policy)
               }}
             />
@@ -55,7 +58,7 @@ export function AssistantPrompts({
               key={prompt.request_id}
               prompt={prompt}
               onDecided={(decision) => onPromptDecided?.(message.id, prompt.request_id, decision)}
-              onResume={onPromptResume}
+              onFollowUp={onPromptFollowUp}
             />
           ))}
         </div>

@@ -32,6 +32,10 @@ export interface StreamRequestOptions {
   replaceMessageId?: string
   chatOwnershipConfirmed?: boolean
   resume?: TurnResume
+  /** Read the chat's already-running turn from its stream instead of sending anything. */
+  follow?: boolean
+  /** How many times this turn has already re-attached, so the retries stay bounded. */
+  followAttempt?: number
 }
 
 export interface StreamTarget {
@@ -39,6 +43,7 @@ export interface StreamTarget {
   useDirectBackend: boolean
   resolvedEndpoint: string
   resume: TurnResume | undefined
+  follow: boolean
 }
 
 /**
@@ -76,17 +81,23 @@ export function resolveStreamTarget(
   // A resumed turn answers a prompt at the backend-built respond_url; it
   // goes wherever API_BASE_URL points (the backend, or the local proxy).
   const resume = options?.resume
-  const useDirectBackend = resume
+  // A follow reads the chat's running turn from GET /chats/{id}/stream; it sends nothing.
+  const follow = options?.follow === true
+  const useDirectBackend = follow
+    ? shouldUseDirectBackend()
+    : resume
     ? /^https?:\/\//.test(API_BASE_URL)
     : direct !== null &&
       shouldUseDirectBackend() &&
       (!isExistingChat || options?.chatOwnershipConfirmed !== false)
-  const resolvedEndpoint = resume
+  const resolvedEndpoint = follow
+    ? directUpload(CHAT_STREAM_ENDPOINT(chatId!))
+    : resume
     ? `${API_BASE_URL}${resume.url}`
     : useDirectBackend
       ? directUpload(isExistingChat ? direct!.stream(chatId!) : direct!.create)
       : endpoint
-  return { isExistingChat, useDirectBackend, resolvedEndpoint, resume }
+  return { isExistingChat, useDirectBackend, resolvedEndpoint, resume, follow }
 }
 
 /** The send's form body, plus how its files were split between Library ids and bytes. */

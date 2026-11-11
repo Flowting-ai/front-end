@@ -1,23 +1,27 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it, vi } from 'vitest'
 import {
-  isMcpProviderConnector,
+  opensInCurrentTab,
   isZapierConnectUrl,
   isZapierProviderConnector,
   waitForZapierAuthId,
   zapierConnectHref,
 } from './connectorProvider'
 
-describe('isMcpProviderConnector', () => {
+describe('opensInCurrentTab', () => {
   it('prefers the catalog provider over the slug list', () => {
-    expect(isMcpProviderConnector('klaviyo', 'mcp')).toBe(true)
-    expect(isMcpProviderConnector('klaviyo', 'zapier')).toBe(false)
-    expect(isMcpProviderConnector('slackcliapi', 'mcp')).toBe(true)
+    expect(opensInCurrentTab('klaviyo', 'mcp')).toBe(true)
+    expect(opensInCurrentTab('klaviyo', 'zapier')).toBe(false)
+    expect(opensInCurrentTab('slackcliapi', 'mcp')).toBe(true)
+    expect(opensInCurrentTab('shopify_app', 'shopify')).toBe(true)
+    expect(opensInCurrentTab('shopify', 'pipedream')).toBe(false)
   })
 
-  it('falls back to the native-MCP slug set when provider is absent', () => {
-    expect(isMcpProviderConnector('klaviyo')).toBe(true)
-    expect(isMcpProviderConnector('slackcliapi')).toBe(false)
+  it('falls back to the current-tab slug set when provider is absent', () => {
+    expect(opensInCurrentTab('klaviyo')).toBe(true)
+    expect(opensInCurrentTab('slackcliapi')).toBe(false)
+    expect(opensInCurrentTab('shopify_app')).toBe(true)
+    expect(opensInCurrentTab('shopify')).toBe(false)
   })
 })
 

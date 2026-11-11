@@ -2,7 +2,7 @@ import { CHAT_CREATE_FIELDS, CHAT_STREAM_FIELDS, keepAcceptedFields } from "@/li
 import { clientGeoHeaders } from "@/lib/geo-headers"
 import { logger } from "@/lib/logger"
 import { friendlyModelError } from "@/lib/model-error"
-import { AuthExpiredError, FriendlyStreamError, isAuthErrorText, streamFailureMessage } from "./stream-errors"
+import { AuthExpiredError, ConnectionDroppedError, FriendlyStreamError, isAuthErrorText, streamFailureMessage } from "./stream-errors"
 import type { StreamTarget } from "./stream-request"
 
 export interface XhrStreamRequest {
@@ -26,6 +26,12 @@ export interface XhrStreamRequest {
   onHeaderChatId: (chatId: string) => void
   /** A user Stop, so a dropped connection isn't reported as a failure. */
   isStopRequested: () => boolean
+  /** A follow's stream answered: it owns the reply from here, and replays the
+   *  turn from its first event, so the reply starts over with it. */
+  onFollowAttached?: () => void
+  /** A follow that never reached the stream, with the status that refused it
+   *  (404 = the turn ended while nobody was reading). */
+  onFollowFailed?: (status: number) => void
 }
 
 /**
@@ -36,7 +42,7 @@ export interface XhrStreamRequest {
  */
 export function sendStreamRequest(req: XhrStreamRequest): Promise<void> {
   const { target, fd, chatId, directToken } = req
-  const { useDirectBackend, resolvedEndpoint, isExistingChat, resume } = target
+  const { useDirectBackend, resolvedEndpoint, isExistingChat, resume, follow } = target
   return new Promise<void>((resolvePromise, rejectPromise) => {
     const xhr = new XMLHttpRequest()
     // A failed request reaches DONE and then fires `error` (and, when the upload
@@ -55,7 +61,7 @@ export function sendStreamRequest(req: XhrStreamRequest): Promise<void> {
     }
     req.setXhr(xhr)
 
-    xhr.open("POST", resolvedEndpoint)
+    xhr.open(follow ? "GET" : "POST", resolvedEndpoint)
     if (useDirectBackend) {
       // Talking straight to the backend origin — carry credentials and the
       // bearer token the proxy would otherwise have attached server-side.
@@ -115,6 +121,8 @@ export function sendStreamRequest(req: XhrStreamRequest): Promise<void> {
         // is always empty), and the backend's own message (e.g. a Library file that isn't ready)
         // is only readable once it has.
         if (failed()) return
+        // The follow reached the running turn's stream.
+        if (follow && xhr.status > 0) req.onFollowAttached?.()
         const headerChatId =
           xhr.getResponseHeader("X-Chat-Id") ?? xhr.getResponseHeader("x-chat-id")
         if (headerChatId) req.onHeaderChatId(headerChatId)
@@ -135,12 +143,16 @@ export function sendStreamRequest(req: XhrStreamRequest): Promise<void> {
           logger.error("[useStreamingChat] Connection dropped mid-stream", {
             chatId, isExistingChat, endpoint: resolvedEndpoint,
           })
-          reject(new FriendlyStreamError(friendlyModelError("", 503)))
+          reject(new ConnectionDroppedError())
         } else if (failed()) {
           const rawText = xhr.responseText || `Request failed with status ${xhr.status}`
-          logger.error("[useStreamingChat] Stream request failed", {
-            status: xhr.status, chatId, isExistingChat, endpoint: resolvedEndpoint, responseText: xhr.responseText,
-          })
+          req.onFollowFailed?.(xhr.status)
+          // A follow that finds no running turn is the turn having ended, not a failure.
+          if (!(follow && xhr.status === 404)) {
+            logger.error("[useStreamingChat] Stream request failed", {
+              status: xhr.status, chatId, isExistingChat, endpoint: resolvedEndpoint, responseText: xhr.responseText,
+            })
+          }
           if (xhr.status === 401 || isAuthErrorText(rawText.toLowerCase())) {
             reject(new AuthExpiredError())
           } else {
@@ -166,10 +178,13 @@ export function sendStreamRequest(req: XhrStreamRequest): Promise<void> {
       logger.error("[useStreamingChat] XHR network error", {
         chatId, isExistingChat, endpoint: resolvedEndpoint,
       })
-      reject(new FriendlyStreamError(friendlyModelError("", 503)))
+      reject(new ConnectionDroppedError())
     }
 
-    if (resume) {
+    if (follow) {
+      // Nothing to send: the stream replays the turn that is already running.
+      xhr.send(null)
+    } else if (resume) {
       xhr.setRequestHeader("Content-Type", "application/json")
       xhr.send(JSON.stringify({ prompt_id: resume.promptId, response: resume.response }))
     } else {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { ChatInput } from "./ChatInput";
 import { type PendingAttachment } from "./AttachmentManager";
 import { useFileUpload } from "@/hooks/use-file-upload";
@@ -14,7 +14,8 @@ import {
   rekeyQueue,
   type QueuedTurnContext,
 } from "@/lib/message-queue";
-import { stopStream } from "@/lib/stream-registry";
+import { isStreamActive, stopStream } from "@/lib/stream-registry";
+import { getChatStreamId } from "@/lib/api/chat";
 import { buildTurnOptions, getFolderPinIds, type TurnInput, type TurnSettings } from "@/lib/turn-options";
 import { useChatState, type UseChatStateOptions } from "@/hooks/use-chat-state";
 import { usePinMentions } from "@/hooks/use-pin-mentions";
@@ -219,13 +220,14 @@ export function ChatInterface({
     onChatCreated?.(newChatId);
   };
 
-  const { fetchAiResponse, handleStopGeneration } = useStreamingChat({
+  const { fetchAiResponse, followStream, handleStopGeneration } = useStreamingChat({
     setMessages,
     onChatCreated: handleChatCreated,
     onTitleUpdate,
     onChatMoveToTop: (id) => moveToTop(id),
     setStreamState,
     onStreamDone: refreshUser,
+    onStreamLost: () => void refreshMessages(),
     currentChatIdRef,
     // Streamed tokens go to lib/chat/stream-store and re-render only the
     // streaming row (LiveChatMessage), not this whole tree.
@@ -233,6 +235,22 @@ export function ChatInterface({
     ...(endpoint ? { endpoint } : {}),
     ...(onStopBackend ? { onStopBackend } : {}),
   });
+
+  // A chat opened while its reply is still being generated (a reload, another
+  // tab, a dropped connection) picks the reply up from the turn's stream. Only
+  // the regular chat endpoint has one.
+  useEffect(() => {
+    if (!chatId || endpoint || loadMessages || isLoadingMessages || messages.length === 0 || isStreamActive(chatId)) return
+    let cancelled = false
+    void getChatStreamId(chatId).then((streamId) => {
+      if (cancelled || !streamId || isStreamActive(chatId)) return
+      // The reload marker's "Generation stopped." stand-in gives way to the live reply.
+      setMessages((prev) => prev.filter((msg) => !msg.id.startsWith("interrupted-")))
+      void followStream(chatId, addLoadingAssistantMessage())
+    }).catch(() => {})
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when a chat's history has loaded; the callbacks are fresh each render
+  }, [chatId, isLoadingMessages])
 
   const isStreaming = streamState === "streaming" || streamState === "waiting";
   // This chat's reply is running — here, or still from before the user
@@ -443,9 +461,17 @@ export function ChatInterface({
   const sendTurnLatest = useLatestCallback(sendTurn);
 
   // Regenerate, edit, and prompt-card answers (see useMessageActions).
-  const { handleRegenerate, handlePromptDecided, handlePromptResume, handleEditMessage } = useMessageActions(turnKit, {
+  const { handleRegenerate, handlePromptDecided, handleEditMessage } = useMessageActions(turnKit, {
     isStreaming, isSendingRef, personaConfigLoading, messages, enableReasoning,
   });
+
+  // A prompt answered after its turn moved on comes back with the message that
+  // starts the next turn, so the answer is sent like any other message.
+  const sendRef = useRef(handleSend);
+  useEffect(() => { sendRef.current = handleSend; });
+  const handlePromptFollowUp = useCallback((message: string) => {
+    void sendRef.current(message);
+  }, []);
 
   const { revealingMessage, isRevealing, handleRevealSettled } = useRevealSettle({
     revealingKey, setRevealingKey, isStreaming, messages, listRef,
@@ -525,7 +551,7 @@ export function ChatInterface({
           onRevealSettled={handleRevealSettled}
           onEdit={handleEditMessage}
           onPromptDecided={handlePromptDecided}
-          onPromptResume={handlePromptResume}
+          onPromptFollowUp={handlePromptFollowUp}
         />
       </ChatMessagesPane>
 

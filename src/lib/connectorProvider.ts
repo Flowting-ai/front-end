@@ -1,5 +1,5 @@
-// Connector slugs whose backend `Connector.provider` is "mcp" — a native MCP
-// OAuth flow whose callback redirects back to OUR app domain on success/
+// Providers whose OAuth runs through OUR backend: native MCP and our own
+// Shopify app. The callback redirects back to OUR app domain on success/
 // failure (see back-end/services/connectors/router.py's oauth_callback:
 // RedirectResponse(`${FRONTEND_BASE_URL}/?connector=...&link=...`)). That
 // flow must run in the CURRENT tab: a popup would just land our own app
@@ -9,25 +9,28 @@
 //
 // Prefer the catalog `provider` field. The slug set is only for payloads
 // that predate that field (SSE connect prompts, cached list rows).
-const MCP_PROVIDER_CONNECTOR_SLUGS = new Set([
+const CURRENT_TAB_PROVIDERS = new Set(['mcp', 'shopify'])
+
+const CURRENT_TAB_CONNECTOR_SLUGS = new Set([
   'customerio',
   'heatmap',
   'klaviyo',
   'metaads',
   'miro',
+  'shopify_app',
   'triple-whale',
   'zigpoll',
 ])
 
 export const ZAPIER_CONNECT_ORIGIN = 'https://connect.zapier.com'
 
-export function isMcpProviderConnector(
+export function opensInCurrentTab(
   slug: string | null | undefined,
   provider?: string | null,
 ): boolean {
-  if (provider) return provider === 'mcp'
+  if (provider) return CURRENT_TAB_PROVIDERS.has(provider)
   if (!slug) return false
-  return MCP_PROVIDER_CONNECTOR_SLUGS.has(slug.toLowerCase())
+  return CURRENT_TAB_CONNECTOR_SLUGS.has(slug.toLowerCase())
 }
 
 // A custom REST API the person described. The link call files its token

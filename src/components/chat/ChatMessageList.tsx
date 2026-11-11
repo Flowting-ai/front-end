@@ -37,7 +37,7 @@ interface ChatMessageListProps {
   onRevealSettled: (() => void) | undefined;
   onEdit: (messageId: string, newContent: string) => void;
   onPromptDecided: (messageId: string, requestId: string, decision: string) => void;
-  onPromptResume: (respondUrl: string, promptId: string, response: unknown) => void;
+  onPromptFollowUp: (message: string) => void;
 }
 
 /**
@@ -65,7 +65,7 @@ export function ChatMessageList({
   onRevealSettled,
   onEdit,
   onPromptDecided,
-  onPromptResume,
+  onPromptFollowUp,
 }: ChatMessageListProps) {
   const msgVirtualizer = useVirtualizer({
     count:            messages.length,
@@ -156,7 +156,7 @@ export function ChatMessageList({
                   : undefined
               }
               onPromptDecided={onPromptDecided}
-              onPromptResume={onPromptResume}
+              onPromptFollowUp={onPromptFollowUp}
             />
             )}
           </div>
