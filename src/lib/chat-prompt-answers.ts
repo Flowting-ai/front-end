@@ -8,7 +8,7 @@ export const DISMISSED_ANSWER = '(dismissed by the user — not answered)'
 const isMulti = (question: ChatPromptQuestion) => question.type === 'multi_choice'
 
 const optionValues = (question: ChatPromptQuestion) =>
-  new Set((question.options ?? []).map((option) => option.value))
+  new Set(question.options.map((option) => option.value))
 
 /** Only `ask_user` questions can be optional. Every other prompt kind
  *  (approval, confirm, input…) needs a real answer from the user. */

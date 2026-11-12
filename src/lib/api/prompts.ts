@@ -1,167 +1,188 @@
 "use client"
 
 import { z } from 'zod'
+import { apiKeyFieldSchema } from '@/lib/api/connector-schemas'
+import { toConnector } from '@/lib/connector'
+import { logger } from '@/lib/logger'
 
-// ── Connector permission prompt (AG-UI CUSTOM) ────────────────────────────────
-// Wire schema for the backend's PermissionPromptEvent (core/sse_schemas.py).
+// Every card that blocks a turn on the person, defined once. Each schema reads the backend's
+// prompt event (core/sse_schemas.py) and resolves to the shape its card renders.
 
 const promptOptionSchema = z.object({
   value: z.string(),
-  label: z.string().optional(),
+  label: z.string(),
   style: z.string().optional(),
 })
 
-export const connectorPermissionPromptSchema = z.looseObject({
-  prompt_id:      z.string(),
-  respond_url:    z.string().optional(),
-  connector_slug: z.string().default(''),
-  display_name:   z.string().optional(),
-  tool_slug:      z.string(),
-  suggested_args: z.record(z.string(), z.unknown()).optional(),
-  icon_url:       z.string().nullish(),
-  /** Human-readable description of the exact call ("Raw GET https://…") —
-   *  what the card shows when the tool slug is an unreadable raw slug. */
-  summary:        z.string().optional(),
-  /** False for synthetic/raw requests that must not be saved in settings. */
-  persistable:    z.boolean().default(true),
+const questionOptionSchema = z.object({
+  value:       z.string(),
+  label:       z.string(),
+  description: z.string().optional(),
+  /** Agent choices only, filled by the server. */
+  handle:      z.string().optional(),
+  avatar_url:  z.string().optional(),
+  recommended: z.boolean().default(false),
+})
+
+const YES_NO: z.infer<typeof questionOptionSchema>[] = [
+  { value: 'yes', label: 'Yes', recommended: false },
+  { value: 'no', label: 'No', recommended: false },
+]
+
+const questionSchema = z.object({
+  id:           z.string(),
+  question:     z.string(),
+  type:         z.enum(['single_choice', 'multi_choice', 'text', 'yes_no']),
+  entity:       z.enum(['generic', 'persona', 'pin']).default('generic'),
+  options:      z.array(questionOptionSchema).default([]),
+  placeholder:  z.string().optional(),
+  required:     z.boolean().default(true),
+  allow_custom: z.boolean().default(true),
+}).transform((question) =>
+  question.type === 'yes_no' && question.options.length === 0 ? { ...question, options: YES_NO } : question,
+)
+
+/** A question that fails its schema is left out; the rest of the card still shows. */
+const questionsSchema = z.array(z.unknown()).default([]).transform((items) =>
+  items.flatMap((item) => {
+    const question = questionSchema.safeParse(item)
+    return question.success ? [question.data] : []
+  }),
+)
+
+const gateFields = {
+  prompt_id:   z.string(),
+  respond_url: z.string(),
+}
+
+const connectorFields = {
+  connector_slug: z.string(),
+  display_name:   z.string(),
+  icon_url:       z.string().optional(),
+  tool_slug:      z.string().default(''),
   options:        z.array(promptOptionSchema).default([]),
-  /** Client-side only: the user's answer ("allow" | "allow_once" | "block").
-   *  Never sent on the wire — recorded in message state when the user decides,
-   *  so answered prompts stay hidden across remounts (e.g. the message-id swap
-   *  on message_saved). */
-  decision:       z.string().optional(),
-}).transform((raw) => ({
-  request_id:     raw.prompt_id,
-  connector_slug: raw.connector_slug,
-  display_name:   raw.display_name ?? raw.connector_slug,
-  tool_name:      raw.tool_slug,
-  suggested_args: raw.suggested_args,
-  icon_url:       raw.icon_url ?? undefined,
-  summary:        raw.summary ?? '',
-  respond_url:    raw.respond_url,
-  persistable:    raw.persistable,
-  options:        raw.options.map((o) => ({ value: o.value, label: o.label ?? o.value, style: o.style })),
-  decision:       raw.decision,
-}))
-
-export type ConnectorPermissionPrompt = z.infer<typeof connectorPermissionPromptSchema>
-export type PermissionPromptOption    = ConnectorPermissionPrompt['options'][number]
-
-/** Parse a raw SSE payload into the canonical prompt, or null if malformed. */
-export function parsePermissionPrompt(raw: unknown): ConnectorPermissionPrompt | null {
-  const parsed = connectorPermissionPromptSchema.safeParse(raw)
-  return parsed.success ? parsed.data : null
 }
 
-// ── Generic prompt gates (SSE) ────────────────────────────────────────────────
+const APPROVAL_OPTIONS = [
+  { value: 'approve', label: 'Approve', style: 'primary' },
+  { value: 'reject', label: 'Reject', style: 'danger' },
+]
 
-export interface ChatPromptOption {
-  value: string
-  label: string
-  style?: string
+export const promptSchemas = {
+  tool_connect_prompt: z.object({
+    ...gateFields,
+    ...connectorFields,
+    auth_mode:      z.enum(['oauth2', 'api_key']),
+    provider:       z.string(),
+    api_key_fields: z.array(apiKeyFieldSchema).default([]),
+  }).transform((raw) => ({
+    card:           'connect' as const,
+    request_id:     raw.prompt_id,
+    respond_url:    raw.respond_url,
+    connector:      toConnector(raw),
+    auth_mode:      raw.auth_mode,
+    provider:       (['pipedream', 'mcp', 'zapier', 'api'] as const).find((value) => value === raw.provider),
+    /** The action that needs the app. Empty when the run is binding the app itself. */
+    tool_name:      raw.tool_slug,
+    api_key_fields: raw.api_key_fields,
+  })),
+
+  permission_prompt: z.object({
+    ...gateFields,
+    ...connectorFields,
+    /** What the call does ("Raw GET https://…"), shown when the tool slug is unreadable. */
+    summary:        z.string().default(''),
+    suggested_args: z.record(z.string(), z.unknown()).default({}),
+    /** False for raw requests, which must not be saved in settings. */
+    persistable:    z.boolean().default(true),
+  }).transform((raw) => ({
+    card:           'permission' as const,
+    request_id:     raw.prompt_id,
+    respond_url:    raw.respond_url,
+    connector:      toConnector(raw),
+    tool_name:      raw.tool_slug,
+    summary:        raw.summary,
+    suggested_args: raw.suggested_args,
+    persistable:    raw.persistable,
+    options:        raw.options,
+  })),
+
+  user_prompt: z.object({
+    ...gateFields,
+    kind:        z.string(),
+    title:       z.string(),
+    description: z.string().default(''),
+    options:     z.array(promptOptionSchema).default([]),
+  }).transform((raw) => chatPrompt(raw, {
+    kind:        raw.kind,
+    title:       raw.title || 'Quick question',
+    description: raw.description,
+    options:     raw.options,
+  })),
+
+  question_prompt: z.object({
+    ...gateFields,
+    title:       z.string().default(''),
+    description: z.string().default(''),
+    questions:   questionsSchema,
+  }).transform((raw) => chatPrompt(raw, {
+    kind:        'questions',
+    title:       raw.title || 'Quick question',
+    description: raw.description,
+    questions:   raw.questions,
+  })),
+
+  approval_prompt: z.object({
+    ...gateFields,
+    ...connectorFields,
+    verb:        z.string(),
+    target:      z.string().default(''),
+    preview_xml: z.string().default(''),
+  }).transform((raw) => chatPrompt(raw, {
+    kind:        'approval',
+    title:       `Approve ${raw.verb || 'this action'}?`,
+    description: raw.target || raw.preview_xml,
+    options:     raw.options.length > 0 ? raw.options : APPROVAL_OPTIONS,
+  })),
 }
 
-export interface ChatPromptQuestion {
-  id: string
-  question: string
-  type?: 'single_choice' | 'multi_choice' | 'text' | 'yes_no' | string
-  options?: ChatPromptOption[]
-  placeholder?: string
-  required?: boolean
-  allow_custom?: boolean
-}
+export type ChatPromptOption   = z.infer<typeof promptOptionSchema>
+export type ChatPromptQuestion = z.infer<typeof questionSchema>
 
+/** A question, choice or approval card: everything that is not about linking or permitting a connector. */
 export interface ChatPrompt {
-  request_id: string
-  kind: string
-  title: string
-  description?: string
-  options: ChatPromptOption[]
-  questions?: ChatPromptQuestion[]
-  respond_url?: string
-  decision?: string
+  card:        'chat'
+  request_id:  string
+  respond_url: string
+  kind:        string
+  title:       string
+  description: string
+  options:     ChatPromptOption[]
+  questions:   ChatPromptQuestion[]
+  /** Client-side only: the person's answer, kept in message state so an answered card stays hidden. */
+  decision?:   string
 }
 
-export type ChatPromptEventName =
-  | 'user_prompt'
-  | 'questions'
-  | 'question_prompt'
-  | 'approval_prompt'
+function chatPrompt(
+  gate: { prompt_id: string; respond_url: string },
+  fields: Pick<ChatPrompt, 'kind' | 'title' | 'description'> & Partial<Pick<ChatPrompt, 'options' | 'questions'>>,
+): ChatPrompt {
+  return { card: 'chat', request_id: gate.prompt_id, respond_url: gate.respond_url, options: [], questions: [], ...fields }
+}
 
-const optionalString = (value: unknown): string | undefined =>
-  typeof value === 'string' ? value : undefined
+export type PromptEventName           = keyof typeof promptSchemas
+export type ConnectorConnectPrompt    = z.infer<typeof promptSchemas.tool_connect_prompt>
+/** `decision` is client-side only: the person's answer ("allow" | "allow_once" | "block"). */
+export type ConnectorPermissionPrompt = z.infer<typeof promptSchemas.permission_prompt> & { decision?: string }
+export type PermissionPromptOption    = ConnectorPermissionPrompt['options'][number]
+export type Prompt                    = ConnectorConnectPrompt | ConnectorPermissionPrompt | ChatPrompt
 
-const parseChatPromptOptions = (value: unknown): ChatPromptOption[] =>
-  Array.isArray(value) ? value.flatMap((option) => {
-    if (!option || typeof option !== 'object') return []
-    const row = option as Record<string, unknown>
-    const optionValue = optionalString(row.value)
-    return optionValue ? [{
-      value: optionValue,
-      label: optionalString(row.label) || optionValue,
-      style: optionalString(row.style),
-    }] : []
-  }) : []
+export const isPromptEvent = (name: string): name is PromptEventName => name in promptSchemas
 
-/** Normalize non-connector prompt events into the one card model
- * used by chat, persona chat, and the agent test surface. */
-export function parseChatPrompt(
-  eventName: ChatPromptEventName,
-  raw: unknown,
-): ChatPrompt | null {
-  if (!raw || typeof raw !== 'object') return null
-  const data = raw as Record<string, unknown>
-  const promptId = optionalString(data.prompt_id)
-  if (!promptId) return null
-
-  const options = parseChatPromptOptions(data.options)
-  if (eventName === 'approval_prompt' && options.length === 0) {
-    options.push(
-      { value: 'approve', label: 'Approve', style: 'primary' },
-      { value: 'reject', label: 'Reject', style: 'danger' },
-    )
-  }
-
-  const questions = Array.isArray(data.questions)
-    ? data.questions.flatMap((question): ChatPromptQuestion[] => {
-        if (!question || typeof question !== 'object') return []
-        const row = question as Record<string, unknown>
-        const id = optionalString(row.id)
-        const text = optionalString(row.question)
-        if (!id || !text) return []
-        const type = optionalString(row.type)
-        const questionOptions = parseChatPromptOptions(row.options)
-        if (type === 'yes_no' && questionOptions.length === 0) {
-          questionOptions.push(
-            { value: 'yes', label: 'Yes' },
-            { value: 'no', label: 'No' },
-          )
-        }
-        return [{
-          id,
-          question: text,
-          type,
-          options: questionOptions,
-          placeholder: optionalString(row.placeholder),
-          required: row.required !== false,
-          allow_custom: row.allow_custom !== false,
-        }]
-      })
-    : []
-
-  return {
-    request_id: promptId,
-    kind: eventName === 'questions' || eventName === 'question_prompt'
-      ? 'questions'
-      : eventName === 'approval_prompt' ? 'approval' : optionalString(data.kind) || 'input',
-    title: eventName === 'approval_prompt'
-      ? `Approve ${optionalString(data.verb) || 'this action'}?`
-      : optionalString(data.title) || 'Quick question',
-    description: eventName === 'approval_prompt'
-      ? optionalString(data.target) || optionalString(data.preview_xml)
-      : optionalString(data.description),
-    options,
-    questions: questions.length > 0 ? questions : undefined,
-    respond_url: optionalString(data.respond_url),
-  }
+/** The card for a prompt event, or null (logged) when the payload does not match its schema. */
+export function parsePrompt(name: PromptEventName, raw: unknown): Prompt | null {
+  const parsed = promptSchemas[name].safeParse(raw)
+  if (parsed.success) return parsed.data
+  logger.warn(`[prompts] '${name}' failed schema validation`, parsed.error.issues)
+  return null
 }

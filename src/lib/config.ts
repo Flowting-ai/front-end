@@ -158,8 +158,6 @@ export const DELETE_MESSAGE_ENDPOINT = (messageId: string) =>
   withBase(`/chats/message/${messageId}`);
 export const CHAT_SAVE_TO_DRIVE_ENDPOINT = (attachmentId: string) =>
   withBase(`/chats/files/${attachmentId}/save-to-drive`);
-export const CHAT_PROMPT_RESPOND_ENDPOINT = (promptId: string) =>
-  withBase(`/chats/prompts/${promptId}`);
 // ── LLM Models ───────────────────────────────────────────────────────────────
 export const MODELS_ENDPOINT = withBase("/llm/models");
 export const MODELS_ALL_ENDPOINT = withBase("/llm/models/all");

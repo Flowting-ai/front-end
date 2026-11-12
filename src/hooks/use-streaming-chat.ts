@@ -266,6 +266,14 @@ export function useStreamingChat({
     }
     activeStopRef.current = stopThisCall
     registerStream(chatId, stopThisCall)
+    // Set when the chat was reopened and follows this turn afresh: this call's
+    // connection is dropped and it leaves the reply and the registry alone.
+    let detached = false
+    let callXhr: XMLHttpRequest | null = null
+    const detachThisCall = () => {
+      detached = true
+      callXhr?.abort()
+    }
 
     // Returns true if this stream's chat is still the one the user is viewing.
     // Used to suppress setStreamState calls for background (unfocused) streams.
@@ -277,7 +285,7 @@ export function useStreamingChat({
 
     setStreamState?.("waiting")
 
-    const turn = createStreamTurn()
+    const turn = createStreamTurn(options?.prior?.content)
     // The event handlers' view of this call: its refs, batching and callbacks.
     const ctx: StreamEventContext = {
       setMessages,
@@ -288,7 +296,10 @@ export function useStreamingChat({
       userMessageId: () => userMessageIdRef.current,
       chatId: () => resolvedChatIdRef.current,
       adoptChatId: (id) => adoptChatId(id),
-      onRunStarted: () => { if (isActiveStream()) setStreamState?.("streaming") },
+      onRunStarted: () => {
+        registerStream(resolvedChatIdRef.current, stopThisCall, detachThisCall)
+        if (isActiveStream()) setStreamState?.("streaming")
+      },
       onTitleUpdate,
       onChatMoveToTop,
       saveToLibrary: undefined,
@@ -322,7 +333,10 @@ export function useStreamingChat({
         chatId,
         hasFiles: Boolean(options?.files?.length),
         onUploadProgress: options?.onUploadProgress,
-        setXhr: (xhr) => { xhrRef.current = xhr },
+        setXhr: (xhr) => {
+          callXhr = xhr
+          xhrRef.current = xhr
+        },
         onUploadEnd: () => {
           if (isActiveStream()) setStreamState?.("streaming")
           startFlushInterval()
@@ -342,15 +356,19 @@ export function useStreamingChat({
         onHeaderChatId: (headerChatId) => {
           if (!chatId || chatId.startsWith("temp-")) adoptChatId(headerChatId)
         },
-        isStopRequested: () => stopRequestedRef.current,
+        isStopRequested: () => stopRequestedRef.current || detached,
         onFollowAttached: () => {
-          // The stream replays the turn from its start, so the reply starts over with it.
+          // The stream replays the stretch being worked on from its start, so the reply goes back
+          // to what it held before that stretch: nothing, or what earlier stretches of the run wrote.
           attached = true
           const replyId = loadingMessageIdRef.current
+          const prior = options?.prior
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === replyId
-                ? { id: msg.id, reactKey: msg.reactKey, role: msg.role, created_at: msg.created_at, chat_id: msg.chat_id, content: "", isLoading: true }
+                ? prior
+                  ? { ...prior, isLoading: true }
+                  : { id: msg.id, reactKey: msg.reactKey, role: msg.role, created_at: msg.created_at, chat_id: msg.chat_id, content: "", isLoading: true }
                 : msg,
             ),
           )
@@ -360,6 +378,7 @@ export function useStreamingChat({
 
       stopFlushInterval()
       flushPending()
+      if (detached) return "done"
 
       // Stream ended without a done or error event - treat what was shown as
       // the complete response. A user Stop already finalised the message.
@@ -375,6 +394,7 @@ export function useStreamingChat({
     } catch (error) {
       stopFlushInterval()
       flushPending()
+      if (detached) return "done"
       completeStream(resolvedChatIdRef.current, stopRequestedRef.current ? "aborted" : "error")
       // A turn that failed or was stopped part-way may still have saved its files.
       if (options?.files?.length) notifyLibraryFilesChanged()
@@ -408,6 +428,7 @@ export function useStreamingChat({
             follow: true,
             followAttempt: attempt + 1,
             userMessageId: userMessageIdRef.current ?? undefined,
+            prior: options?.prior,
           })
           const result = followResultRef.current
           followResultRef.current = "attached"
@@ -478,8 +499,8 @@ export function useStreamingChat({
    * the turn's first event — for a chat opened while its reply is still being
    * generated. A turn that has ended by then is in the chat's history instead.
    */
-  const followStream = async (chatId: string, loadingMessageId: string): Promise<StreamOutcome> => {
-    const outcome = await fetchAiResponse("", chatId, loadingMessageId, null, { follow: true })
+  const followStream = async (chatId: string, loadingMessageId: string, prior?: UIMessage): Promise<StreamOutcome> => {
+    const outcome = await fetchAiResponse("", chatId, loadingMessageId, null, { follow: true, prior })
     const result = followResultRef.current
     followResultRef.current = "attached"
     if (result === "attached") return outcome

@@ -81,7 +81,7 @@ interface ChatMessageProps {
   onPromptDecided?: (messageId: string, requestId: string, decision: string) => void;
   /** Continues a turn parked on a prompt whose respond_url is `/chats/{id}/resume`.
    *  The memo comparator ignores it, so pass a stable function. */
-  onPromptFollowUp?: (message: string) => void;
+  onPromptAnswered?: () => void;
   /** Called once per message when it has stopped loading and its text reveal
    *  has finished (straight away for a message that isn't animated). The memo
    *  comparator only tracks whether it is set, so pass a stable function. */
@@ -103,7 +103,7 @@ export function ChatMessage({
   onFollowUp,
   onRetry,
   onPromptDecided,
-  onPromptFollowUp,
+  onPromptAnswered,
   onRevealSettled,
 }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
@@ -367,7 +367,7 @@ export function ChatMessage({
           <SourceList citations={citations} />
         )}
 
-        <AssistantPrompts message={message} onPromptDecided={onPromptDecided} onPromptFollowUp={onPromptFollowUp} />
+        <AssistantPrompts message={message} onPromptDecided={onPromptDecided} onPromptAnswered={onPromptAnswered} />
 
         {/* Image generation preview — while an image tool is still running */}
         {/* popLayout: the exiting preview floats in place, so the real image

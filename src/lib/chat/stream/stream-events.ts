@@ -1,5 +1,5 @@
 import { toast } from "sonner"
-import { parseChatPrompt, parsePermissionPrompt } from "@/lib/api/prompts"
+import { isPromptEvent, parsePrompt, type ChatPrompt } from "@/lib/api/prompts"
 import { CHAT_MESSAGES } from "@/lib/library/messages"
 import { parseLibraryShare } from "@/lib/library/library-shares"
 import { parseLibraryCitations } from "@/components/Library/chat/library-citations"
@@ -26,7 +26,6 @@ import {
   eventAttachments,
   extractChatId,
   generatedOutputs,
-  parseConnectPrompt,
   uploadedAttachments,
   type Attachment,
 } from "./stream-payload"
@@ -128,26 +127,15 @@ export function handleAppEvent(ctx: StreamEventContext, turn: StreamTurn, eventN
   if (eventName === "tool_progress") return handleToolProgress(ctx, turn, parsed)
   if (is("tool_executing")) return handleToolExecuting(ctx, turn, parsed)
   if (is("tool_calls_streaming")) return handleToolCallsStreaming(ctx, turn, parsed)
-  if (eventName === "tool_connect_prompt") {
-    const prompt = parseConnectPrompt(parsed)
-    const msgId = ctx.messageId()
-    if (msgId) ctx.setMessages(updateMessage(msgId, addUniqueByRequestId("connectorConnectPrompts", prompt)))
-    turn.receivedRenderableOutput = true
-    return
-  }
-  if (eventName === "user_prompt" || eventName === "question_prompt" || eventName === "approval_prompt") {
-    return handleChatPrompt(ctx, turn, eventName, parsed)
-  }
-  if (eventName === "permission_prompt") {
-    // Backend emits `prompt_id` + `respond_url` (spec fields). POST to respond_url
-    // (or /chats/prompts/{prompt_id}) with {"response":"allow"|"allow_once"|"block"}
-    // to unblock the stream. parsePermissionPrompt zod-validates the payload and
-    // returns the canonical permission-prompt shape.
-    const prompt = parsePermissionPrompt(parsed)
+  if (isPromptEvent(eventName)) {
+    const prompt = parsePrompt(eventName, parsed)
     if (!prompt) return
-    const msgId = ctx.messageId()
-    if (msgId) ctx.setMessages(updateMessage(msgId, addUniqueByRequestId("connectorPermissionPrompts", prompt)))
+    // A card is the turn's output as much as text is: a turn that ends on one isn't empty or interrupted.
     turn.receivedRenderableOutput = true
+    if (prompt.card === "chat") return handleChatPrompt(ctx, turn, prompt)
+    const msgId = ctx.messageId()
+    const list = prompt.card === "connect" ? "connectorConnectPrompts" : "connectorPermissionPrompts"
+    if (msgId) ctx.setMessages(updateMessage(msgId, addUniqueByRequestId(list, prompt)))
     return
   }
   if (is("tool_complete")) return handleToolComplete(ctx, turn, parsed)
@@ -333,18 +321,13 @@ function handleImage(ctx: StreamEventContext, turn: StreamTurn, parsed: Payload)
   ctx.setMessages(updateMessage(msgId, (msg) => ({ ...msg, images: [...(msg.images ?? []), ...newImages] })))
 }
 
-function handleChatPrompt(ctx: StreamEventContext, turn: StreamTurn, eventName: "user_prompt" | "question_prompt" | "approval_prompt", parsed: Payload) {
-  const prompt = parseChatPrompt(eventName, parsed)
-  if (!prompt) return
+function handleChatPrompt(ctx: StreamEventContext, turn: StreamTurn, prompt: ChatPrompt) {
   const promptId = prompt.request_id
-  // A card is the turn's output as much as text is: a turn that ends
-  // on one isn't empty or interrupted.
-  turn.receivedRenderableOutput = true
   // Mark in the reasoning trace where the turn stopped to ask, so
   // reasoning after the answer reads as a new stretch.
   if (!turn.promptMarkerIds.has(promptId)) {
     turn.promptMarkerIds.add(promptId)
-    turn.reasoning.prompt({ promptId, title: prompt.questions?.[0]?.question || prompt.title })
+    turn.reasoning.prompt({ promptId, title: prompt.questions[0]?.question || prompt.title })
   }
   ctx.flushPending()
   const msgId = ctx.messageId()

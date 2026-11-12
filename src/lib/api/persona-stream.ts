@@ -2,12 +2,11 @@
 
 import { apiFetch } from "./client";
 import type { Connector } from "@/lib/connector";
-import { parseChatPrompt, parsePermissionPrompt, type ChatPrompt, type ConnectorPermissionPrompt } from "./prompts";
+import { parsePrompt, type ChatPrompt, type ConnectorConnectPrompt, type ConnectorPermissionPrompt } from "./prompts";
 import { AguiSSEDecoder } from "@/lib/sse-decoder";
 import { friendlyModelError } from "@/lib/model-error";
 import { normalizeActivityStatus, toolNameToType } from "@/lib/activity";
 import type { ActivityType, GeneratedFile } from "@/types/chat";
-import { toConnector } from "@/lib/connector";
 import { PERSONA_GUIDE_ENDPOINT, PERSONA_VERSION_TEST_ENDPOINT, directUpload } from "@/lib/config";
 import type { Persona } from "./persona-model";
 import { keepAcceptedFields } from "@/lib/chat-form-fields";
@@ -60,7 +59,7 @@ export interface PersonaActivityItem {
 
 /** Canonical connect-prompt shape — aliased so persona stream consumers keep
  *  their existing import. */
-export type PersonaConnectPrompt = import('@/types/chat').ConnectorConnectPrompt
+export type PersonaConnectPrompt = ConnectorConnectPrompt
 
 /** Canonical permission-prompt shape, zod-parsed in lib/api/prompts.ts —
  *  aliased so persona stream consumers keep their existing import. */
@@ -296,35 +295,15 @@ async function readPersonaSSEStream(
               }
               break
             }
-            case "tool_connect_prompt": {
-              type ApiKeyField = import('@/lib/api/connectors').ApiKeyField
-              const rawFields = parsed.api_key_fields
-              const apiKeyFields: ApiKeyField[] | undefined = Array.isArray(rawFields)
-                ? rawFields.filter(
-                    (f): f is ApiKeyField =>
-                      typeof f === 'object' && f !== null &&
-                      typeof (f as Record<string, unknown>).name === 'string',
-                  )
-                : undefined
-              callbacks.onConnectPrompt?.({
-                request_id:     typeof parsed.prompt_id === 'string' ? parsed.prompt_id : `ccp-${Date.now()}`,
-                connector:      toConnector(parsed),
-                auth_mode:      (str(parsed.auth_mode) || 'oauth2') as 'oauth2' | 'api_key',
-                tool_name:      str(parsed.tool_slug),
-                api_key_fields: apiKeyFields,
-              })
-              break
-            }
-            case "permission_prompt": {
-              const permPrompt = parsePermissionPrompt(parsed)
-              if (permPrompt) callbacks.onPermissionPrompt?.(permPrompt)
-              break
-            }
+            case "tool_connect_prompt":
+            case "permission_prompt":
             case "user_prompt":
             case "question_prompt":
             case "approval_prompt": {
-              const prompt = parseChatPrompt(eventName, parsed)
-              if (prompt) callbacks.onChatPrompt?.(prompt)
+              const prompt = parsePrompt(eventName, parsed)
+              if (prompt?.card === "connect") callbacks.onConnectPrompt?.(prompt)
+              else if (prompt?.card === "permission") callbacks.onPermissionPrompt?.(prompt)
+              else if (prompt) callbacks.onChatPrompt?.(prompt)
               break
             }
             case "error":

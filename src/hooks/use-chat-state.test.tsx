@@ -13,7 +13,8 @@ import { registerStream, completeStream } from '@/lib/stream-registry'
 import type { Message } from '@/types/chat'
 
 const getChatMessages = vi.hoisted(() => vi.fn())
-vi.mock('@/lib/api/chat', () => ({ getChatMessages }))
+const getChatStreamId = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/api/chat', () => ({ getChatMessages, getChatStreamId }))
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -61,6 +62,8 @@ const ids = () => hook.messages.map((m) => m.id)
 beforeEach(() => {
   clearChatHistories()
   getChatMessages.mockReset()
+  getChatStreamId.mockReset()
+  getChatStreamId.mockResolvedValue(null)
   serve(['m1', 'm2'])
   container = document.createElement('div')
   root = createRoot(container)
@@ -309,5 +312,85 @@ describe('explicit refresh', () => {
     await act(async () => { await hook.refreshMessages() })
     expect(ids()).toEqual(['m1', 'm2', 'm3'])
     expect(readChatHistory('a')?.messages.map((m) => m.id)).toEqual(['m1', 'm2', 'm3'])
+  })
+})
+
+describe('a turn still running on the backend', () => {
+  const run = (id: string, status: string) => ({ id, status, segments: 1, startedAt: '2026-01-01T00:00:00Z' })
+
+  /** History whose last row is the reply the agent is still working on: saved when the turn started, with no answer yet. */
+  function serveRunning(runningId: string, content = '') {
+    getChatStreamId.mockResolvedValue(runningId)
+    getChatMessages.mockImplementation((chatId: string) => Promise.resolve({
+      messages: [
+        serverMsg('m1', chatId),
+        { ...serverMsg(runningId, chatId), role: 'assistant', content, run: run(runningId, 'running') },
+      ],
+      has_more: false,
+      next_cursor: null,
+    }))
+  }
+
+  it('shows its reply as loading, not as an empty turn, and names it to follow', async () => {
+    serveRunning('turn-1')
+    await show('a')
+
+    expect(ids()).toEqual(['m1', 'turn-1'])
+    expect(hook.messages[1]).toMatchObject({ isLoading: true, content: '' })
+    expect(hook.messages[1].errorNotice).toBeUndefined()
+    expect(hook.runningMessageId).toBe('turn-1')
+    // A thread with a reply still being written is not what the next visit should restore.
+    expect(readChatHistory('a')).toBeUndefined()
+  })
+
+  it('drops the connection left behind and reloads at once when returning mid-reply', async () => {
+    await show('a')
+    await show('b')
+    const detach = vi.fn()
+    registerStream('a', undefined, detach)
+    serveRunning('turn-1')
+
+    await show('a')
+
+    expect(detach).toHaveBeenCalledOnce()
+    expect(hook.isLoadingMessages).toBe(false)
+    expect(ids()).toEqual(['m1', 'turn-1'])
+    expect(hook.runningMessageId).toBe('turn-1')
+  })
+
+  it('refetches a cached thread when a turn started elsewhere', async () => {
+    await show('a')
+    await show('b')
+    serveRunning('turn-1')
+
+    await show('a')
+    await act(async () => { await Promise.resolve() })
+
+    expect(ids()).toEqual(['m1', 'turn-1'])
+    expect(hook.runningMessageId).toBe('turn-1')
+  })
+
+  it('names no running reply once the turn has ended', async () => {
+    serveRunning('turn-1')
+    await show('a')
+    getChatStreamId.mockResolvedValue(null)
+    getChatMessages.mockImplementation((chatId: string) => Promise.resolve({
+      messages: [serverMsg('m1', chatId), { ...serverMsg('turn-1', chatId), role: 'assistant', content: 'Done.', run: run('turn-1', 'finished') }],
+      has_more: false,
+      next_cursor: null,
+    }))
+
+    await act(async () => { await hook.refreshMessages() })
+
+    expect(hook.runningMessageId).toBeNull()
+    expect(hook.messages[1].isLoading).toBe(false)
+  })
+
+  it('keeps what earlier stretches of the run wrote while it is taken back up', async () => {
+    serveRunning('turn-1', 'Connect Shopify to continue.')
+    await show('a')
+
+    expect(hook.messages[1]).toMatchObject({ isLoading: true, content: 'Connect Shopify to continue.' })
+    expect(hook.runningMessageId).toBe('turn-1')
   })
 })
