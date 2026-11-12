@@ -140,8 +140,8 @@ export interface UIMessage extends Message {
   /** How long the turn reasoned before its answer started (live turns only;
    *  not persisted, so undefined after a reload). */
   reasoningDurationMs?: number
-  /** When the turn's run started, on this browser's clock: now minus the running
-   *  time the stream opened with. Live turns only. */
+  /** When the backend started the turn's run (epoch ms, from the stream's opening
+   *  `run` frame). Live turns only. */
   runStartedAt?: number
   /** True when the user clicked Stop during generation — only ever that. A turn
    *  cut short by a reload is not stopped: the backend keeps running it and the

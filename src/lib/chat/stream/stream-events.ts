@@ -194,8 +194,9 @@ export function handleAppEvent(ctx: StreamEventContext, turn: StreamTurn, eventN
     return
   }
   if (eventName === "run") {
-    // How long the run had been going when this read of it opened (a reload joins it part-way).
-    if (typeof parsed.time === "number") ctx.queueUpdate({ runStartedAt: Date.now() - parsed.time * 1000 }, true)
+    // The opening frame says when the run started (a reload joins it part-way); the closing one adds when it ended.
+    const runStartedAt = Date.parse(asString(parsed.startedAt) ?? "")
+    if (!parsed.endedAt && !Number.isNaN(runStartedAt)) ctx.queueUpdate({ runStartedAt }, true)
     return
   }
   if (eventName === "done") return handleDone(ctx, turn, parsed)
