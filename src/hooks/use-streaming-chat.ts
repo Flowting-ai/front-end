@@ -17,6 +17,7 @@ import { registerStream, completeStream, type StreamOutcome } from "@/lib/stream
 import { updateMessage } from "@/lib/chat/stream/message-patches"
 import {
   AuthExpiredError,
+  ConnectionDroppedError,
   FriendlyStreamError,
   SESSION_EXPIRED_MESSAGE,
   dispatchSessionExpired,
@@ -35,6 +36,14 @@ import { sendStreamRequest } from "@/lib/chat/stream/xhr-transport"
 
 export type { TurnResume } from "@/lib/chat/stream/stream-request"
 
+/** How many times one turn re-attaches to its stream, and the pause before each. */
+const FOLLOW_ATTEMPTS = 5
+const FOLLOW_RETRY_MS = 1000
+
+/** How a follow of a running turn went: it reached the stream, the chat has no
+ *  running turn any more (it ended while nobody was reading), or it could not connect. */
+type FollowResult = "attached" | "gone" | "failed"
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type StreamState = "idle" | "waiting" | "streaming" | "done" | "aborted" | "error"
@@ -49,6 +58,8 @@ export interface UseStreamingChatParams {
   onChatMoveToTop?: (chatId: string) => void
   /** Optional - lets the caller render a loading indicator from stream state. */
   setStreamState?: React.Dispatch<React.SetStateAction<StreamState>>
+  /** The turn ended while this view was not reading it: the saved reply is in the chat history. */
+  onStreamLost?: (chatId: string) => void
   /** Called after a stream completes successfully (for refreshing usage data). */
   onStreamDone?: () => void
   /** Override the proxy endpoint (defaults to "/api/chat"). Use for persona chat, etc. */
@@ -84,6 +95,7 @@ export function useStreamingChat({
   onChatMoveToTop,
   setStreamState,
   onStreamDone,
+  onStreamLost,
   endpoint = "/api/chat",
   directEndpoints,
   onStopBackend,
@@ -92,6 +104,8 @@ export function useStreamingChat({
 }: UseStreamingChatParams) {
   const xhrRef = useRef<XMLHttpRequest | null>(null)
   const stopRequestedRef = useRef(false)
+  // Set by a follow of a running turn, read by whoever started it.
+  const followResultRef = useRef<FollowResult>("attached")
 
   // Pending message field updates - flushed to React every FLUSH_INTERVAL_MS
   const pendingFieldsRef = useRef<Partial<UIMessage> | null>(null)
@@ -237,6 +251,11 @@ export function useStreamingChat({
   ): Promise<StreamOutcome> => {
     stopRequestedRef.current = false
     xhrRef.current = null
+    // A follow owns the reply only once its stream answers; until then the reply is left as it is.
+    const follow = options?.follow === true
+    let attached = !follow
+    let failedStatus = 0
+    followResultRef.current = "attached"
     loadingMessageIdRef.current = loadingMessageId
     userMessageIdRef.current = options?.userMessageId ?? null
     resolvedChatIdRef.current = chatId
@@ -324,6 +343,19 @@ export function useStreamingChat({
           if (!chatId || chatId.startsWith("temp-")) adoptChatId(headerChatId)
         },
         isStopRequested: () => stopRequestedRef.current,
+        onFollowAttached: () => {
+          // The stream replays the turn from its start, so the reply starts over with it.
+          attached = true
+          const replyId = loadingMessageIdRef.current
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === replyId
+                ? { id: msg.id, reactKey: msg.reactKey, role: msg.role, created_at: msg.created_at, chat_id: msg.chat_id, content: "", isLoading: true }
+                : msg,
+            ),
+          )
+        },
+        onFollowFailed: (status) => { failedStatus = status },
       })
 
       stopFlushInterval()
@@ -351,6 +383,43 @@ export function useStreamingChat({
       if (stopRequestedRef.current) {
         setStreamState?.("aborted")
         return "aborted"
+      }
+
+      // A follow that never reached the stream leaves the reply to whoever started it.
+      if (!attached) {
+        followResultRef.current = failedStatus === 404 ? "gone" : "failed"
+        return "error"
+      }
+
+      // The connection dropped but the backend is still running the turn: read
+      // it again from its stream. A regular chat only; other endpoints have none.
+      const liveChatId = resolvedChatIdRef.current
+      const attempt = options?.followAttempt ?? 0
+      if (
+        error instanceof ConnectionDroppedError &&
+        endpoint === "/api/chat" && !directEndpoints &&
+        liveChatId && !liveChatId.startsWith("temp-") &&
+        !stopRequestedRef.current &&
+        attempt < FOLLOW_ATTEMPTS
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, FOLLOW_RETRY_MS))
+        if (!stopRequestedRef.current) {
+          const outcome = await fetchAiResponse("", liveChatId, loadingMessageIdRef.current ?? loadingMessageId, null, {
+            follow: true,
+            followAttempt: attempt + 1,
+            userMessageId: userMessageIdRef.current ?? undefined,
+          })
+          const result = followResultRef.current
+          followResultRef.current = "attached"
+          if (result === "attached") return outcome
+          if (result === "gone") {
+            completeStream(liveChatId, "done")
+            setStreamState?.("done")
+            onStreamLost?.(liveChatId)
+            onStreamDone?.()
+            return "done"
+          }
+        }
       }
 
       // A FriendlyStreamError was already logged where it was raised (status, endpoint,
@@ -404,5 +473,21 @@ export function useStreamingChat({
     onChatCreated?.(chatId)
   }
 
-  return { fetchAiResponse, handleStopGeneration }
+  /**
+   * Reads a chat's running turn into the loading reply `loadingMessageId`, from
+   * the turn's first event — for a chat opened while its reply is still being
+   * generated. A turn that has ended by then is in the chat's history instead.
+   */
+  const followStream = async (chatId: string, loadingMessageId: string): Promise<StreamOutcome> => {
+    const outcome = await fetchAiResponse("", chatId, loadingMessageId, null, { follow: true })
+    const result = followResultRef.current
+    followResultRef.current = "attached"
+    if (result === "attached") return outcome
+    completeStream(chatId, "done")
+    setStreamState?.("done")
+    onStreamLost?.(chatId)
+    return "done"
+  }
+
+  return { fetchAiResponse, followStream, handleStopGeneration }
 }

@@ -25,12 +25,14 @@
   white-space: nowrap;
 }
 
-.browser {
+/* Both chips open the panel, so the affordances belong to any chip that is a
+   button rather than to the browser one alone. */
+button.chip {
   cursor: pointer;
   transition: background-color 120ms ease, border-color 120ms ease;
 }
-.browser:hover { background: var(--neutral-50); border-color: var(--neutral-300); }
-.browser:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+button.chip:hover { background: var(--neutral-50); border-color: var(--neutral-300); }
+button.chip:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 
 /* Icon with a dot orbiting it — reads as "live" without a spinner. */
 .browserIcon {

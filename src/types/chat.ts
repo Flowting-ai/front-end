@@ -36,6 +36,9 @@ export interface Attachment {
   uploading?: boolean;
   /** 0–100 upload progress as reported by XHR. Only meaningful when uploading is true. */
   uploadProgress?: number;
+  /** `url` is a local object URL for the file being sent, not a backend link: it shows
+   *  the picture immediately, and is replaced when the saved message arrives. */
+  localPreview?: boolean;
   /** The Library file this attachment is, when the history names it (`document_id`). Its state (deleted, locked) then drives the chip. */
   libraryFileId?: string;
   /** What the history says about that Library file: deleted and locked chips need no lookup. */
@@ -137,7 +140,12 @@ export interface UIMessage extends Message {
   /** How long the turn reasoned before its answer started (live turns only;
    *  not persisted, so undefined after a reload). */
   reasoningDurationMs?: number
-  /** True when the user clicked Stop during generation. */
+  /** When the turn's run started, on this browser's clock: now minus the running
+   *  time the stream opened with. Live turns only. */
+  runStartedAt?: number
+  /** True when the user clicked Stop during generation — only ever that. A turn
+   *  cut short by a reload is not stopped: the backend keeps running it and the
+   *  chat picks it back up from the turn's stream. */
   stoppedByUser?: boolean
   /** True when `content` is a friendly error message rather than an actual
    *  model response — renders with a distinct error treatment instead of a

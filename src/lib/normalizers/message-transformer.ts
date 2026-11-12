@@ -77,7 +77,10 @@ function extractFileAttachments(raw: Message): Pick<UIMessage, "generatedFiles" 
         const documentId = att.document_id && att.libraryState !== "deleted" && att.libraryState !== "locked" ? att.document_id : undefined;
         generatedFiles.push({ url, filename, mimeType, ...(documentId ? { documentId } : {}) });
       }
-    } else if (origin === "uploaded" || origin === "user") {
+    } else {
+      // Anything not explicitly generated is the user's upload, including a row
+      // that omits `origin`. A stricter test silently dropped such files: they
+      // matched neither branch and never reached the bubble.
       // Populate the user message bubble with the actual backend URL after a page refresh.
       uploadedAttachments.push({
         id: `att-${filename}-${url.slice(-8)}`,

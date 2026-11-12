@@ -134,18 +134,26 @@ export const FILE_ACCEPT = [
   ".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".csv",
   ".txt", ".md", ".json", ".xml", ".rtf", ".html", ".htm", ".epub",
   ".zip", ".svg", ".tiff", ".tif", ".avif",
+  // Audio: the backend takes and transcribes these (services/files/formats.yaml,
+  // and GET /library/limits lists them). Leaving them out hid files from the
+  // picker that upload and answer perfectly well once chosen.
+  "audio/*",
+  ".aac", ".flac", ".m4a", ".mp3", ".mpga", ".oga", ".ogg", ".opus", ".wav",
 ].join(",");
 
 /** File extensions that are accepted as a MIME-type fallback. */
 const ALLOWED_EXTENSIONS = new Set([
   "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "csv",
-  "txt", "md", "json", "xml", "rtf", "html", "svg", "tiff", 
+  "txt", "md", "json", "xml", "rtf", "html", "svg", "tiff",
   "tif", "avif", "png", "jpg", "jpeg", "webp",
+  // Audio, as the backend's own list has it.
+  "aac", "flac", "m4a", "mp3", "mpga", "oga", "ogg", "opus", "wav",
 ]);
 
 export function isAllowedType(file: File): boolean {
   const mime = file.type.toLowerCase();
   if (mime.startsWith("image/")) return true;
+  if (mime.startsWith("audio/")) return true;
   if ((FILE_CONSTRAINTS.allowedMimeTypes as readonly string[]).some((t) => mime === t)) return true;
   // Fallback: check extension for browsers that don't report a MIME type (e.g. .md → "")
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "";

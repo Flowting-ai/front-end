@@ -1,0 +1,44 @@
+/* A note's own markdown, read inside a list row: headings at body scale, nothing wider than the row. */
+.note {
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--neutral-700);
+  overflow-wrap: anywhere;
+}
+
+.note h1,
+.note h2,
+.note h3,
+.note h4 {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 600;
+  color: var(--neutral-900);
+  margin: 14px 0 4px;
+}
+
+.note > :first-child,
+.note > * > :first-child {
+  margin-top: 0;
+}
+
+.note pre {
+  white-space: pre-wrap;
+  overflow-x: hidden;
+}
+
+.note code {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.note table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.note img {
+  max-width: 100%;
+}

@@ -451,7 +451,14 @@ function ProjectPanelSidebar() {
         {/* ── Content ── */}
         <div
           className="kaya-scrollbar"
-          style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", overflowX: "hidden", boxSizing: "border-box" }}
+          style={{
+            flex: "1 1 0", minHeight: 0, overflowY: "auto", overflowX: "hidden", boxSizing: "border-box",
+            // The scrollbar's gutter is reserved on the right, so a card inside had
+            // that much more room on that side than on the left — and `overflow-x:
+            // hidden` (forced by the vertical scrolling) cut its shadow off on the
+            // left alone. Reserving the gutter on both edges makes the room equal.
+            scrollbarGutter: "stable both-edges",
+          }}
         >
           <div style={{ padding: `14px ${sidePadding}px ${sidePadding}px`, boxSizing: "border-box", height: "100%" }}>
             {(settled || !isOpen) && panel?.content}

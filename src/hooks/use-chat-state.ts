@@ -5,7 +5,7 @@ import { toast } from "sonner"
 import { getChatMessages } from "@/lib/api/chat"
 import { toUIMessages } from "@/lib/normalizers/message-transformer"
 import { logger } from "@/lib/logger"
-import { getStreamCompletion, consumeInterruptedStreamMarker, waitForChatStreams, subscribeStreams } from "@/lib/stream-registry"
+import { getStreamCompletion, waitForChatStreams, subscribeStreams } from "@/lib/stream-registry"
 import { stopActiveActivities } from "@/lib/activity"
 import {
   readChatHistory,
@@ -49,47 +49,6 @@ export interface UseChatStateResult {
    *  off this rather than an `isLoadingMessages` transition, which a cache hit
    *  does not produce. */
   historyLoadId: number
-}
-
-// ── Reload-interrupted stream recovery ───────────────────────────────────────
-
-/**
- * If a stream for `chatId` was still running when this tab last saw it (see
- * stream-registry.ts — this is only true right after a reload/crash mid-
- * generation), reinterpret the freshly-loaded history so the interrupted turn
- * reads as "Generation stopped" (the line under the bubble) instead of silently looking finished or, if
- * the backend hadn't persisted anything yet, disappearing outright.
- */
-function markInterruptedIfNeeded(chatId: string, msgs: UIMessage[]): UIMessage[] {
-  if (!consumeInterruptedStreamMarker(chatId)) return msgs
-
-  const last = msgs[msgs.length - 1]
-  if (last && last.role === "assistant") {
-    return msgs.map((m, i) =>
-      i === msgs.length - 1
-        ? {
-            ...m,
-            isLoading: false,
-            stoppedByUser: true,
-            content: m.content,
-            // An empty saved turn reads as stopped here, not also as "no response".
-            errorNotice: m.content ? m.errorNotice : undefined,
-            activities: stopActiveActivities(m.activities),
-          }
-        : m,
-    )
-  }
-
-  const placeholder: UIMessage = {
-    id: `interrupted-${Date.now()}`,
-    role: "assistant",
-    content: "",
-    created_at: new Date().toISOString(),
-    chat_id: chatId,
-    isLoading: false,
-    stoppedByUser: true,
-  }
-  return [...msgs, placeholder]
 }
 
 // ── Local-work detection ─────────────────────────────────────────────────────
@@ -224,11 +183,11 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
   const fetchHistory = useCallback(async (id: string): Promise<{ list: UIMessage[]; hasMore: boolean; cursor: string | undefined }> => {
     if (options?.loadMessages) {
       const msgs = await options.loadMessages(id)
-      return { list: markInterruptedIfNeeded(id, msgs), hasMore: false, cursor: undefined }
+      return { list: msgs, hasMore: false, cursor: undefined }
     }
     const res = await getChatMessages(id)
     return {
-      list: markInterruptedIfNeeded(id, toUIMessages(res.messages)),
+      list: toUIMessages(res.messages),
       hasMore: res.has_more,
       cursor: res.next_cursor ?? undefined,
     }
@@ -374,6 +333,16 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
 
   // ── Optimistic helpers ─────────────────────────────────────────────────────
 
+  // Object URLs minted for the previews above. They stay valid for as long as the
+  // optimistic message is on screen — the saved message that replaces it carries the
+  // backend's own link — and are released when the chat goes away, so a long session
+  // of sending images doesn't hold every one of them in memory.
+  const localPreviewUrls = useRef<string[]>([])
+  useEffect(() => () => {
+    for (const url of localPreviewUrls.current) URL.revokeObjectURL(url)
+    localPreviewUrls.current = []
+  }, [])
+
   const addOptimisticUserMessage = useCallback((content: string, files?: File[], mentionedPins?: Array<{ id: string; label: string }>): string => {
     const id = `optimistic-user-${Date.now()}`
     const msg: UIMessage = {
@@ -384,14 +353,24 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
       created_at: new Date().toISOString(),
       chat_id: chatId ?? "",
       attachments: files && files.length > 0
-        ? files.map((f, i) => ({
-            id:              `opt-att-${i}-${Date.now()}`,
-            file_name:       f.name,
-            file_type:       f.type || "application/octet-stream",
-            file_size:       f.size,
-            uploading:       true,
-            uploadProgress:  0,
-          }))
+        ? files.map((f, i) => {
+            const isImage = (f.type || "").startsWith("image/")
+            // An image is shown from the local file straight away, so the sent
+            // message looks the same the moment it appears as it does after a
+            // reload. Without this it spent the whole upload as a generic
+            // document chip and only became a picture once history re-read it.
+            const localUrl = isImage ? URL.createObjectURL(f) : undefined
+            if (localUrl) localPreviewUrls.current.push(localUrl)
+            return {
+              id:              `opt-att-${i}-${Date.now()}`,
+              file_name:       f.name,
+              file_type:       f.type || "application/octet-stream",
+              file_size:       f.size,
+              uploading:       true,
+              uploadProgress:  0,
+              ...(localUrl ? { url: localUrl, localPreview: true as const } : {}),
+            }
+          })
         : undefined,
       mentionedPins: mentionedPins && mentionedPins.length > 0 ? mentionedPins : undefined,
     }

@@ -7,7 +7,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), info: vi.fn(), success: vi.f
 vi.mock('@/lib/analytics/events', () => ({ trackBrowserEvent: vi.fn() }))
 vi.mock('@/lib/connectorProvider', () => ({
   isApiProviderConnector: () => false,
-  isMcpProviderConnector: () => false,
+  opensInCurrentTab: () => false,
   isZapierProviderConnector: () => false,
   waitForZapierAuthId: vi.fn(),
   zapierConnectHref: (u: string) => u,

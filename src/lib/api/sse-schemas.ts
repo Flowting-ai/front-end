@@ -137,6 +137,8 @@ export const customEventSchemas = {
     agent: z.string(),
     error: z.string().nullable().optional(),
   }),
+  // Opens every read of a turn's stream: which run it is and how many seconds it has been running.
+  run: z.looseObject({ id: z.string(), time: z.number() }),
   stream_heartbeat: z.looseObject({ elapsed_seconds: z.number().optional() }),
   // The turn's whole to-do list, sent in full on every write_todos.
   plan_updated: z.looseObject({

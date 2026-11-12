@@ -28,13 +28,11 @@ class FakeXHR {
   onerror: (() => void) | null = null
   method = ''
   url = ''
-  body: unknown = null
-  headers: Record<string, string> = {}
   open(method: string, url: string) { this.method = method; this.url = url }
-  setRequestHeader(name: string, value: string) { this.headers[name] = value }
+  setRequestHeader() {}
   getResponseHeader() { return null }
   abort() {}
-  send(body: unknown) { this.body = body; FakeXHR.last = this }
+  send() { FakeXHR.last = this }
 
   /** Answer with `status` and these AG-UI events, then close. */
   respond(status: number, events: object[]) {
@@ -46,6 +44,18 @@ class FakeXHR {
     this.readyState = FakeXHR.DONE
     this.onreadystatechange?.()
   }
+
+  /** Answer 200 with these events, then lose the connection before the turn ends. */
+  drop(events: object[]) {
+    this.status = 200
+    this.readyState = FakeXHR.HEADERS_RECEIVED
+    this.onreadystatechange?.()
+    this.responseText = events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join('')
+    this.onprogress?.()
+    this.status = 0
+    this.readyState = FakeXHR.DONE
+    this.onreadystatechange?.()
+  }
 }
 
 const RUN = { threadId: 'chat-1', runId: 'run-1' }
@@ -54,12 +64,14 @@ let container: HTMLDivElement
 let root: Root
 let messages: UIMessage[]
 let hook: ReturnType<typeof useStreamingChat>
+let lost: ReturnType<typeof vi.fn>
 
 function Harness({ onReady }: { onReady: (api: ReturnType<typeof useStreamingChat>) => void }) {
   const api = useStreamingChat({
     setMessages: (update) => {
       messages = typeof update === 'function' ? update(messages) : update
     },
+    onStreamLost: (chatId) => lost(chatId),
   })
   useEffect(() => onReady(api))
   return null
@@ -68,6 +80,7 @@ function Harness({ onReady }: { onReady: (api: ReturnType<typeof useStreamingCha
 beforeEach(() => {
   vi.stubGlobal('XMLHttpRequest', FakeXHR)
   vi.spyOn(console, 'error').mockImplementation(() => {})
+  lost = vi.fn()
   messages = [{ id: 'loading-1', role: 'assistant', content: '', created_at: '', chat_id: 'chat-1', isLoading: true }]
   container = document.createElement('div')
   root = createRoot(container)
@@ -195,25 +208,94 @@ describe('useStreamingChat turn result', () => {
   })
 })
 
-describe('useStreamingChat resumed turn', () => {
-  it('posts the answer to respond_url as JSON and streams the rest of the turn', async () => {
-    const done = hook.fetchAiResponse('', 'chat-1', 'loading-1', null, {
-      resume: { url: '/chats/chat-1/resume', promptId: 'p1', response: 'allow' },
-    })
-    await vi.waitFor(() => expect(FakeXHR.last).not.toBeNull())
-    const xhr = FakeXHR.last!
-    expect(xhr.method).toBe('POST')
-    expect(xhr.url).toBe('/api/backend/chats/chat-1/resume')
-    expect(xhr.headers['Content-Type']).toBe('application/json')
-    expect(JSON.parse(xhr.body as string)).toEqual({ prompt_id: 'p1', response: 'allow' })
-    xhr.respond(200, [
+// The backend keeps running a turn whose reader went away, and any request can
+// read it again from its first event at GET /chats/{id}/stream.
+describe('useStreamingChat picks a running turn back up', () => {
+  /** The next request the hook opens after `previous`. */
+  async function nextRequest(previous: FakeXHR | null) {
+    await vi.waitFor(() => expect(FakeXHR.last).not.toBe(previous), { timeout: 3000 })
+    return FakeXHR.last!
+  }
+
+  async function dropFirstRequest() {
+    const done = hook.fetchAiResponse('hi', 'chat-1', 'loading-1')
+    const first = await nextRequest(null)
+    first.drop([
       { type: 'RUN_STARTED', ...RUN },
-      { type: 'TEXT_MESSAGE_CONTENT', messageId: 'm', delta: 'Done, sent it.' },
+      { type: 'TEXT_MESSAGE_CONTENT', messageId: 'm', delta: 'Half an' },
+    ])
+    return { done, follow: await nextRequest(first) }
+  }
+
+  afterEach(() => { FakeXHR.last = null })
+
+  it('replays the turn from its stream when the connection drops', async () => {
+    const { done, follow } = await dropFirstRequest()
+    expect(follow.method).toBe('GET')
+    expect(follow.url).toContain('/chats/chat-1/stream')
+    follow.respond(200, [
+      { type: 'RUN_STARTED', ...RUN },
+      { type: 'TEXT_MESSAGE_CONTENT', messageId: 'm', delta: 'Half an' },
+      { type: 'TEXT_MESSAGE_CONTENT', messageId: 'm', delta: ' answer, finished' },
       { type: 'RUN_FINISHED', ...RUN },
     ])
     expect(await done).toBe('done')
-    FakeXHR.last = null
-    expect(messages[0].content).toBe('Done, sent it.')
-    expect(messages[0].isLoading).toBe(false)
+    expect(messages[0]).toMatchObject({ content: 'Half an answer, finished', isError: false, isLoading: false })
+    expect(messages[0].errorNotice).toBeUndefined()
+    expect(lost).not.toHaveBeenCalled()
+    expect(isStreamActive('chat-1')).toBe(false)
+  })
+
+  it('keeps what was shown, with a notice, when there is no stream to read', async () => {
+    const { done, follow } = await dropFirstRequest()
+    follow.respond(405, [])
+    expect(await done).toBe('error')
+    expect(messages[0]).toMatchObject({ content: 'Half an', isError: false, isLoading: false })
+    expect(messages[0].errorNotice).toBeTruthy()
+    expect(lost).not.toHaveBeenCalled()
+  })
+
+  it('hands over to the saved history when the turn ended meanwhile', async () => {
+    const { done, follow } = await dropFirstRequest()
+    follow.respond(404, [])
+    expect(await done).toBe('done')
+    expect(lost).toHaveBeenCalledWith('chat-1')
+    expect(isStreamActive('chat-1')).toBe(false)
+  })
+
+  it('follows a turn that was already running when the chat was opened', async () => {
+    const done = hook.followStream('chat-1', 'loading-1')
+    const follow = await nextRequest(null)
+    expect(follow.method).toBe('GET')
+    follow.respond(200, [
+      { type: 'RUN_STARTED', ...RUN },
+      { type: 'TEXT_MESSAGE_CONTENT', messageId: 'm', delta: 'Still going' },
+      { type: 'RUN_FINISHED', ...RUN },
+    ])
+    expect(await done).toBe('done')
+    expect(messages[0]).toMatchObject({ content: 'Still going', isLoading: false })
+  })
+
+  it('counts the turn from how long the backend says the run has been going', async () => {
+    const done = hook.followStream('chat-1', 'loading-1')
+    const follow = await nextRequest(null)
+    follow.respond(200, [
+      { type: 'CUSTOM', name: 'run', value: { id: 'run-1', time: 42 } },
+      { type: 'RUN_STARTED', ...RUN },
+      { type: 'TEXT_MESSAGE_CONTENT', messageId: 'm', delta: 'Still going' },
+      { type: 'RUN_FINISHED', ...RUN },
+    ])
+    expect(await done).toBe('done')
+    const running = Date.now() - messages[0].runStartedAt!
+    expect(running).toBeGreaterThanOrEqual(42_000)
+    expect(running).toBeLessThan(44_000)
+  })
+
+  it('reloads the history when the opened chat has no running turn after all', async () => {
+    const done = hook.followStream('chat-1', 'loading-1')
+    ;(await nextRequest(null)).respond(404, [])
+    expect(await done).toBe('done')
+    expect(lost).toHaveBeenCalledWith('chat-1')
+    expect(isStreamActive('chat-1')).toBe(false)
   })
 })

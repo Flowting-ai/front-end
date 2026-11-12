@@ -193,6 +193,11 @@ export function handleAppEvent(ctx: StreamEventContext, turn: StreamTurn, eventN
     window.dispatchEvent(new CustomEvent("souvenir:memory-updated", { detail: parsed }))
     return
   }
+  if (eventName === "run") {
+    // How long the run had been going when this read of it opened (a reload joins it part-way).
+    if (typeof parsed.time === "number") ctx.queueUpdate({ runStartedAt: Date.now() - parsed.time * 1000 }, true)
+    return
+  }
   if (eventName === "done") return handleDone(ctx, turn, parsed)
   // stream_heartbeat: a server-sent elapsed-time ping during long/silent generations
   // (e.g. extended thinking). No UI action needed — the proxy's keepalive handles the connection.

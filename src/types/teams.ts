@@ -183,8 +183,31 @@ export interface MemberBurn {
   creditsUsed: number
 }
 
+/** Credits spent by the area they were spent in (services/users/schemas.py CategoryUsage). */
+export interface OrgUsageByCategory {
+  chat: number
+  slack: number
+  automation: number
+  subtask: number
+}
+
+/** One bucket of the usage series — a day or a week, per the response's `bucket`. */
+export interface OrgUsageBucket extends OrgUsageByCategory {
+  /** Start of the bucket, as an ISO timestamp. */
+  start: string
+}
+
+export type OrgUsageRange = '7d' | '1m' | '3m' | '6m'
+
 export interface OrgPlanUsage {
   organizationId: string
+  range: OrgUsageRange
+  /** What one bucket of `series` spans. */
+  bucket: 'day' | 'week'
+  /** Start of the whole window, as an ISO timestamp. */
+  since: string
+  series: OrgUsageBucket[]
+  byCategory: OrgUsageByCategory
   byMember: MemberBurn[]
 }
 

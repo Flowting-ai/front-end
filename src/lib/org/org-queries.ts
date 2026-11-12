@@ -1,9 +1,9 @@
 import { queryOptions, type QueryClient } from '@tanstack/react-query'
-import { getOrg, listAudit, listMembers, listOrganizations } from '@/lib/api/organization'
+import { getOrg, getOrgPlanUsage, listAudit, listMembers, listOrganizations } from '@/lib/api/organization'
 import { Plan } from '@/lib/api/plan'
 import { queryKeys } from '@/lib/query-keys'
 import { orgIdCacheKey } from '@/lib/storage-keys'
-import type { WorkspaceOrg } from '@/types/teams'
+import type { OrgUsageRange, WorkspaceOrg } from '@/types/teams'
 
 /**
  * React Query for the workspace: which org the viewer is in, the org record
@@ -73,6 +73,19 @@ export const orgMembersQuery = (qc: QueryClient, orgId: string | null) =>
     enabled: !!orgId,
   })
 
+/**
+ * The usage breakdown for one range: the per-day (or per-week) series, the split by
+ * area, and per-member credits. Admin-only at the backend, so a member's 403 is kept
+ * as "no breakdown" rather than retried — the page falls back to what it can derive.
+ */
+export const orgUsageQuery = (orgId: string | null, range: OrgUsageRange, enabled = true) =>
+  queryOptions({
+    queryKey: queryKeys.orgs.usage(orgId ?? '', range),
+    queryFn: () => getOrgPlanUsage(orgId!, range),
+    enabled: !!orgId && enabled,
+    retry: false,
+  })
+
 /** The latest 100 audit entries (paging needs backend cursors — see the audit's gaps). */
 export const orgAuditQuery = (orgId: string | null) =>
   queryOptions({
@@ -80,6 +93,23 @@ export const orgAuditQuery = (orgId: string | null) =>
     queryFn: () => listAudit(orgId!, { limit: 100 }),
     enabled: !!orgId,
   })
+
+/**
+ * Publish a renamed/re-logoed workspace to everything showing it — the sidebar's
+ * account row, the org badge, the "Manage <org>" items. The new values are written
+ * into the cache first so the change lands in the same frame as the toast, then the
+ * query is invalidated to reconcile with whatever the server actually stored.
+ */
+export function updateCachedOrgInfo(
+  qc: QueryClient,
+  orgId: string | null,
+  patch: { name?: string; logoUrl?: string | null },
+): void {
+  if (!orgId) return
+  const key = queryKeys.orgs.info(orgId)
+  qc.setQueryData(key, (prev: OrgInfo | undefined) => prev ? { ...prev, ...patch } : prev)
+  void qc.invalidateQueries({ queryKey: key })
+}
 
 /** Refetch the plan and members after a change (invite, removal, cap, plan change). */
 export function refreshOrgMembers(qc: QueryClient, orgId: string | null): void {

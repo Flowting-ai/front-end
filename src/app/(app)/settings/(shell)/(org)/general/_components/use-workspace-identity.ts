@@ -1,9 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useNavGuard } from '@/context/nav-guard-context'
 import { getOrg, updateOrg } from '@/lib/api/organization'
+import { updateCachedOrgInfo } from '@/lib/org/org-queries'
 import { compressImage } from './GeneralParts'
 
 /**
@@ -11,6 +13,7 @@ import { compressImage } from './GeneralParts'
  * feed the app-wide navigation guard and the browser's close/refresh prompt.
  */
 export function useWorkspaceIdentity(orgId: string | null) {
+  const qc = useQueryClient()
   // Identity fields
   const [workspaceName,  setWorkspaceName]  = useState('')
   const [slugValue,      setSlugValue]      = useState('')
@@ -148,6 +151,10 @@ export function useWorkspaceIdentity(orgId: string | null) {
       setLogoUrl(updated.logoUrl)
       setLogoFile(null)
       setLogoPreview(null)
+      // This card held the new name in its own state only, so everywhere else
+      // showing the workspace (the sidebar's account row above all) kept the old
+      // one until a reload refetched the org.
+      updateCachedOrgInfo(qc, orgId, { name: updated.name, logoUrl: updated.logoUrl })
       toast.success('Workspace identity saved')
       setIsEditingIdentity(false)
       return true

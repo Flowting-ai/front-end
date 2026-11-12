@@ -49,6 +49,8 @@ import { ChatAddMenu, type SelectedPersonaInfo } from "@/components/chat/AddMenu
 import { USE_STYLE_OPTIONS } from "@/lib/tone-options";
 import { ChatShareOverlay } from "@/components/chat/ChatShareOverlay";
 import { getVersion } from "@/lib/api/personas";
+import { fetchPersonaRepo } from "@/lib/api/persona-repo";
+import { onPersonasInvalidated } from "@/lib/api/persona-cache";
 import { ModelMenu, useModelButtonIcon, useModelButtonLabel } from "@/components/chat/ModelMenu";
 import { toast } from "sonner";
 import { useCreditStatus } from "@/hooks/use-credit-status";
@@ -570,6 +572,49 @@ function ChatPageInner({ leftChatId }: { leftChatId?: string }) {
       })
     return () => { cancelled = true }
   }, [selectedPersona, models])
+
+  // The effect above fetches an agent's version once per `activeVersionId`, so an
+  // agent edited while this chat is open — its model above all — never reached the
+  // composer until a reload. Every agent mutation calls bustPersonasCache(), which
+  // notifies here: re-read the agent and, if it moved to a new version, adopt it.
+  // Clearing systemPrompt sends it back through the effect above, which applies the
+  // new model (and re-reads the instructions, which may have changed too).
+  const selectedPersonaRef = useRef(selectedPersona);
+  useEffect(() => { selectedPersonaRef.current = selectedPersona; });
+  // Re-read the attached agent and adopt its current version. Clearing systemPrompt
+  // sends it back through the effect above, which applies the new model (and the
+  // instructions, which may have changed too).
+  const syncAgentToLatest = useCallback((personaId: string) => {
+    void fetchPersonaRepo(personaId)
+      .then(repo => {
+        const version = repo.currentVersion;
+        if (!version) return;
+        setSelectedPersona(prev => {
+          if (prev?.id !== personaId) return prev;
+          // A save can mint a new version or edit the current one in place, so
+          // neither the version id nor the model alone is enough to notice a change.
+          const same = prev.activeVersionId === version.id && prev.modelId === version.modelId;
+          return same
+            ? prev
+            : { ...prev, activeVersionId: version.id, modelId: version.modelId ?? prev.modelId, systemPrompt: null };
+        });
+      })
+      // The agent may have been deleted outright — the chip's own handling covers that.
+      .catch(() => {});
+  }, []);
+  // Edited in this same view (the model modal, the details sidebar): every agent
+  // mutation calls bustPersonasCache(), which notifies here.
+  useEffect(() => onPersonasInvalidated(() => {
+    const current = selectedPersonaRef.current;
+    if (current) syncAgentToLatest(current.id);
+  }), [syncAgentToLatest]);
+  // Edited in the agent editor, which unmounts this page: coming back restores the
+  // agent from this chat's saved settings — a snapshot taken when it was attached,
+  // carrying whatever model it had then. Verify it against the server on attach.
+  const attachedAgentId = selectedPersona?.id ?? null;
+  useEffect(() => {
+    if (attachedAgentId) syncAgentToLatest(attachedAgentId);
+  }, [attachedAgentId, syncAgentToLatest]);
 
   // The shared hooks: an Auto Routing tier shows its own name ("Souvenir Standard" / "Souvenir Pro"), not the "Souvenir" fallback.
   const modelButtonLabel = useModelButtonLabel();

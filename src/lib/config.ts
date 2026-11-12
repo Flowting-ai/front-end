@@ -133,6 +133,8 @@ export const CHAT_STREAM_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}/stream`);
 export const CHAT_STOP_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}/stop`);
+export const CHAT_ENDPOINT = (chatId: string) =>
+  withBase(`/chats/${chatId}`);
 export const CHAT_DELETE_ENDPOINT = (chatId: string) =>
   withBase(`/chats/${chatId}`)
 /** Brings back a chat deleted inside the Trash window (404 after it). */
