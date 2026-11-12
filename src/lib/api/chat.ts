@@ -11,7 +11,6 @@ import {
   CHAT_ARCHIVE_ENDPOINT,
   CHAT_STOP_ENDPOINT,
   CHAT_SAVE_TO_DRIVE_ENDPOINT,
-  CHAT_PROMPT_RESPOND_ENDPOINT,
   CHAT_PUBLISH_ENDPOINT,
   CHAT_COPY_ENDPOINT,
   CHAT_RESTORE_ENDPOINT,
@@ -30,6 +29,9 @@ import type { ReasoningSection } from "@/lib/reasoning";
 import { extractThinkingContent } from "@/lib/parsers/content-parser";
 import { INCOMPLETE_ANSWER_MESSAGE } from "@/lib/turn-outcome";
 import { EMPTY_TURN_MESSAGE } from "@/lib/model-error";
+import { isPromptEvent, parsePrompt } from "@/lib/api/prompts";
+import { parseRun } from "@/lib/chat/run";
+import { INTERRUPTED_MESSAGE } from "@/lib/turn-outcome";
 
 // ── Chat list ─────────────────────────────────────────────────────────────────
 
@@ -251,6 +253,10 @@ export async function copyChat(chatId: string): Promise<{ chatId: string; chatTi
 
 /** Raw shape the backend may return for a single message entry. */
 interface BackendMessage {
+  /** Cards still waiting on the person: each is a prompt event's payload with its event name. */
+  prompts?: Array<{ event: string } & Record<string, unknown>> | null;
+  /** The turn's run (services/chat/run.py RunView). */
+  run?: unknown;
   id?: number | string;
   message_id?: number | string;
   chat_id?: number | string;
@@ -339,6 +345,11 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
     const imageLinks = Array.isArray(raw.image_links)
       ? (raw.image_links.filter((u): u is string => typeof u === "string" && u.length > 0))
       : undefined;
+    const prompts = (raw.prompts ?? []).flatMap((entry) => {
+      const prompt = isPromptEvent(entry.event) ? parsePrompt(entry.event, entry) : null;
+      return prompt ? [prompt] : [];
+    });
+    const run = parseRun(raw.run);
     const hasAssistantPayload = Boolean(aiText) || assistantAtts.length > 0 || (imageLinks && imageLinks.length > 0);
     if (hasAssistantPayload) {
       messages.push({
@@ -359,6 +370,8 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
         tool_calls: normalizeToolCalls(raw),
         file_attachments: assistantAtts.length > 0 ? assistantAtts : undefined,
         image_links: imageLinks && imageLinks.length > 0 ? imageLinks : undefined,
+        prompts: prompts.length > 0 ? prompts : undefined,
+        run,
       });
     } else if (userText || uploadedAtts.length > 0) {
       // The turn finished with no answer saved (e.g. reasoning or tools only):
@@ -368,7 +381,12 @@ function normalizeMessages(raw: BackendMessage, chatId: string): Message[] {
         role: "assistant",
         content: "",
         thinking: raw.reasoning ?? raw.thinking_content ?? undefined,
-        errorNotice: EMPTY_TURN_MESSAGE,
+        // A turn still being worked on, or waiting on its card, is not empty; one whose run failed was cut off.
+        errorNotice: run?.status === "running" || prompts.length > 0 ? undefined
+          : run?.status === "failed" ? INTERRUPTED_MESSAGE
+          : EMPTY_TURN_MESSAGE,
+        prompts: prompts.length > 0 ? prompts : undefined,
+        run,
         created_at: createdAt,
         chat_id: chatId,
         reasoning_sections: raw.reasoning_sections ?? undefined,
@@ -610,27 +628,16 @@ export async function saveFileToDrive(
   });
 }
 
-/** What the backend says after an answer: `live` when the turn was still waiting
- *  on it, otherwise the `message` that starts the next turn. */
-export type PromptAnswer = { live: boolean; message: string | null }
-
 /**
- * POST the answer to a prompt's `respondUrl` (backend-relative path from the SSE event);
- * falls back to the standard /chats/prompts/{promptId} endpoint.
+ * POST the answer to a card's `respondUrl`. An answer that comes after the turn's run has left
+ * takes the run back up on the backend; the chat's history then shows it running.
  */
-export async function respondToChatPrompt(
-  promptId: string,
-  response: unknown,
-  respondUrl?: string,
-): Promise<PromptAnswer | null> {
-  const path = respondUrl
-    ? `${API_BASE_URL}${respondUrl}`
-    : CHAT_PROMPT_RESPOND_ENDPOINT(promptId);
-  const res = await apiFetch(path, {
+export async function respondToChatPrompt(response: unknown, respondUrl: string): Promise<void> {
+  const res = await apiFetch(`${API_BASE_URL}${respondUrl}`, {
     method: "POST",
     body:   JSON.stringify({ response }),
   });
-  if (!res.ok && res.status !== 204) {
+  if (!res.ok) {
     throw new ApiError(
       res.status,
       "prompt_respond_failed",
@@ -638,9 +645,6 @@ export async function respondToChatPrompt(
       "Failed to respond to prompt",
     );
   }
-  if (res.status === 204) return null;
-  const body = await res.json() as Partial<PromptAnswer>;
-  return { live: body.live ?? true, message: body.message ?? null };
 }
 
 /**

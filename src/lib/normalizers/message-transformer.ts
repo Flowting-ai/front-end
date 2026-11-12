@@ -227,6 +227,11 @@ export function toUIMessage(raw: Message): UIMessage {
   // tool_calls only feed the activity rows above; UI state doesn't keep them.
   const message: Message = { ...raw };
   delete message.tool_calls;
+  delete message.prompts;
+  const prompts = raw.prompts ?? [];
+  const connectPrompts = prompts.filter((prompt) => prompt.card === "connect");
+  const permissionPrompts = prompts.filter((prompt) => prompt.card === "permission");
+  const chatPrompts = prompts.filter((prompt) => prompt.card === "chat");
 
   return {
     ...message,
@@ -242,6 +247,9 @@ export function toUIMessage(raw: Message): UIMessage {
     ...(mergedAttachments ? { attachments: mergedAttachments } : {}),
     ...(fileData.generatedFiles ? { generatedFiles: fileData.generatedFiles } : {}),
     ...(restoredImages ? { images: restoredImages } : {}),
+    ...(connectPrompts.length > 0 ? { connectorConnectPrompts: connectPrompts } : {}),
+    ...(permissionPrompts.length > 0 ? { connectorPermissionPrompts: permissionPrompts } : {}),
+    ...(chatPrompts.length > 0 ? { chatPrompts } : {}),
   }
 }
 

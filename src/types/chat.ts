@@ -1,7 +1,9 @@
 import type { LibraryCitation } from "@/components/Library/chat/library-citations";
 import type { ReasoningSection, ReasoningTimelineItem } from "@/lib/reasoning";
-import type { ConnectorPermissionPrompt, ChatPrompt } from '@/lib/api/prompts'
+import type { ConnectorConnectPrompt, ConnectorPermissionPrompt, ChatPrompt, Prompt } from '@/lib/api/prompts'
+import type { Run } from '@/lib/chat/run'
 export type {
+  ConnectorConnectPrompt,
   ConnectorPermissionPrompt,
   ChatPrompt,
   ChatPromptOption,
@@ -101,6 +103,10 @@ export interface Message {
   /** A failure that cut the turn short after some output was already shown —
    *  rendered as an inline notice (with Retry) below that output, which stays. */
   errorNotice?: string;
+  /** Cards still waiting on the person in this turn, as returned with the message history. */
+  prompts?: Prompt[];
+  /** The turn's run: whether the agent is still working on it, waiting on a card, or done. */
+  run?: Run;
 }
 
 /** One entry of a persisted message's `tool_calls`, minus the tool's output
@@ -112,24 +118,6 @@ export type PersistedToolCall =
       args?: unknown;
       duration_s?: number | null;
     };
-
-// ── Connector SSE prompt payloads ─────────────────────────────────────────────
-
-/** Emitted when the LLM tries to use a connector that is not yet linked. */
-export interface ConnectorConnectPrompt {
-  /** Unique request ID from the backend (for deduplication). */
-  request_id:      string
-  /** Slug, name and logo as one resolved identity — built with `toConnector`
-   *  from the raw event so no call site re-derives them. */
-  connector:       import('@/lib/connector').Connector
-  auth_mode:       'oauth2' | 'api_key'
-  provider?:       'pipedream' | 'mcp' | 'zapier' | 'api'
-  /** The action that needs the app. Empty when the run is binding the app
-   *  itself rather than calling one operation. */
-  tool_name:       string
-  /** Structured credential fields for api_key connectors, as returned by GET /connectors/{slug}. */
-  api_key_fields?: import('@/lib/api/connectors').ApiKeyField[]
-}
 
 /** Extends the API Message with transient streaming-only UI state. */
 export interface UIMessage extends Message {

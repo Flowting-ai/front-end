@@ -58,9 +58,10 @@ export interface StreamTurn {
   reasoningDurationMs: number | undefined
 }
 
-export function createStreamTurn(): StreamTurn {
+/** `priorContent` is what earlier stretches of the same run wrote; this turn's text is added after it. */
+export function createStreamTurn(priorContent = ""): StreamTurn {
   return {
-    assistantContent: "",
+    assistantContent: priorContent ? `${priorContent}\n\n` : "",
     reasoning: createReasoningAccumulator(),
     streamFinished: false,
     turnFailed: false,

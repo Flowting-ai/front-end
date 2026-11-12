@@ -6,7 +6,6 @@ import {
   eventAttachments,
   extractChatId,
   generatedOutputs,
-  parseConnectPrompt,
   uploadedAttachments,
 } from './stream-payload'
 
@@ -76,13 +75,4 @@ describe('stream payload readers', () => {
     ])
   })
 
-  it('parses a connector connect prompt', () => {
-    const prompt = parseConnectPrompt({
-      connector_slug: 'gmail', display_name: 'Gmail', auth_mode: 'api_key', tool_slug: 'gmail_send', prompt_id: 'cp-1',
-      provider: 'mcp', api_key_fields: [{ name: 'key', label: 'Key' }, { label: 'no name' }],
-    })
-    expect(prompt).toMatchObject({ request_id: 'cp-1', auth_mode: 'api_key', provider: 'mcp', tool_name: 'gmail_send' })
-    expect(prompt.api_key_fields).toEqual([{ name: 'key', label: 'Key' }])
-    expect(parseConnectPrompt({ provider: 'other' })).toMatchObject({ auth_mode: 'oauth2', provider: undefined, tool_name: '', api_key_fields: undefined })
-  })
 })

@@ -3,12 +3,7 @@ import { z } from "zod"
 // ── Souvenir AG-UI CUSTOM vocabulary ─────────────────────────────────────────
 // Standard lifecycle, text, tool, and activity frames are validated by
 // lib/agui/schemas.ts. These schemas cover only product-specific CUSTOM values.
-
-const promptOption = z.looseObject({
-  value: z.string().optional(),
-  label: z.string().optional(),
-  style: z.string().optional(),
-})
+// Prompt cards have their own schemas in lib/api/prompts.ts.
 
 const toolProgressFields = {
   label: z.string().nullable().optional(),
@@ -19,12 +14,6 @@ const toolProgressFields = {
   elapsed_seconds: z.number().nullable().optional(),
   percent: z.number().nullable().optional(),
   detail: z.string().nullable().optional(),
-}
-
-const promptGateFields = {
-  prompt_id: z.string(),
-  respond_url: z.string().optional().default(""),
-  expires_at: z.string().optional().default(""),
 }
 
 export const customEventSchemas = {
@@ -76,55 +65,6 @@ export const customEventSchemas = {
   docx_progress: z.looseObject({
     ...toolProgressFields,
     step: z.string(),
-  }),
-  tool_connect_prompt: z.looseObject({
-    connector_slug: z.string(),
-    display_name: z.string(),
-    auth_mode: z.string(),
-    tool_slug: z.string(),
-    prompt_id: z.string(),
-    icon_url: z.string().nullable().optional(),
-    respond_url: z.string().optional().default(""),
-    expires_at: z.string().optional().default(""),
-    api_key_fields: z.array(z.looseObject({})).optional().default([]),
-    options: z.array(promptOption).optional().default([]),
-  }),
-  user_prompt: z.looseObject({
-    ...promptGateFields,
-    kind: z.string(),
-    title: z.string(),
-    description: z.string().optional().default(""),
-    options: z.array(promptOption).optional().default([]),
-    metadata: z.looseObject({}).optional().default({}),
-  }),
-  question_prompt: z.looseObject({
-    ...promptGateFields,
-    title: z.string().optional().default(""),
-    description: z.string().optional().default(""),
-    questions: z.array(z.looseObject({})).optional().default([]),
-  }),
-  permission_prompt: z.looseObject({
-    ...promptGateFields,
-    connector_slug: z.string(),
-    display_name: z.string(),
-    tool_slug: z.string(),
-    icon_url: z.string().nullable().optional(),
-    summary: z.string().optional().default(""),
-    suggested_args: z.looseObject({}).optional().default({}),
-    idempotency_key: z.string().optional().default(""),
-    persistable: z.boolean().optional().default(true),
-    options: z.array(promptOption).optional().default([]),
-  }),
-  approval_prompt: z.looseObject({
-    ...promptGateFields,
-    verb: z.string(),
-    connector_slug: z.string(),
-    display_name: z.string(),
-    tool_slug: z.string().optional().default(""),
-    target: z.string().optional().default(""),
-    preview_xml: z.string().optional().default(""),
-    arguments: z.looseObject({}).optional().default({}),
-    options: z.array(promptOption).optional().default([]),
   }),
   agent_started: z.looseObject({
     agent: z.string(),

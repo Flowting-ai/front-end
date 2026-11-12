@@ -2,7 +2,6 @@
 
 import React, { useCallback, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { toConnector } from '@/lib/connector'
 import type { ConnectorPermissionPrompt, PermissionPromptOption } from '@/lib/api/prompts'
 
 // The one permission card — chat, persona, agent configure, and compare
@@ -52,7 +51,7 @@ export function PermissionPromptCard({
   // record it. Without the durable check, remounts resurrect answered cards.
   if (decided || prompt.decision) return null
 
-  const connector = toConnector(prompt)
+  const connector = prompt.connector
   const logoSrc = connector.logo
   const displayName = connector.name || '?'
   const options = prompt.options.length > 0

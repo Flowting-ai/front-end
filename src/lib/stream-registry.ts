@@ -31,6 +31,9 @@ interface StreamEntry {
   /** Stops this stream from anywhere — e.g. a chat the user came back to
    *  while its reply was still running in the background. */
   stop?: () => void
+  /** Drops this view's connection and leaves the turn running on the backend,
+   *  so it can be read again from the turn's stream. Set once the run has started. */
+  detach?: () => void
 }
 
 // Singleton — one entry per chatId that is currently streaming.
@@ -54,20 +57,21 @@ export function subscribeStreams(listener: (event: StreamEvent) => void): () => 
 /**
  * Register a new background stream for `chatId`.
  * No-op if chatId is null or a temp- ID. If the chat is already registered,
- * only `stop` is attached (a stream reserved ahead of its request).
+ * only `stop` and `detach` are attached (a stream reserved ahead of its request).
  */
-export function registerStream(chatId: string | null, stop?: () => void): void {
+export function registerStream(chatId: string | null, stop?: () => void, detach?: () => void): void {
   if (!chatId || chatId.startsWith("temp-")) return
   const existing = registry.get(chatId)
   if (existing) {
     if (stop) existing.stop = stop
+    if (detach) existing.detach = detach
     return
   }
   let resolve!: () => void
   const promise = new Promise<void>((r) => {
     resolve = r
   })
-  registry.set(chatId, { promise, resolve, stop })
+  registry.set(chatId, { promise, resolve, stop, detach })
   emit({ type: "start", chatId })
 }
 
@@ -92,6 +96,21 @@ export function stopStream(chatId: string): boolean {
   const stop = registry.get(chatId)?.stop
   if (!stop) return false
   stop()
+  return true
+}
+
+/**
+ * Drops the connection reading `chatId`'s turn without ending the turn, so the
+ * chat can follow it afresh from the turn's stream. No end is announced: the
+ * turn is still running. Returns false when there is nothing to drop yet (no
+ * stream, or its run has not started).
+ */
+export function detachStream(chatId: string): boolean {
+  const entry = registry.get(chatId)
+  if (!entry?.detach) return false
+  entry.detach()
+  entry.resolve()
+  registry.delete(chatId)
   return true
 }
 

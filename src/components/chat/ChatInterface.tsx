@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { ChatInput } from "./ChatInput";
 import { type PendingAttachment } from "./AttachmentManager";
 import { useFileUpload } from "@/hooks/use-file-upload";
@@ -15,7 +15,6 @@ import {
   type QueuedTurnContext,
 } from "@/lib/message-queue";
 import { isStreamActive, stopStream } from "@/lib/stream-registry";
-import { getChatStreamId } from "@/lib/api/chat";
 import { buildTurnOptions, getFolderPinIds, type TurnInput, type TurnSettings } from "@/lib/turn-options";
 import { useChatState, type UseChatStateOptions } from "@/hooks/use-chat-state";
 import { usePinMentions } from "@/hooks/use-pin-mentions";
@@ -192,6 +191,7 @@ export function ChatInterface({
     refreshMessages,
     messagesLoadError,
     historyLoadId,
+    runningMessageId,
   } = useChatState(chatId, chatStateOptions);
 
   // Append host-supplied local messages (the agent card) — merged during render; see the hook.
@@ -237,18 +237,13 @@ export function ChatInterface({
   });
 
   // A chat opened while its reply is still being generated (a reload, another
-  // tab, a dropped connection) picks the reply up from the turn's stream. Only
-  // the regular chat endpoint has one.
+  // tab, coming back from another chat) reads the reply from the turn's stream,
+  // into the turn's own message. Only the regular chat endpoint has one.
   useEffect(() => {
-    if (!chatId || endpoint || loadMessages || isLoadingMessages || messages.length === 0 || isStreamActive(chatId)) return
-    let cancelled = false
-    void getChatStreamId(chatId).then((streamId) => {
-      if (cancelled || !streamId || isStreamActive(chatId)) return
-      void followStream(chatId, addLoadingAssistantMessage())
-    }).catch(() => {})
-    return () => { cancelled = true }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when a chat's history has loaded; the callbacks are fresh each render
-  }, [chatId, isLoadingMessages])
+    if (!chatId || endpoint || !runningMessageId || isStreamActive(chatId)) return
+    void followStream(chatId, runningMessageId, messages.find((message) => message.id === runningMessageId))
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per history load that finds a running turn; followStream is fresh each render
+  }, [chatId, runningMessageId, historyLoadId])
 
   const isStreaming = streamState === "streaming" || streamState === "waiting";
   // This chat's reply is running — here, or still from before the user
@@ -465,11 +460,11 @@ export function ChatInterface({
 
   // A prompt answered after its turn moved on comes back with the message that
   // starts the next turn, so the answer is sent like any other message.
-  const sendRef = useRef(handleSend);
-  useEffect(() => { sendRef.current = handleSend; });
-  const handlePromptFollowUp = useCallback((message: string) => {
-    void sendRef.current(message);
-  }, []);
+  // An answer given after the turn's run had left takes the run back up on the
+  // backend: the history is read again, and the running reply is followed from it.
+  const handlePromptAnswered = () => {
+    if (chatId && !isStreamActive(chatId)) void refreshMessages();
+  };
 
   const { revealingMessage, isRevealing, handleRevealSettled } = useRevealSettle({
     revealingKey, setRevealingKey, isStreaming, messages, listRef,
@@ -549,7 +544,7 @@ export function ChatInterface({
           onRevealSettled={handleRevealSettled}
           onEdit={handleEditMessage}
           onPromptDecided={handlePromptDecided}
-          onPromptFollowUp={handlePromptFollowUp}
+          onPromptAnswered={handlePromptAnswered}
         />
       </ChatMessagesPane>
 
