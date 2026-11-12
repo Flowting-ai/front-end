@@ -2,6 +2,7 @@
 
 import React, { useCallback, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { ConnectorHeading } from '@/components/shared/ConnectorHeading'
 import type { ConnectorPermissionPrompt, PermissionPromptOption } from '@/lib/api/prompts'
 
 // The one permission card — chat, persona, agent configure, and compare
@@ -51,9 +52,6 @@ export function PermissionPromptCard({
   // record it. Without the durable check, remounts resurrect answered cards.
   if (decided || prompt.decision) return null
 
-  const connector = prompt.connector
-  const logoSrc = connector.logo
-  const displayName = connector.name || '?'
   const options = prompt.options.length > 0
     ? prompt.options
     : persistable ? PERSISTENT_OPTIONS : ONE_TIME_OPTIONS
@@ -70,63 +68,11 @@ export function PermissionPromptCard({
       boxShadow:       'var(--shadow-card-default)',
       maxWidth:        480,
     }}>
-      {/* Header: connector logo + title + tool slug */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-        {logoSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element -- provider-hosted logo_url
-          <img
-            src={logoSrc}
-            alt=""
-            width={32}
-            height={32}
-            style={{ objectFit: 'contain', display: 'block', flexShrink: 0, borderRadius: 8, marginTop: 1 }}
-          />
-        ) : (
-          <span style={{
-            width:           32,
-            height:          32,
-            borderRadius:    8,
-            backgroundColor: 'var(--neutral-100)',
-            display:         'flex',
-            alignItems:      'center',
-            justifyContent:  'center',
-            fontFamily:      'var(--font-body)',
-            fontSize:        14,
-            fontWeight:      600,
-            color:           'var(--neutral-600)',
-            flexShrink:      0,
-            textTransform:   'uppercase',
-            userSelect:      'none',
-            marginTop:       1,
-          }}>
-            {displayName.charAt(0)}
-          </span>
-        )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: '1 0 0', minWidth: 0 }}>
-          <span style={{
-            fontFamily: 'var(--font-body)',
-            fontSize:   'var(--font-size-body)',
-            fontWeight: 'var(--font-weight-medium)',
-            lineHeight: 'var(--line-height-body)',
-            color:      'var(--neutral-800)',
-          }}>
-            Allow {displayName} to run this action?
-          </span>
-          <span style={{
-            fontFamily:   'var(--font-body)',
-            fontSize:     'var(--font-size-caption)',
-            lineHeight:   'var(--line-height-caption)',
-            color:        'var(--neutral-500)',
-            overflow:     'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace:   'nowrap',
-          }}>
-            {persistable
-              ? <>The AI wants to call <code style={{ fontFamily: 'var(--font-code)', fontSize: 'inherit' }}>{prompt.tool_name}</code>. Your choice applies to future calls too.</>
-              : <><code style={{ fontFamily: 'var(--font-code)', fontSize: 'inherit' }}>{prompt.summary || prompt.tool_name}</code> — one-time request, applies to this call only.</>}
-          </span>
-        </div>
-      </div>
+      <ConnectorHeading connector={prompt.connector} title={<>Allow {prompt.connector.name} to run this action?</>}>
+        {persistable
+          ? <>The AI wants to call <code style={{ fontFamily: 'var(--font-code)', fontSize: 'inherit' }}>{prompt.tool_name}</code>. Your choice applies to future calls too.</>
+          : <><code style={{ fontFamily: 'var(--font-code)', fontSize: 'inherit' }}>{prompt.summary || prompt.tool_name}</code> — one-time request, applies to this call only.</>}
+      </ConnectorHeading>
 
       {/* Actions — rendered from the backend event's options */}
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8 }}>
