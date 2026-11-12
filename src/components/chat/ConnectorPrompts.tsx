@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import type { ConnectorConnectPrompt } from '@/types/chat'
+import { ConnectorLogo } from '@/components/ContextPanel/identity'
 import {
   getConnector,
   initiateLink,
@@ -242,15 +243,20 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
 
   return (
     <PromptCard>
-      <div>
-        <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500, color: 'var(--neutral-800)' }}>
-          Connect {prompt.connector.name}
-        </p>
-        <p style={{ margin: '4px 0 0', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)' }}>
-          {prompt.tool_name
-            ? <>To run <code style={{ fontSize: 12, background: 'var(--neutral-100)', padding: '1px 5px', borderRadius: 4 }}>{prompt.tool_name}</code>, you need to link your {prompt.connector.name} account first.</>
-            : <>Link your {prompt.connector.name} account to keep going.</>}
-        </p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <span style={{ flexShrink: 0, marginTop: 1 }}>
+          <ConnectorLogo connector={prompt.connector} size={32} />
+        </span>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ margin: 0, fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500, color: 'var(--neutral-800)' }}>
+            Connect {prompt.connector.name}
+          </p>
+          <p style={{ margin: '4px 0 0', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--neutral-500)' }}>
+            {prompt.tool_name
+              ? <>To run <code style={{ fontSize: 12, background: 'var(--neutral-100)', padding: '1px 5px', borderRadius: 4 }}>{prompt.tool_name}</code>, you need to link your {prompt.connector.name} account first.</>
+              : <>Link your {prompt.connector.name} account to keep going.</>}
+          </p>
+        </div>
       </div>
 
       {state === 'error' && (
