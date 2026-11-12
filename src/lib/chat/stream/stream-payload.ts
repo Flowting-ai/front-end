@@ -1,6 +1,4 @@
-import type { ApiKeyField } from "@/lib/api/connectors"
-import { toConnector } from "@/lib/connector"
-import type { ConnectorConnectPrompt, GeneratedFile, GeneratedImage, WebCitation } from "@/types/chat"
+import type { GeneratedFile, GeneratedImage, WebCitation } from "@/types/chat"
 
 // Pure readers for stream event payloads. Each takes the `parsed` record of an
 // app event (lib/agui/to-app-event) and returns plain values; nothing here
@@ -113,28 +111,3 @@ export function citationsFromSources(rawSources: Array<Record<string, unknown>>)
   }] : [])
 }
 
-/**
- * tool_connect_prompt: the backend asks the user to link a connector before the tool can run.
- * Schema: { connector_slug, display_name, auth_mode, tool_slug, prompt_id, api_key_fields?, icon_url? }
- * api_key_fields is an array of ApiKeyField objects: { name, label, help?, secret, required }
- */
-export function parseConnectPrompt(parsed: Record<string, unknown>): ConnectorConnectPrompt {
-  const rawFields = parsed.api_key_fields
-  const apiKeyFields: ApiKeyField[] | undefined = Array.isArray(rawFields)
-    ? rawFields.filter(
-        (f): f is ApiKeyField =>
-          typeof f === 'object' && f !== null &&
-          typeof (f as Record<string, unknown>).name === 'string',
-      )
-    : undefined
-  return {
-    request_id:      asString(parsed.prompt_id) ?? `ccp-${Date.now()}`,
-    // The whole event goes to toConnector: slug, name and logo
-    // resolve together from whichever fields the wire used.
-    connector:       toConnector(parsed),
-    auth_mode:       (asString(parsed.auth_mode) ?? "oauth2") as 'oauth2' | 'api_key',
-    provider:        (['pipedream', 'mcp', 'zapier', 'api'] as const).find(value => value === parsed.provider),
-    tool_name:       asString(parsed.tool_slug) ?? "",
-    api_key_fields:  apiKeyFields,
-  }
-}

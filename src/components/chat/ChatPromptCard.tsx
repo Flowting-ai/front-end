@@ -18,22 +18,23 @@ import type { ChatPrompt, ChatPromptQuestion } from "@/types/chat"
 interface ChatPromptCardProps {
   prompt: ChatPrompt
   onDecided?: (decision: string) => void
-  /** Sends the message the backend returns when the turn had already moved on. */
-  onFollowUp?: (message: string) => void
+  /** The answer reached the backend: the turn's run may have been taken back up. */
+  onAnswered?: () => void
 }
 
 const fallbackQuestion = (prompt: ChatPrompt): ChatPromptQuestion => ({
   id: "response",
   question: prompt.description || prompt.title,
   type: prompt.options.length > 0 ? "single_choice" : "text",
-  options: prompt.options,
+  entity: "generic",
+  options: prompt.options.map((option) => ({ value: option.value, label: option.label, recommended: false })),
   required: true,
   allow_custom: true,
 })
 
-export function ChatPromptCard({ prompt, onDecided, onFollowUp }: ChatPromptCardProps) {
+export function ChatPromptCard({ prompt, onDecided, onAnswered }: ChatPromptCardProps) {
   const questions = useMemo(
-    () => prompt.questions?.length ? prompt.questions : [fallbackQuestion(prompt)],
+    () => prompt.questions.length ? prompt.questions : [fallbackQuestion(prompt)],
     [prompt],
   )
   const [cursor, setCursor] = useState(0)
@@ -54,9 +55,13 @@ export function ChatPromptCard({ prompt, onDecided, onFollowUp }: ChatPromptCard
 
   if (decided || prompt.decision || !question) return null
 
-  const options: QuestionCardOption[] = (question.options ?? []).map((option) => ({
+  const options: QuestionCardOption[] = question.options.map((option) => ({
     id: option.value,
-    label: option.label || option.value,
+    label: option.label,
+    description: option.description,
+    handle: option.handle,
+    avatarUrl: option.avatar_url,
+    recommended: option.recommended,
   }))
   const multi = question.type === "multi_choice"
   const optional = isQuestionOptional(prompt, question)
@@ -87,10 +92,10 @@ export function ChatPromptCard({ prompt, onDecided, onFollowUp }: ChatPromptCard
     setSubmitting(true)
     setError("")
     try {
-      const answered = await respondToChatPrompt(prompt.request_id, response, prompt.respond_url)
+      await respondToChatPrompt(response, prompt.respond_url)
       setDecided(true)
       onDecided?.(decision)
-      if (answered?.message) onFollowUp?.(answered.message)
+      onAnswered?.()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not send your response")
     } finally {

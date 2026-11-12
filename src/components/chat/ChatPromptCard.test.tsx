@@ -18,17 +18,17 @@ import { ChatPromptCard } from './ChatPromptCard'
 import { DISMISSED_ANSWER } from '@/lib/chat-prompt-answers'
 
 const color: ChatPromptQuestion = {
-  id: 'color', question: 'Which colour?', type: 'single_choice',
-  options: [{ value: 'red', label: 'Red' }, { value: 'blue', label: 'Blue' }],
+  id: 'color', question: 'Which colour?', type: 'single_choice', entity: 'generic',
+  options: [{ value: 'red', label: 'Red', recommended: false }, { value: 'blue', label: 'Blue', recommended: false }],
   required: true, allow_custom: true,
 }
 const size: ChatPromptQuestion = {
-  id: 'size', question: 'Which sizes?', type: 'multi_choice',
-  options: [{ value: 's', label: 'Small' }, { value: 'm', label: 'Medium' }],
+  id: 'size', question: 'Which sizes?', type: 'multi_choice', entity: 'generic',
+  options: [{ value: 's', label: 'Small', recommended: false }, { value: 'm', label: 'Medium', recommended: false }],
   required: true, allow_custom: true,
 }
 const questionsPrompt = (questions: ChatPromptQuestion[]): ChatPrompt => ({
-  request_id: 'p1', kind: 'questions', title: 'A few quick questions', options: [], questions, respond_url: '/chats/prompts/p1',
+  card: 'chat', request_id: 'p1', kind: 'questions', title: 'A few quick questions', description: '', options: [], questions, respond_url: '/chats/prompts/p1',
 })
 
 let container: HTMLDivElement
@@ -90,7 +90,7 @@ describe('required questions', () => {
 
     await click(button('Send')!)
     expect(respond).toHaveBeenCalledTimes(1)
-    expect(respond).toHaveBeenCalledWith('p1', { answers: { color: 'red' } }, '/chats/prompts/p1')
+    expect(respond).toHaveBeenCalledWith({ answers: { color: 'red' } }, '/chats/prompts/p1')
     expect(onDecided).toHaveBeenCalledWith('resolved')
   })
 
@@ -110,7 +110,7 @@ describe('option plus typed text', () => {
     await type('Green')
     await click(button('Send')!)
     expect(respond).toHaveBeenCalledTimes(1)
-    expect(respond.mock.calls[0][1]).toEqual({ answers: { color: 'Green' } })
+    expect(respond.mock.calls[0][0]).toEqual({ answers: { color: 'Green' } })
   })
 
   it('keeps ticked options and adds the typed text on multi choice', async () => {
@@ -119,7 +119,7 @@ describe('option plus typed text', () => {
     await click(somethingElse())
     await type('XL')
     await click(button('Send')!)
-    expect(respond.mock.calls[0][1]).toEqual({ answers: { size: ['s', 'XL'] } })
+    expect(respond.mock.calls[0][0]).toEqual({ answers: { size: ['s', 'XL'] } })
   })
 
   it('advances a multi-question card exactly one step and keeps going', async () => {
@@ -134,7 +134,7 @@ describe('option plus typed text', () => {
     await click(row('Medium'))
     await click(button('Send')!)
     expect(respond).toHaveBeenCalledTimes(1)
-    expect(respond.mock.calls[0][1]).toEqual({ answers: { color: 'Green', size: ['m'] } })
+    expect(respond.mock.calls[0][0]).toEqual({ answers: { color: 'Green', size: ['m'] } })
   })
 })
 
@@ -145,7 +145,7 @@ describe('optional questions', () => {
     expect(document.body.textContent).toContain('Which sizes?')
     expect(button('Send')!.disabled).toBe(false)
     await click(button('Send')!)
-    expect(respond.mock.calls[0][1]).toEqual({ answers: { color: null, size: null } })
+    expect(respond.mock.calls[0][0]).toEqual({ answers: { color: null, size: null } })
   })
 })
 
@@ -179,7 +179,7 @@ describe('pagination', () => {
     expect(row('Small').getAttribute('aria-checked')).toBe('true')
 
     await click(button('Send')!)
-    expect(respond.mock.calls[0][1]).toEqual({ answers: { color: 'red', size: ['s'] } })
+    expect(respond.mock.calls[0][0]).toEqual({ answers: { color: 'red', size: ['s'] } })
   })
 
   it('keeps typed text when going Back and forth', async () => {
@@ -192,7 +192,7 @@ describe('pagination', () => {
     await click(button('Next question')!)
     await click(row('Medium'))
     await click(button('Send')!)
-    expect(respond.mock.calls[0][1]).toEqual({ answers: { color: 'Green', size: ['m'] } })
+    expect(respond.mock.calls[0][0]).toEqual({ answers: { color: 'Green', size: ['m'] } })
   })
 })
 
@@ -203,23 +203,22 @@ describe('dismissing', () => {
     await click(button('Send')!)
     await click(button('Dismiss question')!)
     expect(respond).toHaveBeenCalledTimes(1)
-    expect(respond.mock.calls[0][1]).toEqual({ answers: { color: 'red', size: DISMISSED_ANSWER } })
+    expect(respond.mock.calls[0][0]).toEqual({ answers: { color: 'red', size: DISMISSED_ANSWER } })
     expect(onDecided).toHaveBeenCalledWith('dismissed')
     expect(container.textContent).toBe('')
   })
 
   it('rejects an approval', async () => {
     await mount({
-      request_id: 'p2', kind: 'approval', title: 'Approve Send invite?', options: [
-        { value: 'approve', label: 'Approve' }, { value: 'reject', label: 'Reject' },
-      ],
+      card: 'chat', request_id: 'p2', respond_url: '/chats/prompts/p2', kind: 'approval', title: 'Approve Send invite?', description: '', questions: [],
+      options: [{ value: 'approve', label: 'Approve' }, { value: 'reject', label: 'Reject' }],
     })
     await click(button('Dismiss question')!)
-    expect(respond.mock.calls[0][1]).toBe('reject')
+    expect(respond.mock.calls[0][0]).toBe('reject')
   })
 
   it('is not offered on confirm-style prompts', async () => {
-    await mount({ request_id: 'p3', kind: 'confirm', title: 'Sign in here', options: [] })
+    await mount({ card: 'chat', request_id: 'p3', respond_url: '/chats/prompts/p3', kind: 'confirm', title: 'Sign in here', description: '', options: [], questions: [] })
     expect(button('Dismiss question')).toBeNull()
     expect(skip()).toBeNull()
   })
@@ -243,7 +242,7 @@ describe('keyboard and screen readers', () => {
     expect(respond).not.toHaveBeenCalled()
     await key(textbox(), { key: 'Enter' })
     expect(respond).toHaveBeenCalledTimes(1)
-    expect(respond.mock.calls[0][1]).toEqual({ answers: { color: 'Green' } })
+    expect(respond.mock.calls[0][0]).toEqual({ answers: { color: 'Green' } })
   })
 
   it('takes focus when nothing is focused', async () => {
@@ -271,24 +270,23 @@ describe('keyboard and screen readers', () => {
   })
 })
 
-describe('an answer after the turn moved on', () => {
-  it('sends the message the backend returns as the next turn', async () => {
-    const onFollowUp = vi.fn()
-    respond.mockResolvedValue({ live: false, message: 'My answers to "A few quick questions":\n- Which colour?: Red' })
-    await act(async () => root.render(<ChatPromptCard prompt={questionsPrompt([color])} onDecided={onDecided} onFollowUp={onFollowUp} />))
+describe('once the answer is sent', () => {
+  it('tells the chat, which reads the run again in case the answer took it back up', async () => {
+    const onAnswered = vi.fn()
+    await act(async () => root.render(<ChatPromptCard prompt={questionsPrompt([color])} onDecided={onDecided} onAnswered={onAnswered} />))
     await click(row('Red'))
     await click(button('Send')!)
-    expect(respond).toHaveBeenCalledWith('p1', { answers: { color: 'red' } }, '/chats/prompts/p1')
-    expect(onFollowUp).toHaveBeenCalledWith('My answers to "A few quick questions":\n- Which colour?: Red')
+    expect(respond).toHaveBeenCalledWith({ answers: { color: 'red' } }, '/chats/prompts/p1')
+    expect(onDecided).toHaveBeenCalledWith('resolved')
+    expect(onAnswered).toHaveBeenCalledOnce()
   })
 
-  it('sends nothing more when the turn was still waiting on the answer', async () => {
-    const onFollowUp = vi.fn()
-    respond.mockResolvedValue({ live: true, message: null })
-    await act(async () => root.render(<ChatPromptCard prompt={questionsPrompt([color])} onDecided={onDecided} onFollowUp={onFollowUp} />))
+  it('says nothing when the answer could not be sent', async () => {
+    const onAnswered = vi.fn()
+    respond.mockRejectedValue(new Error('offline'))
+    await act(async () => root.render(<ChatPromptCard prompt={questionsPrompt([color])} onDecided={onDecided} onAnswered={onAnswered} />))
     await click(row('Red'))
     await click(button('Send')!)
-    expect(onDecided).toHaveBeenCalledWith('resolved')
-    expect(onFollowUp).not.toHaveBeenCalled()
+    expect(onAnswered).not.toHaveBeenCalled()
   })
 })

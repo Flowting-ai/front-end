@@ -59,9 +59,6 @@ describe("AguiSSEDecoder", () => {
       parsed: {
         prompt_id: "p1",
         respond_url: "/p",
-        expires_at: "",
-        title: "",
-        description: "",
         questions: [],
       },
     })

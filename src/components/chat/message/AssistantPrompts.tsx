@@ -14,11 +14,11 @@ const stackStyle: React.CSSProperties = { display: 'flex', flexDirection: 'colum
 export function AssistantPrompts({
   message,
   onPromptDecided,
-  onPromptFollowUp,
+  onPromptAnswered,
 }: {
   message: UIMessage;
   onPromptDecided?: (messageId: string, requestId: string, decision: string) => void;
-  onPromptFollowUp?: (message: string) => void;
+  onPromptAnswered?: () => void;
 }) {
   return (
     <>
@@ -39,10 +39,8 @@ export function AssistantPrompts({
               key={prompt.request_id}
               prompt={prompt}
               onDecided={(policy) => {
-                // A prompt answered after its turn moved on comes back with the
-                // message that starts the next turn (see PromptAnswer).
-                respondToChatPrompt(prompt.request_id, policy, prompt.respond_url)
-                  .then((answered) => { if (answered?.message) onPromptFollowUp?.(answered.message) })
+                respondToChatPrompt(policy, prompt.respond_url)
+                  .then(() => onPromptAnswered?.())
                   .catch(() => {})
                 onPromptDecided?.(message.id, prompt.request_id, policy)
               }}
@@ -58,7 +56,7 @@ export function AssistantPrompts({
               key={prompt.request_id}
               prompt={prompt}
               onDecided={(decision) => onPromptDecided?.(message.id, prompt.request_id, decision)}
-              onFollowUp={onPromptFollowUp}
+              onAnswered={onPromptAnswered}
             />
           ))}
         </div>

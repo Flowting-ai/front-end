@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { toast } from "sonner"
-import { getChatMessages } from "@/lib/api/chat"
+import { getChatMessages, getChatStreamId } from "@/lib/api/chat"
 import { toUIMessages } from "@/lib/normalizers/message-transformer"
 import { logger } from "@/lib/logger"
-import { getStreamCompletion, waitForChatStreams, subscribeStreams } from "@/lib/stream-registry"
+import { detachStream, getStreamCompletion, waitForChatStreams, subscribeStreams } from "@/lib/stream-registry"
 import { stopActiveActivities } from "@/lib/activity"
 import {
   readChatHistory,
@@ -49,6 +49,22 @@ export interface UseChatStateResult {
    *  off this rather than an `isLoadingMessages` transition, which a cache hit
    *  does not produce. */
   historyLoadId: number
+  /** The reply whose run is still going on the backend, as of the last history
+   *  load: the message to follow from the run's stream. Null when none is. */
+  runningMessageId: string | null
+}
+
+// ── The running turn ─────────────────────────────────────────────────────────
+
+/** The reply the agent is still working on, by its run: the last one, since a chat has one run at a time. */
+function runningReply(list: UIMessage[]): UIMessage | undefined {
+  return list.findLast((m) => m.role === "assistant" && m.run?.status === "running")
+}
+
+/** Shows the running reply as loading. Its text so far (from earlier stretches of the run) stays. */
+function withRunningTurn(list: UIMessage[]): UIMessage[] {
+  const running = runningReply(list)
+  return running ? list.map((m) => (m === running ? { ...m, isLoading: true } : m)) : list
 }
 
 // ── Local-work detection ─────────────────────────────────────────────────────
@@ -113,6 +129,7 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const [hasMoreMessages, setHasMoreMessages] = useState(false)
   const [historyLoadId, setHistoryLoadId] = useState(0)
+  const [runningMessageId, setRunningMessageId] = useState<string | null>(null)
   // Bumped when a background stream ends, purely to re-run the write-back
   // effect: the stream's final commit can land before completeStream() clears
   // the registry, in which case the effect would skip that commit and the chat
@@ -166,30 +183,34 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
   const install = useCallback((
     id: string,
     list: UIMessage[],
-    meta: { hasMore: boolean; cursor: string | undefined },
+    meta: { hasMore: boolean; cursor: string | undefined; runningId: string | null },
   ) => {
     cursorRef.current = meta.cursor
     pagesRef.current = 1
     setState({ chatId: id, list, loaded: true })
+    setRunningMessageId(meta.runningId)
     setHasMoreMessages(meta.hasMore)
     setHistoryLoadId((n) => n + 1)
     setMessagesLoadError(null)
-    if (cacheEnabled) {
+    // A history with a reply still being written is not cached; see isPendingLocal.
+    if (cacheEnabled && !list.some(isPendingLocal)) {
       saveChatHistory(id, { messages: list, hasMore: meta.hasMore, cursor: meta.cursor, pages: 1 })
     }
   }, [cacheEnabled])
 
   /** Fetches `id`'s first page through whichever loader is configured. */
-  const fetchHistory = useCallback(async (id: string): Promise<{ list: UIMessage[]; hasMore: boolean; cursor: string | undefined }> => {
+  const fetchHistory = useCallback(async (id: string): Promise<{ list: UIMessage[]; hasMore: boolean; cursor: string | undefined; runningId: string | null }> => {
     if (options?.loadMessages) {
       const msgs = await options.loadMessages(id)
-      return { list: msgs, hasMore: false, cursor: undefined }
+      return { list: msgs, hasMore: false, cursor: undefined, runningId: null }
     }
     const res = await getChatMessages(id)
+    const list = withRunningTurn(toUIMessages(res.messages))
     return {
-      list: toUIMessages(res.messages),
+      list,
       hasMore: res.has_more,
       cursor: res.next_cursor ?? undefined,
+      runningId: runningReply(list)?.id ?? null,
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- options is stable for each hook consumer
   }, [])
@@ -207,6 +228,7 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
 
     hasPreviousChatRef.current = true
     setMessagesLoadError(null)
+    setRunningMessageId(null)
 
     // If this chatId was just created during an active stream, skip the
     // fetch-and-clear cycle - the stream is still writing messages. Re-tag the
@@ -221,11 +243,14 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
     }
 
     // A reply is still running for this chat (the user navigated away while it
-    // was generating). The cached history predates the message they just sent,
-    // so showing it would drop their own turn out of the thread until the
-    // refetch lands — the skeleton is the honest state here.
+    // was generating). The connection left behind is dropped and the turn is
+    // followed afresh from its stream, so the reply and any card it is waiting
+    // on show straight away. A turn whose run has not started yet (an upload
+    // still going out) cannot be dropped, so that one is waited for. Either way
+    // the cached history predates the message they just sent, so it is not shown.
+    const reopened = detachStream(chatId)
     const pendingStream = getStreamCompletion(chatId)
-    const cached = pendingStream || !cacheEnabled ? undefined : readChatHistory(chatId)
+    const cached = reopened || pendingStream || !cacheEnabled ? undefined : readChatHistory(chatId)
 
     if (cached) {
       // Render the thread immediately; revalidate underneath if it has aged.
@@ -239,7 +264,6 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
       // the newest page and collapse the thread back to it, throwing away the
       // older pages the user scrolled up for; merging a first page into older
       // ones can't be done safely while edits and deletes can change them.
-      if (!isHistoryStale(cached) || cached.pages > 1) return
     } else {
       cursorRef.current = undefined
       pagesRef.current = 1
@@ -252,10 +276,10 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
     const background = Boolean(cached)
 
     let cancelled = false
-    loadingRef.current = true
-    if (!background) setIsLoadingMessages(true)
 
-    void (async () => {
+    const load = async () => {
+      loadingRef.current = true
+      if (!background) setIsLoadingMessages(true)
       try {
         if (pendingStream) await waitForChatStreams(chatId, 90_000)
         if (cancelled) return
@@ -265,7 +289,7 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
         // installing the server's copy would delete the message being sent and
         // orphan the stream writing into it.
         if (background && (getStreamCompletion(chatId) || stateRef.current.list.some(isPendingLocal))) return
-        install(chatId, result.list, { hasMore: result.hasMore, cursor: result.cursor })
+        install(chatId, result.list, { hasMore: result.hasMore, cursor: result.cursor, runningId: result.runningId })
       } catch (err) {
         logger.error("[useChatState] Failed to load messages", err)
         if (cancelled || background) return
@@ -276,7 +300,17 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
         if (!cancelled && !background) setIsLoadingMessages(false)
         loadingRef.current = false
       }
-    })()
+    }
+
+    if (cached && (!isHistoryStale(cached) || cached.pages > 1)) {
+      // The cached thread stands, unless a turn is running in this chat (started
+      // in another tab or before a reload): then it is refetched to follow the reply.
+      void getChatStreamId(chatId).then((runningId) => {
+        if (!cancelled && runningId && !getStreamCompletion(chatId)) void load()
+      }).catch(() => {})
+    } else {
+      void load()
+    }
 
     return () => {
       cancelled = true
@@ -420,7 +454,7 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
     setIsLoadingMessages(true)
     try {
       const result = await fetchHistory(chatId)
-      install(chatId, result.list, { hasMore: result.hasMore, cursor: result.cursor })
+      install(chatId, result.list, { hasMore: result.hasMore, cursor: result.cursor, runningId: result.runningId })
     } catch (err) {
       logger.error("[useChatState] Failed to refresh messages", err)
       const message = err instanceof Error ? err.message : "Failed to refresh messages"
@@ -446,5 +480,6 @@ export function useChatState(chatId: string | undefined, options?: UseChatStateO
     refreshMessages,
     messagesLoadError,
     historyLoadId,
+    runningMessageId,
   }
 }

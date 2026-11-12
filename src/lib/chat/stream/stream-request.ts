@@ -1,3 +1,4 @@
+import type { UIMessage } from "@/types/chat"
 import { appendChatModelSelection } from "@/lib/chat-model-selection"
 import {
   API_BASE_URL,
@@ -36,6 +37,9 @@ export interface StreamRequestOptions {
   follow?: boolean
   /** How many times this turn has already re-attached, so the retries stay bounded. */
   followAttempt?: number
+  /** A follow of a run from the chat's history: the reply as it was loaded. The stream replays only the
+   *  stretch the agent is working on now, so what earlier stretches wrote stays and the replay adds to it. */
+  prior?: UIMessage
 }
 
 export interface StreamTarget {
