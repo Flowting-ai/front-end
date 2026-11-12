@@ -42,15 +42,16 @@ export function TurnStatusChips({ messages, active }: { messages: UIMessage[]; a
   const done = activities?.filter((a) => !RUNNING.has(a.status)).length ?? 0;
 
   // The clock counts from when the backend started the run (the stream opens with
-  // how long it has been running, so a reload mid-turn carries on, not from zero),
-  // and from when this turn's message appeared until that arrives.
+  // that time, so a reload mid-turn carries on, not from zero), and from when this
+  // turn's message appeared until that arrives. Never below zero: this browser's
+  // clock may be behind the backend's.
   const turnKey = turn?.reactKey ?? turn?.id;
   const runStartedAt = turn?.runStartedAt;
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     if (!turnKey) return;
     const start = runStartedAt ?? Date.now();
-    const id = window.setInterval(() => setElapsed(Date.now() - start), 1000);
+    const id = window.setInterval(() => setElapsed(Math.max(0, Date.now() - start)), 1000);
     return () => {
       window.clearInterval(id);
       setElapsed(0);

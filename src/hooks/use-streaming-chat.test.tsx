@@ -276,19 +276,18 @@ describe('useStreamingChat picks a running turn back up', () => {
     expect(messages[0]).toMatchObject({ content: 'Still going', isLoading: false })
   })
 
-  it('counts the turn from how long the backend says the run has been going', async () => {
+  it('counts the turn from when the backend says the run started', async () => {
     const done = hook.followStream('chat-1', 'loading-1')
     const follow = await nextRequest(null)
     follow.respond(200, [
-      { type: 'CUSTOM', name: 'run', value: { id: 'run-1', time: 42 } },
+      { type: 'CUSTOM', name: 'run', value: { id: 'run-1', startedAt: '2026-11-12T01:00:00.500+00:00' } },
       { type: 'RUN_STARTED', ...RUN },
       { type: 'TEXT_MESSAGE_CONTENT', messageId: 'm', delta: 'Still going' },
       { type: 'RUN_FINISHED', ...RUN },
+      { type: 'CUSTOM', name: 'run', value: { id: 'run-1', startedAt: '2026-11-12T01:00:00.500+00:00', endedAt: '2026-11-12T01:02:10+00:00' } },
     ])
     expect(await done).toBe('done')
-    const running = Date.now() - messages[0].runStartedAt!
-    expect(running).toBeGreaterThanOrEqual(42_000)
-    expect(running).toBeLessThan(44_000)
+    expect(messages[0].runStartedAt).toBe(Date.UTC(2026, 10, 12, 1, 0, 0, 500))
   })
 
   it('reloads the history when the opened chat has no running turn after all', async () => {
