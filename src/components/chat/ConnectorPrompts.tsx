@@ -14,7 +14,8 @@ import {
   DEFAULT_API_KEY_FIELD,
   type ApiKeyField,
 } from '@/lib/api/connectors'
-import { isApiProviderConnector, opensInCurrentTab, isZapierProviderConnector, waitForZapierAuthId, zapierConnectHref } from '@/lib/connectorProvider'
+import { respondToChatPrompt } from '@/lib/api/chat'
+import { isApiProviderConnector, opensInCurrentTab, isZapierProviderConnector, rememberConnectReturn, waitForZapierAuthId, zapierConnectHref } from '@/lib/connectorProvider'
 
 // ── Spinner icon ──────────────────────────────────────────────────────────────
 
@@ -97,6 +98,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
           throw new Error('No redirect URL returned by server')
         }
         if (currentTab) {
+          rememberConnectReturn(prompt.connector.slug, prompt.respond_url)
           window.location.href = link.redirectUrl
           return
         }
@@ -118,9 +120,11 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
         }
         return pollConnectorUntilActive(prompt.connector.slug)
       })
-      .then((entry) => {
+      .then(async (entry) => {
         if (!entry || abortedRef.current) return
         popup?.close()
+        // The turn that asked is waiting on this answer, or has left and takes its run back up on it.
+        await respondToChatPrompt('connected', prompt.respond_url).catch(() => {})
         setState('connected')
         toast.success(`${prompt.connector.name} connected — continuing your request.`)
         onConnected?.()
