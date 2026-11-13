@@ -2,7 +2,7 @@
 
 import React, { useCallback, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { ConnectorHeading } from '@/components/shared/ConnectorHeading'
+import { ConnectorPromptShell } from '@/components/shared/ConnectorHeading'
 import type { ConnectorPermissionPrompt, PermissionPromptOption } from '@/lib/api/prompts'
 
 // The one permission card — chat, persona, agent configure, and compare
@@ -57,22 +57,13 @@ export function PermissionPromptCard({
     : persistable ? PERSISTENT_OPTIONS : ONE_TIME_OPTIONS
 
   return (
-    <div style={{
-      display:         'flex',
-      flexDirection:   'column',
-      gap:             12,
-      padding:         '16px',
-      borderRadius:    16,
-      border:          '1px solid var(--border-default)',
-      backgroundColor: 'var(--color-surface-glass)',
-      boxShadow:       'var(--shadow-card-default)',
-      maxWidth:        480,
-    }}>
-      <ConnectorHeading connector={prompt.connector} title={<>Allow {prompt.connector.name} to run this action?</>}>
-        {persistable
-          ? <>The AI wants to call <code style={{ fontFamily: 'var(--font-code)', fontSize: 'inherit' }}>{prompt.tool_name}</code>. Your choice applies to future calls too.</>
-          : <><code style={{ fontFamily: 'var(--font-code)', fontSize: 'inherit' }}>{prompt.summary || prompt.tool_name}</code> — one-time request, applies to this call only.</>}
-      </ConnectorHeading>
+    <ConnectorPromptShell
+      connector={prompt.connector}
+      title={<>Allow {prompt.connector.name} to run this action?</>}
+      caption={persistable
+        ? <>The AI wants to call <code style={{ fontFamily: 'var(--font-code)', fontSize: 'inherit' }}>{prompt.tool_name}</code>. Your choice applies to future calls too.</>
+        : <><code style={{ fontFamily: 'var(--font-code)', fontSize: 'inherit' }}>{prompt.summary || prompt.tool_name}</code> — one-time request, applies to this call only.</>}
+    >
 
       {/* Actions — rendered from the backend event's options */}
       <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8 }}>
@@ -95,6 +86,6 @@ export function PermissionPromptCard({
           )
         })}
       </div>
-    </div>
+    </ConnectorPromptShell>
   )
 }
