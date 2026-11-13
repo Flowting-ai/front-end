@@ -112,33 +112,22 @@ export function waitForZapierAuthId(signal?: AbortSignal): Promise<string> {
   })
 }
 
-const CONNECT_RETURN_KEY = 'connect-return'
+const LINK_RESULT_CHANNEL = 'connector-link-result'
 
-export interface ConnectReturn {
-  slug:       string
-  /** The page the person left to sign in. */
-  path:       string
-  /** Where the card that sent them reports that the app is connected. */
-  respondUrl: string
+/** Our sign-in landing page tells every tab how the sign-in for this app ended. */
+export function announceLinkResult(slug: string, link: string): void {
+  if (typeof BroadcastChannel === 'undefined') return
+  const channel = new BroadcastChannel(LINK_RESULT_CHANNEL)
+  channel.postMessage({ slug, link })
+  channel.close()
 }
 
-/** A card that sends this tab away to sign in leaves the way back here. */
-export function rememberConnectReturn(slug: string, respondUrl: string): void {
-  try {
-    const stored: ConnectReturn = { slug, path: window.location.pathname + window.location.search, respondUrl }
-    window.sessionStorage.setItem(CONNECT_RETURN_KEY, JSON.stringify(stored))
-  } catch { /* storage blocked: the sign-in still works, it just lands on the home page */ }
-}
-
-/** The way back for this app, read once. Null when the sign-in did not start from a card. */
-export function takeConnectReturn(slug: string): ConnectReturn | null {
-  try {
-    const raw = window.sessionStorage.getItem(CONNECT_RETURN_KEY)
-    if (!raw) return null
-    window.sessionStorage.removeItem(CONNECT_RETURN_KEY)
-    const stored = JSON.parse(raw) as ConnectReturn
-    return stored.slug === slug ? stored : null
-  } catch {
-    return null
+/** Calls back when a sign-in for this app ends; returns how to stop listening. */
+export function onLinkResult(slug: string, heard: (link: string) => void): () => void {
+  if (typeof BroadcastChannel === 'undefined') return () => {}
+  const channel = new BroadcastChannel(LINK_RESULT_CHANNEL)
+  channel.onmessage = (event: MessageEvent<{ slug: string; link: string }>) => {
+    if (event.data.slug === slug) heard(event.data.link)
   }
+  return () => channel.close()
 }

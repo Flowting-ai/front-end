@@ -40,3 +40,31 @@ export function ConnectorHeading({ connector, title, children }: {
     </div>
   )
 }
+
+/**
+ * The card that asks the person something about one connected app: connect it, or allow an action on it.
+ * One shell, so the two look alike; the buttons go in as children.
+ */
+export function ConnectorPromptShell({ connector, title, caption, children }: {
+  connector: Connector
+  title:     React.ReactNode
+  caption?:  React.ReactNode
+  children:  React.ReactNode
+}) {
+  return (
+    <div style={{
+      display:         'flex',
+      flexDirection:   'column',
+      gap:             12,
+      padding:         '16px',
+      borderRadius:    16,
+      border:          '1px solid var(--border-default)',
+      backgroundColor: 'var(--color-surface-glass)',
+      boxShadow:       'var(--shadow-card-default)',
+      maxWidth:        480,
+    }}>
+      <ConnectorHeading connector={connector} title={title}>{caption}</ConnectorHeading>
+      {children}
+    </div>
+  )
+}

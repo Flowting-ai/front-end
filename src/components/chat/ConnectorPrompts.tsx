@@ -3,7 +3,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import type { ConnectorConnectPrompt } from '@/types/chat'
-import { ConnectorHeading } from '@/components/shared/ConnectorHeading'
+import { ConnectorPromptShell } from '@/components/shared/ConnectorHeading'
+import { ConnectorStatusBadge } from '@/components/ConnectorStatusBadge'
 import { Button } from '@/components/ui/button'
 import {
   getConnector,
@@ -15,23 +16,11 @@ import {
   type ApiKeyField,
 } from '@/lib/api/connectors'
 import { respondToChatPrompt } from '@/lib/api/chat'
-import { isApiProviderConnector, opensInCurrentTab, isZapierProviderConnector, rememberConnectReturn, waitForZapierAuthId, zapierConnectHref } from '@/lib/connectorProvider'
-
-// ── Spinner icon ──────────────────────────────────────────────────────────────
-
-const cardStyle: React.CSSProperties = {
-  display:         'flex',
-  flexDirection:   'column',
-  gap:             12,
-  padding:         '14px 16px',
-  borderRadius:    12,
-  border:          '1px solid var(--border-default)',
-  backgroundColor: 'var(--neutral-white)',
-  maxWidth:        480,
-  marginTop:       10,
-}
+import { isApiProviderConnector, isZapierProviderConnector, onLinkResult, waitForZapierAuthId, zapierConnectHref } from '@/lib/connectorProvider'
 
 // ── ConnectPromptCard ─────────────────────────────────────────────────────────
+
+const SIGN_IN_WAIT_MS = 300_000
 
 interface ConnectPromptCardProps {
   prompt:        ConnectorConnectPrompt
@@ -47,97 +36,94 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
     prompt.api_key_fields && prompt.api_key_fields.length > 0 ? prompt.api_key_fields : null,
   )
   const [showApiForm,  setShowApiForm]  = useState(false)
-  const abortedRef = useRef(false)
+  const abortedRef  = useRef(false)
+  const answeredRef = useRef(false)
 
-  // Fetch field definitions from the catalog only when the SSE event didn't
-  // carry them and the form has been opened for the first time.
+  // The turn that asked is waiting on this answer, or has left and takes its run back up on it.
+  const finish = useCallback(async () => {
+    if (answeredRef.current || abortedRef.current) return
+    answeredRef.current = true
+    await respondToChatPrompt('connected', prompt.respond_url).catch(() => {})
+    if (abortedRef.current) return
+    setState('connected')
+    toast.success(`${prompt.connector.name} connected — continuing your request.`)
+    onConnected?.()
+  }, [prompt.respond_url, prompt.connector.name, onConnected])
+
+  // The app may already be connected (from Connectors, or another tab) by the time this card shows.
   useEffect(() => {
-    if (prompt.auth_mode !== 'api_key' || fieldDefs !== null || !showApiForm) return
     getConnector(prompt.connector.slug)
       .then((entry) => {
-        if (!abortedRef.current) {
-          setFieldDefs(entry.apiKeyFields.length > 0 ? entry.apiKeyFields : [DEFAULT_API_KEY_FIELD])
+        if (entry.ownedConnections.some((row) => row.connected && !row.needsReconnect)) void finish()
+        else if (prompt.auth_mode === 'api_key' && !abortedRef.current) {
+          setFieldDefs((current) => current ?? (entry.apiKeyFields.length > 0 ? entry.apiKeyFields : [DEFAULT_API_KEY_FIELD]))
         }
       })
-      .catch(() => {
-        if (!abortedRef.current) setFieldDefs([DEFAULT_API_KEY_FIELD])
-      })
-  }, [prompt.auth_mode, prompt.connector.slug, showApiForm, fieldDefs])
-
-  useEffect(() => {
+      .catch(() => {})
     return () => { abortedRef.current = true }
+    // Checked once, when the card shows.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleOAuth = useCallback((initData?: Record<string, string>) => {
-    // Native MCP and Shopify connectors: the backend's OAuth callback redirects back to
-    // our own app domain on success/failure, so this must navigate the
-    // current tab rather than a popup. No popup to pre-open in that case.
-    const currentTab = opensInCurrentTab(prompt.connector.slug, prompt.provider)
     const isApi = isApiProviderConnector(prompt.provider)
 
-    // Open WITHOUT the noopener FEATURE so window.open() still returns a
-    // reference — we need it below to navigate popup.location once the
-    // redirect URL comes back (passing noopener here would make most
-    // browsers return null instead). Reverse-tabnabbing is still closed off
-    // without that feature string: setting popup.opener = null right after
-    // opening severs the popup's own window.opener (settable cross-origin)
-    // while leaving this `popup` reference fully usable for .location/.close().
-    const popup = currentTab || isApi ? null : window.open('', '_blank', 'width=900,height=700')
+    // The sign-in always runs in a popup, so the chat and its running turn stay where they are.
+    // Opened without the noopener feature so the reference survives to be navigated and closed;
+    // clearing popup.opener closes off reverse tabnabbing instead.
+    const popup = isApi ? null : window.open('', '_blank', 'width=900,height=700')
     if (popup) { try { popup.opener = null } catch { /* best-effort */ } }
     setState('connecting')
     setErrorMsg('')
+
+    // Our own sign-in landing page reports how the sign-in ended, sooner than the status poll would see it.
+    const waiting = new AbortController()
+    let ended = ''
+    const stopListening = onLinkResult(prompt.connector.slug, (link) => {
+      if (link === 'connected') void finish()
+      else ended = link
+      waiting.abort()
+    })
 
     // initData carries per-tenant OAuth credentials (Shopify client_id/secret);
     // undefined for plain OAuth.
     initiateLink(prompt.connector.slug, initData)
       .then((link) => {
-        if (abortedRef.current) { popup?.close(); return }
-        if (isApi) return pollConnectorUntilActive(prompt.connector.slug)
-        if (!link.redirectUrl) {
-          popup?.close()
-          throw new Error('No redirect URL returned by server')
-        }
-        if (currentTab) {
-          rememberConnectReturn(prompt.connector.slug, prompt.respond_url)
-          window.location.href = link.redirectUrl
-          return
-        }
+        if (abortedRef.current) return
+        const status = { signal: waiting.signal, timeoutMs: SIGN_IN_WAIT_MS }
+        if (isApi) return pollConnectorUntilActive(prompt.connector.slug, status)
+        if (!link.redirectUrl) throw new Error('No redirect URL returned by server')
         const openUrl = isZapierProviderConnector(prompt.provider, link.redirectUrl)
           ? zapierConnectHref(link.redirectUrl)
           : link.redirectUrl
         if (popup && !popup.closed) {
           popup.location.href = openUrl
         } else {
-          // Popup was blocked — fall back to a new tab. Safe to pass noopener
-          // here (unlike the deferred-navigation `popup` above): this call's
-          // return value is never read, so there's no window reference that
-          // needs to survive.
+          // Popup was blocked: a new tab instead. Its return value is never read, so noopener is safe here.
           window.open(openUrl, '_blank', 'noopener')
         }
         setState('polling')
         if (isZapierProviderConnector(prompt.provider, link.redirectUrl)) {
-          return waitForZapierAuthId().then(id => completeZapierLink(prompt.connector.slug, id))
+          return waitForZapierAuthId(waiting.signal).then(id => completeZapierLink(prompt.connector.slug, id))
         }
-        return pollConnectorUntilActive(prompt.connector.slug)
+        return pollConnectorUntilActive(prompt.connector.slug, status)
       })
-      .then(async (entry) => {
-        if (!entry || abortedRef.current) return
-        popup?.close()
-        // The turn that asked is waiting on this answer, or has left and takes its run back up on it.
-        await respondToChatPrompt('connected', prompt.respond_url).catch(() => {})
-        setState('connected')
-        toast.success(`${prompt.connector.name} connected — continuing your request.`)
-        onConnected?.()
-      })
+      .then((entry) => { if (entry) return finish() })
       .catch((err: unknown) => {
-        if (abortedRef.current) return
-        popup?.close()
+        if (abortedRef.current || answeredRef.current) return
         setState('error')
-        const msg = err instanceof Error ? err.message : 'Connection failed'
-        setErrorMsg(msg)
+        setErrorMsg(
+          ended === 'cancelled' ? 'The sign-in was cancelled.'
+            : ended ? 'The sign-in did not go through.'
+            : err instanceof Error ? err.message : 'Connection failed',
+        )
         toast.error(`Failed to connect ${prompt.connector.name}`)
       })
-  }, [prompt, onConnected])
+      .finally(() => {
+        stopListening()
+        popup?.close()
+      })
+  }, [prompt, finish])
 
   // API-key connectors are linked through the same hosted Connect flow as
   // OAuth ones — the fields ride along as init_data. There is no separate
@@ -157,15 +143,16 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
   const done = state === 'connected'
   const fields = fieldDefs ?? [DEFAULT_API_KEY_FIELD]
   const allFilled = fields.filter((field) => field.required).every((field) => (apiKeyFields[field.name] ?? '').trim())
-  const connectLabel = done ? 'Connected' : state === 'polling' ? 'Waiting for connection…' : `Connect ${prompt.connector.name}`
+  const connectLabel = state === 'polling' ? 'Waiting for connection…' : `Connect ${prompt.connector.name}`
 
   return (
-    <div style={cardStyle}>
-      <ConnectorHeading connector={prompt.connector} title={<>Connect {prompt.connector.name} to continue</>}>
-        {prompt.tool_name
-          ? <>Task needs <code style={{ fontFamily: 'var(--font-code)', fontSize: 'inherit' }}>{prompt.tool_name}</code> from {prompt.connector.name}.</>
-          : <>Task needs access to {prompt.connector.name} to keep going.</>}
-      </ConnectorHeading>
+    <ConnectorPromptShell
+      connector={prompt.connector}
+      title={<>Connect {prompt.connector.name} to continue</>}
+      caption={prompt.tool_name
+        ? <>Task needs <code style={{ fontFamily: 'var(--font-code)', fontSize: 'inherit' }}>{prompt.tool_name}</code> from {prompt.connector.name}.</>
+        : <>Task needs access to {prompt.connector.name} to keep going.</>}
+    >
 
       {state === 'error' && (
         <span role="alert" style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', color: 'var(--red-600, #DC2626)' }}>
@@ -175,7 +162,7 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
 
       {state === 'polling' && (
         <span style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--font-size-caption)', color: 'var(--neutral-600)' }}>
-          Complete the sign-in in the new tab, then come back here.
+          Finish the sign-in in the window that opened. This card checks {prompt.connector.name} until it is connected.
         </span>
       )}
 
@@ -214,19 +201,21 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
         </div>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-        {showCredentialForm && !showApiForm && !done ? (
-          <Button size="sm" variant="default" onClick={() => setShowApiForm(true)}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+        {done ? (
+          <ConnectorStatusBadge status="connected" />
+        ) : showCredentialForm && !showApiForm ? (
+          <Button size="sm" variant="approve" attention onClick={() => setShowApiForm(true)}>
             Enter credentials
           </Button>
-        ) : showCredentialForm && !done ? (
+        ) : showCredentialForm ? (
           <>
             <Button size="sm" variant="outline" disabled={busy} onClick={() => setShowApiForm(false)}>
               Cancel
             </Button>
             <Button
               size="sm"
-              variant="default"
+              variant="approve"
               loading={busy}
               disabled={!allFilled}
               onClick={prompt.auth_mode === 'api_key' ? handleApiKey : () => handleOAuth(apiKeyFields)}
@@ -235,12 +224,12 @@ export function ConnectPromptCard({ prompt, onConnected }: ConnectPromptCardProp
             </Button>
           </>
         ) : (
-          <Button size="sm" variant="default" loading={busy} disabled={done} onClick={() => handleOAuth()}>
+          <Button size="sm" variant="approve" attention={!busy} loading={busy} onClick={() => handleOAuth()}>
             {connectLabel}
           </Button>
         )}
       </div>
-    </div>
+    </ConnectorPromptShell>
   )
 }
 

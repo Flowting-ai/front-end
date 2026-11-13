@@ -2,8 +2,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   opensInCurrentTab,
-  rememberConnectReturn,
-  takeConnectReturn,
+  announceLinkResult,
+  onLinkResult,
   isZapierConnectUrl,
   isZapierProviderConnector,
   waitForZapierAuthId,
@@ -79,16 +79,14 @@ describe('waitForZapierAuthId', () => {
   })
 })
 
-describe('connect return', () => {
-  it('gives back the page and answer address the card left, once', () => {
-    window.history.replaceState(null, '', '/chat?id=abc')
-    rememberConnectReturn('metaads', '/chats/abc/questions/q1')
-    expect(takeConnectReturn('metaads')).toEqual({ slug: 'metaads', path: '/chat?id=abc', respondUrl: '/chats/abc/questions/q1' })
-    expect(takeConnectReturn('metaads')).toBeNull()
-  })
-
-  it('is not handed to a different app', () => {
-    rememberConnectReturn('metaads', '/chats/abc/questions/q1')
-    expect(takeConnectReturn('klaviyo')).toBeNull()
+describe('link result', () => {
+  it('reaches a listener for the same app only', async () => {
+    const heard: string[] = []
+    const stop = onLinkResult('metaads', (link) => heard.push(link))
+    announceLinkResult('klaviyo', 'connected')
+    announceLinkResult('metaads', 'cancelled')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    stop()
+    expect(heard).toEqual(['cancelled'])
   })
 })
