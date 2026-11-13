@@ -111,3 +111,34 @@ export function waitForZapierAuthId(signal?: AbortSignal): Promise<string> {
     signal?.addEventListener('abort', onAbort)
   })
 }
+
+const CONNECT_RETURN_KEY = 'connect-return'
+
+export interface ConnectReturn {
+  slug:       string
+  /** The page the person left to sign in. */
+  path:       string
+  /** Where the card that sent them reports that the app is connected. */
+  respondUrl: string
+}
+
+/** A card that sends this tab away to sign in leaves the way back here. */
+export function rememberConnectReturn(slug: string, respondUrl: string): void {
+  try {
+    const stored: ConnectReturn = { slug, path: window.location.pathname + window.location.search, respondUrl }
+    window.sessionStorage.setItem(CONNECT_RETURN_KEY, JSON.stringify(stored))
+  } catch { /* storage blocked: the sign-in still works, it just lands on the home page */ }
+}
+
+/** The way back for this app, read once. Null when the sign-in did not start from a card. */
+export function takeConnectReturn(slug: string): ConnectReturn | null {
+  try {
+    const raw = window.sessionStorage.getItem(CONNECT_RETURN_KEY)
+    if (!raw) return null
+    window.sessionStorage.removeItem(CONNECT_RETURN_KEY)
+    const stored = JSON.parse(raw) as ConnectReturn
+    return stored.slug === slug ? stored : null
+  } catch {
+    return null
+  }
+}

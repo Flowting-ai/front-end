@@ -3,7 +3,9 @@
 import { Suspense, useEffect } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
+import { respondToChatPrompt } from '@/lib/api/chat'
 import { toConnector } from '@/lib/connector'
+import { takeConnectReturn } from '@/lib/connectorProvider'
 
 /**
  * Native MCP connector OAuth callbacks redirect back into the app with
@@ -12,6 +14,9 @@ import { toConnector } from '@/lib/connector'
  * forwards that query string through its redirect instead of dropping it;
  * this reads it once on mount, shows the result as a toast, then strips the
  * params from the URL so a refresh doesn't re-fire the toast.
+ *
+ * When a chat's connect card started the sign-in, the card is answered here
+ * and the person goes back to that chat, where the turn carries on.
  */
 function ConnectorAuthResultToastInner() {
   const searchParams = useSearchParams()
@@ -30,6 +35,15 @@ function ConnectorAuthResultToastInner() {
       toast.info(`${name} connection cancelled`)
     } else {
       toast.error(`Failed to connect ${name}`)
+    }
+
+    const back = takeConnectReturn(slug)
+    if (back) {
+      const answered = link === 'connected'
+        ? respondToChatPrompt('connected', back.respondUrl).catch(() => {})
+        : Promise.resolve()
+      void answered.then(() => router.replace(back.path))
+      return
     }
 
     const next = new URLSearchParams(searchParams.toString())

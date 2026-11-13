@@ -2,6 +2,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   opensInCurrentTab,
+  rememberConnectReturn,
+  takeConnectReturn,
   isZapierConnectUrl,
   isZapierProviderConnector,
   waitForZapierAuthId,
@@ -74,5 +76,19 @@ describe('waitForZapierAuthId', () => {
     controller.abort()
     await pending
     expect(onAbort).toHaveBeenCalled()
+  })
+})
+
+describe('connect return', () => {
+  it('gives back the page and answer address the card left, once', () => {
+    window.history.replaceState(null, '', '/chat?id=abc')
+    rememberConnectReturn('metaads', '/chats/abc/questions/q1')
+    expect(takeConnectReturn('metaads')).toEqual({ slug: 'metaads', path: '/chat?id=abc', respondUrl: '/chats/abc/questions/q1' })
+    expect(takeConnectReturn('metaads')).toBeNull()
+  })
+
+  it('is not handed to a different app', () => {
+    rememberConnectReturn('metaads', '/chats/abc/questions/q1')
+    expect(takeConnectReturn('klaviyo')).toBeNull()
   })
 })
